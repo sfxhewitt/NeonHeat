@@ -34,9 +34,10 @@ export async function runBenchmark(game: Game): Promise<TierName> {
   }
   game.holdResolution = false;
   let got = samples();
-  // A very slow device may not even get past the warm-up frames: judge it on what it did render.
-  if (got.length < 5) got = game.frameTimes.slice(start + 3);
-  const tier = tierFromFrameTimes(got, cfg);
+  // A very slow device may not even get past the warm-up frames: judge it on everything it did
+  // render, and if it could not finish a single frame in that time it belongs on the lowest tier.
+  if (got.length < 5) got = game.frameTimes.slice(start);
+  const tier = got.length === 0 ? 'low' : tierFromFrameTimes(got, cfg);
   if (got.length >= 5) {
     try {
       localStorage.setItem(KEY, tier);
