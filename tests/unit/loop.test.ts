@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { FixedStepLoop, Rng, SIM_DT, World, emptyIntents, lerpAngle } from '@neonheat/sim';
+import { FixedStepLoop, Rng, SIM_DT, emptyIntents, lerpAngle } from '@neonheat/sim';
+import { makeWorld } from './helpers';
 
 describe('FixedStepLoop', () => {
   it('runs a whole number of fixed steps and returns the remainder as alpha', () => {
@@ -54,8 +55,8 @@ describe('Rng', () => {
 });
 
 describe('World', () => {
-  it('advances ticks at 60 Hz', () => {
-    const w = new World({ seed: 1 });
+  it('advances ticks at 60 Hz', async () => {
+    const w = await makeWorld(1);
     for (let i = 0; i < 60; i++) w.step(emptyIntents());
     expect(w.tick).toBe(60);
     expect(w.time).toBeCloseTo(1, 6);
