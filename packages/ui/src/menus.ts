@@ -30,6 +30,12 @@ export class SettingsMenu {
     this.button.textContent = '☰';
     this.button.addEventListener('click', () => (this.modal ? this.close() : this.open()));
     parent.appendChild(this.button);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (this.modal) this.close();
+        else this.open();
+      }
+    });
   }
 
   get isOpen(): boolean {
@@ -124,4 +130,25 @@ export class SettingsMenu {
       this.editDone = null;
     }
   }
+}
+
+/** Title screen. Resolves when the player taps start (a user gesture, needed for audio and fullscreen). */
+export function showTitle(parent: HTMLElement, status: () => string): Promise<void> {
+  return new Promise((resolve) => {
+    const m = document.createElement('div');
+    m.className = 'nh-modal nh-title';
+    m.innerHTML = `<h1>NEON <span>HEAT</span></h1>
+      <p>PHASE 0 · FEEL PROTOTYPE</p>
+      <p class="nh-title__status"></p>
+      <button type="button">TAP TO START</button>
+      <p>Keys: WASD / arrows · Space drift · E action · J or click fire · Shift roll · Esc menu</p>`;
+    const statusEl = m.querySelector('.nh-title__status') as HTMLElement;
+    const timer = setInterval(() => (statusEl.textContent = status()), 200);
+    m.querySelector('button')!.addEventListener('click', () => {
+      clearInterval(timer);
+      m.remove();
+      resolve();
+    });
+    parent.appendChild(m);
+  });
 }

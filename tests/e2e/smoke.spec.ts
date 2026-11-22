@@ -78,3 +78,14 @@ test('on foot: walk, roll and fire without errors', async ({ page }) => {
   await expect(page.locator('.nh-heat .chev.on').first()).toBeAttached();
   expect(errors).toEqual([]);
 });
+
+test('title screen starts the game on tap', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/?quality=low');
+  await expect(page.getByRole('heading', { name: /NEON/ })).toBeVisible();
+  await page.getByRole('button', { name: 'TAP TO START' }).click();
+  await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
+  const tier = await page.evaluate(() => window.__neon!.game.tier);
+  expect(tier).toBe('low');
+  expect(errors).toEqual([]);
+});

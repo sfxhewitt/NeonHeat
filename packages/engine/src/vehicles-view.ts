@@ -1,6 +1,7 @@
 import { BoxGeometry, Color, DynamicDrawUsage, InstancedMesh, MeshBasicMaterial, MeshLambertMaterial, Object3D, type Scene } from 'three';
 import { lerp, lerpAngle, type Vehicle, type World } from '@neonheat/sim';
 import { Palette } from './palette';
+import { BLOOM_LAYER } from './layers';
 
 const MAX = 48;
 
@@ -28,6 +29,7 @@ export class VehiclesView {
       m.count = 0;
       scene.add(m);
     }
+    this.lights.layers.enable(BLOOM_LAYER);
     this.body.name = 'vehicle-bodies';
     this.cabin.name = 'vehicle-cabins';
     this.lights.name = 'vehicle-lights';

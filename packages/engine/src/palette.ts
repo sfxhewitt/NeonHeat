@@ -2,7 +2,7 @@
 export const Palette = {
   bg: 0x0b0d1a,
   ground: 0x0e0f1e,
-  road: 0x2a2850,
+  road: 0x1d1c38,
   line: 0x3a3866,
   building: 0x34366a,
   buildingTop: 0x2a2c52,

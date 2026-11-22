@@ -18,7 +18,7 @@ declare global {
 export function installTestHooks(game: Game): void {
   window.__neon = {
     game,
-    ready: true,
+    ready: false,
     setIntents: (i) => {
       game.input.override = i
         ? { moveX: 0, moveY: 0, steer: 0, throttle: 0, brake: 0, scheme: 'classic', handbrake: false, fire: false, interact: false, dodge: false, ...i }

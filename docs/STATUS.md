@@ -12,9 +12,11 @@ Phase 0: feel prototype. Question being answered: is driving, crashing and escap
 
 - **M4 On foot**: the player starts on foot (capsule with a neon visor) next to a car. Floating-stick movement; one context button that appears only when relevant (ENTER / STEAL / EXIT / HACK / LOCKED / mission actions); stealing a moving traffic car throws the driver out, who flees; three civilian variants (Kestrel coupé, Vandal muscle, Brick van) parked nearby and in traffic, each with its own handling; pistol with soft-lock auto-aim on the nearest hostile in a 60° cone (red lock marker), hitscan via Rapier ray casts, tracers and muzzle flash; dodge roll with i-frames; 15 pooled pedestrians that wander, flee gunfire and crashes, dive away from fast cars, sometimes cower, and are knocked down by cars. Getting run over hurts; at zero health you are FLATLINED and patched up at the clinic with HEAT cleared. A wrecked car throws you out.
 
+- **M5 The look**: Neon Noir palette; deterministic emissive signage strips and roof edges on buildings (magenta, cyan, acid yellow); selective half-resolution bloom (only the bloom layer glows; buildings and car bodies are drawn black as occluders; two-iteration separable blur; vignette in the composite); wet-road shader with procedural lane markings, a tiny blurred neon-reflection texture painted from the sign layout, and a scrolling noise normal; one instanced rain streak mesh plus one instanced splash-ring mesh, both animated entirely in the vertex shader around the camera focus; blob shadows under cars, peds, player and drone (one instanced call). Three quality tiers in `content/data/quality.json` with a 1.5 s benchmark behind the title screen on first boot (stored), bloom and rain off on low, plus dynamic resolution scaling 0.6–1.0. Populated block at HEAT 3 measures **24 draw calls** on the high tier (Playwright perf test asserts < 100). Title screen with tap to start (fullscreen + landscape lock on phones), Esc/☰ pause menu.
+
 ## Next
 
-- M5 The look.
+- M6 One mission from data.
 
 ## Open questions
 

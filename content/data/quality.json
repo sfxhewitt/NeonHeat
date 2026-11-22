@@ -1,0 +1,9 @@
+{
+  "tiers": {
+    "low": { "maxPixelRatio": 1, "bloom": false, "rain": false, "rainStreaks": 0, "rainSplashes": 0, "peds": 10, "traffic": 8, "police": 4, "dynamicResolution": true },
+    "mid": { "maxPixelRatio": 1.5, "bloom": true, "rain": true, "rainStreaks": 900, "rainSplashes": 60, "peds": 15, "traffic": 10, "police": 8, "dynamicResolution": true },
+    "high": { "maxPixelRatio": 2, "bloom": true, "rain": true, "rainStreaks": 1800, "rainSplashes": 120, "peds": 15, "traffic": 10, "police": 8, "dynamicResolution": true }
+  },
+  "benchmark": { "seconds": 1.5, "highMs": 18, "midMs": 26 },
+  "dynamicResolution": { "targetMs": 16.7, "min": 0.6, "step": 0.1 }
+}

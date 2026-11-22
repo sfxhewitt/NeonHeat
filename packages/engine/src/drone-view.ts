@@ -10,6 +10,7 @@ import {
 } from 'three';
 import { lerp, type Drone } from '@neonheat/sim';
 import { Palette } from './palette';
+import { BLOOM_LAYER } from './layers';
 
 /** The surveillance drone and the ground circle that shows what it can see. */
 export class DroneView {
@@ -25,6 +26,7 @@ export class DroneView {
     rotors.position.y = 0.4;
     this.light = new Mesh(new BoxGeometry(0.8, 0.4, 0.8), new MeshBasicMaterial({ color: Palette.policeRed, toneMapped: false }));
     this.light.position.y = -0.5;
+    this.light.layers.enable(BLOOM_LAYER);
     this.group.add(body, rotors, this.light);
     this.group.visible = false;
     this.group.name = 'drone';

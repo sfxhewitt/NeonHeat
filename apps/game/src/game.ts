@@ -1,6 +1,26 @@
 import * as THREE from 'three';
 import { FixedStepLoop, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type SimEvent } from '@neonheat/sim';
-import { CameraRig, DroneView, Palette, Particles, PeopleView, VehiclesView, Viewport, buildCity, type CityMeshes } from '@neonheat/engine';
+import {
+  BlobShadows,
+  CameraRig,
+  DroneView,
+  DynamicResolution,
+  Palette,
+  Particles,
+  PeopleView,
+  PostFx,
+  Rain,
+  VehiclesView,
+  Viewport,
+  buildCity,
+  buildNoiseTexture,
+  buildReflectionTexture,
+  buildSignage,
+  createWetRoadMaterial,
+  layoutSigns,
+  type CityMeshes,
+  type TierName,
+} from '@neonheat/engine';
 import { DebugPanel, Hud, InputManager, SettingsMenu, loadSettings, storeSettings, type Settings } from '@neonheat/ui';
 import { loadGameContent, type GameContent } from './content';
 import { setupTuning } from './tuning';
@@ -30,6 +50,12 @@ export class Game {
   private people!: PeopleView;
   private city!: CityMeshes;
   private droneView!: DroneView;
+  private shadows!: BlobShadows;
+  private rain!: Rain;
+  private roadMat!: THREE.ShaderMaterial;
+  readonly postfx: PostFx;
+  tier: TierName = 'mid';
+  private dynRes: DynamicResolution | null = null;
   readonly hud: Hud;
   /** Remaining hit-stop, seconds of frozen simulation. */
   private hitStop = 0;
@@ -42,6 +68,8 @@ export class Game {
   readonly frameTimes: number[] = [];
   private readonly menu: SettingsMenu;
   debug: DebugPanel | null = null;
+  /** Hook for the app shell (quality changes need the benchmark result). */
+  onSettingsChanged: ((s: Settings) => void) | null = null;
 
   constructor(
     readonly canvas: HTMLCanvasElement,
@@ -51,9 +79,15 @@ export class Game {
     this.settings = loadSettings();
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false });
     this.renderer.setClearColor(Palette.bg);
+    // Count draw calls across all passes of a frame (scene, bloom, blur, composite).
+    this.renderer.info.autoReset = false;
     this.viewport = new Viewport(this.renderer, canvas);
     this.rig = new CameraRig(this.content.camera);
-    this.viewport.onResize(({ width, height }) => this.rig.setAspect(width / height));
+    this.postfx = new PostFx(this.renderer);
+    this.viewport.onResize(({ width, height, pixelRatio }) => {
+      this.rig.setAspect(width / height);
+      this.postfx.setSize(width, height, pixelRatio);
+    });
     this.viewport.update();
     this.input = new InputManager(overlay, this.settings.scheme);
     this.hud = new Hud(overlay);
@@ -62,6 +96,7 @@ export class Game {
       onChange: (s) => {
         storeSettings(s);
         this.input.touch.setScheme(s.scheme);
+        this.onSettingsChanged?.(s);
       },
       onEditLayout: (on) => this.input.touch.setEditing(on),
       onResetLayout: () => this.input.touch.resetLayout(),
@@ -92,11 +127,35 @@ export class Game {
     const key = new THREE.DirectionalLight(0xd0c0ff, 1.6);
     key.position.set(-40, 100, 30);
     s.add(key);
-    this.city = buildCity(s, this.content.sim.map);
+    const map = this.content.sim.map;
+    const signs = layoutSigns(map);
+    this.roadMat = createWetRoadMaterial(map, buildReflectionTexture(map, signs), buildNoiseTexture());
+    this.city = buildCity(s, map, this.roadMat);
+    buildSignage(s, signs);
+    this.shadows = new BlobShadows(s);
     this.vehiclesView = new VehiclesView(s);
     this.particles = new Particles(s);
     this.people = new PeopleView(s, this.content.sim.peds.colours);
     this.droneView = new DroneView(s, this.content.sim.heat.droneSightRange);
+    const top = this.content.quality.tiers.high;
+    this.rain = new Rain(s, top.rainStreaks, top.rainSplashes);
+    this.postfx.addOccluder(this.city.buildings, this.vehiclesView.body, this.vehiclesView.cabin);
+  }
+
+  /** Apply a quality tier: resolution cap, bloom, rain and simulation caps. */
+  applyQuality(tier: TierName): void {
+    const q = this.content.quality.tiers[tier];
+    this.tier = tier;
+    this.viewport.maxPixelRatio = q.maxPixelRatio;
+    this.viewport.resolutionScale = 1;
+    this.viewport.update();
+    this.postfx.enabled = q.bloom;
+    this.rain.visible = q.rain;
+    this.rain.setCounts(q.rainStreaks, q.rainSplashes);
+    this.world.peds.cap = q.peds;
+    this.world.traffic.cap = q.traffic;
+    this.world.police.cap = q.police;
+    this.dynRes = q.dynamicResolution ? new DynamicResolution(this.content.quality.dynamicResolution) : null;
   }
 
   private setupDebug(): void {
@@ -107,6 +166,7 @@ export class Game {
     debug.addStat('draw calls', () => String(this.stats.drawCalls));
     debug.addStat('triangles', () => String(this.stats.triangles));
     debug.addStat('sim tick ms', () => this.stats.tickMs.toFixed(3));
+    debug.addStat('quality', () => `${this.tier} @ ${this.viewport.resolutionScale.toFixed(2)}x`);
     debug.addStat('speed km/h', () => (Math.abs(this.world.playerSpeed()) * 3.6).toFixed(0));
     setupTuning(debug, this);
   }
@@ -152,6 +212,10 @@ export class Game {
     st.frameMs = elapsedMs;
     st.fps += (1000 / Math.max(elapsedMs, 0.1) - st.fps) * 0.05;
     this.frameTimes.push(elapsedMs);
+    if (this.dynRes && !this.paused) {
+      const scale = this.dynRes.sample(elapsedMs);
+      if (scale !== null) this.viewport.setResolutionScale(scale);
+    }
     if (this.frameTimes.length > 600) this.frameTimes.shift();
 
     let alpha = 1;
@@ -248,7 +312,12 @@ export class Game {
       this.rig.update({ x, z, vx: pc.vx * 0.5, vz: pc.vz * 0.5, speedT: 0, onFoot: true }, dt);
       this.city.focus.set(x, 1, z);
     }
-    this.renderer.render(this.scene, this.rig.camera);
+    this.renderer.info.reset();
+    this.shadows.update(w, alpha);
+    const focus = this.rig.focus;
+    this.rain.update(w.time, focus.x, focus.z);
+    this.roadMat.uniforms.uTime!.value = w.time;
+    this.postfx.render(this.scene, this.rig.camera);
     this.stats.drawCalls = this.renderer.info.render.calls;
     this.stats.triangles = this.renderer.info.render.triangles;
   }

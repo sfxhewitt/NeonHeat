@@ -1,3 +1,4 @@
+import { BLOOM_LAYER } from './layers';
 import {
   AdditiveBlending,
   BoxGeometry,
@@ -121,6 +122,7 @@ export class Particles {
     this.sparks = new ParticleLayer(scene, capacity, true, 0);
     this.smoke = new ParticleLayer(scene, capacity / 2, false, 2.5);
     this.sparks.mesh.name = 'sparks';
+    this.sparks.mesh.layers.enable(BLOOM_LAYER);
     this.smoke.mesh.name = 'smoke';
   }
 

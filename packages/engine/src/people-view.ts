@@ -16,6 +16,7 @@ import {
 } from 'three';
 import { lerp, lerpAngle, type World } from '@neonheat/sim';
 import { Palette } from './palette';
+import { BLOOM_LAYER } from './layers';
 
 const MAX_PEDS = 64;
 const MAX_TRACERS = 16;
@@ -53,6 +54,8 @@ export class PeopleView {
     const nose = new Mesh(new ConeGeometry(0.25, 0.6, 4), new MeshBasicMaterial({ color: Palette.acid, toneMapped: false }));
     nose.rotation.x = Math.PI / 2;
     nose.position.set(0, 0.15, 0.85);
+    visor.layers.enable(BLOOM_LAYER);
+    nose.layers.enable(BLOOM_LAYER);
     this.player.add(pBody, visor, nose);
     this.player.name = 'player';
     scene.add(this.player);
@@ -62,6 +65,7 @@ export class PeopleView {
     this.aimMarker.position.y = 0.08;
     this.aimMarker.visible = false;
     this.aimMarker.name = 'aim-marker';
+    this.aimMarker.layers.enable(BLOOM_LAYER);
     scene.add(this.aimMarker);
 
     this.tracers = new InstancedMesh(
@@ -73,6 +77,7 @@ export class PeopleView {
     this.tracers.frustumCulled = false;
     this.tracers.count = 0;
     this.tracers.name = 'tracers';
+    this.tracers.layers.enable(BLOOM_LAYER);
     scene.add(this.tracers);
     for (let i = 0; i < MAX_TRACERS; i++) this.tracerData.push({ x: 0, z: 0, hx: 0, hz: 0 });
   }

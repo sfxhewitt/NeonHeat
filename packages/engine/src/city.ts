@@ -32,6 +32,7 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
   scene.add(ground);
 
   const roads = new Mesh(buildRoadGeometry(map), roadMaterial ?? new MeshLambertMaterial({ color: Palette.road }));
+  roads.renderOrder = -2;
   roads.name = 'roads';
   roads.position.y = 0.02;
   scene.add(roads);
