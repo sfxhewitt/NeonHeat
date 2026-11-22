@@ -6,6 +6,10 @@ import type { SimContent, VehicleParams } from './content';
 import { Groups, clamp, interactionGroups, yawFromQuat, type Rapier } from './physics';
 import { type ArcadeState, type DriveControls, directionToControls, emptyControls, forwardSpeed, stepArcade } from './vehicle';
 import type { ImpactOther, SimEvent } from './events';
+import { type AiState, makeAiState } from './ai';
+import { RoadGraph } from './nav';
+import { TrafficSystem } from './traffic';
+import { PoliceSystem } from './police';
 
 export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad';
 
@@ -33,6 +37,16 @@ export interface Vehicle extends ArcadeState {
   setVz: number;
   /** Seconds since the last impact this vehicle took. */
   sinceImpact: number;
+  ai: AiState;
+}
+
+export interface PlayerState {
+  vehicle: Vehicle | null;
+  /** Interpolation-free current position and velocity, whatever the player is in. */
+  x: number;
+  z: number;
+  vx: number;
+  vz: number;
 }
 
 export interface WorldOptions {
@@ -62,7 +76,10 @@ export class World {
   time = 0;
   readonly vehicles: Vehicle[] = [];
   readonly events: SimEvent[] = [];
-  readonly player: { vehicle: Vehicle | null } = { vehicle: null };
+  readonly player: PlayerState = { vehicle: null, x: 0, z: 0, vx: 0, vz: 0 };
+  readonly roads: RoadGraph;
+  readonly traffic: TrafficSystem;
+  readonly police: PoliceSystem;
   private readonly owners = new Map<number, ColliderOwner>();
   private readonly ctl = emptyControls();
 
@@ -75,8 +92,55 @@ export class World {
     this.physics.timestep = SIM_DT;
     const pool = options.maxVehicles ?? 40;
     for (let i = 0; i < pool; i++) this.vehicles.push(makeVehicle(i, this.content.vehicles.variants[this.content.vehicles.player]!));
+    this.roads = new RoadGraph(this.content.map);
+    this.traffic = new TrafficSystem(this, this.content.traffic);
+    this.police = new PoliceSystem(this, this.content.heat);
     this.buildStatics();
     this.spawnInitial();
+    this.syncPlayer();
+    this.traffic.populate();
+  }
+
+  get heat(): PoliceSystem['heat'] {
+    return this.police.heat;
+  }
+
+  distToPlayer(x: number, z: number): number {
+    return Math.hypot(x - this.player.x, z - this.player.z);
+  }
+
+  private syncPlayer(): void {
+    const p = this.player;
+    const v = p.vehicle;
+    if (v) {
+      p.x = v.x;
+      p.z = v.z;
+      p.vx = v.vx;
+      p.vz = v.vz;
+    }
+  }
+
+  /**
+   * Distance to the nearest obstacle in `v`'s lane ahead (bumper to bumper),
+   * or Infinity. Used for car-following.
+   */
+  gapAhead(v: Vehicle, range: number, laneHalfWidth: number): number {
+    const fx = Math.sin(v.yaw);
+    const fz = Math.cos(v.yaw);
+    let best = Infinity;
+    const half = v.params.length / 2;
+    for (const o of this.vehicles) {
+      if (!o.active || o === v) continue;
+      const dx = o.x - v.x;
+      const dz = o.z - v.z;
+      const ahead = dx * fx + dz * fz;
+      if (ahead <= 0 || ahead > range) continue;
+      const lat = Math.abs(dx * fz - dz * fx);
+      if (lat > laneHalfWidth + o.params.width / 2) continue;
+      const gap = ahead - half - o.params.length / 2;
+      if (gap < best) best = gap;
+    }
+    return best;
   }
 
   private buildStatics(): void {
@@ -174,6 +238,8 @@ export class World {
   step(intents: Intents): void {
     this.events.length = 0;
     const player = this.player.vehicle;
+    this.traffic.step(SIM_DT);
+    this.police.step(SIM_DT);
     for (const v of this.vehicles) {
       if (!v.active) continue;
       v.prevX = v.x;
@@ -218,6 +284,9 @@ export class World {
       v.sinceImpact += SIM_DT;
       this.detectImpact(v);
     }
+    this.syncPlayer();
+    this.police.postStep(SIM_DT);
+    this.handlePlayerWreck();
     this.tick++;
     this.time = this.tick * SIM_DT;
   }
@@ -244,6 +313,14 @@ export class World {
     }
     if (v.sinceImpact < 0.12) return; // debounce continuous scraping
     v.sinceImpact = 0;
+    if (v.role === 'traffic' && dv > 6 && !v.destroyed) {
+      v.ai.mode = 'stunned';
+      v.ai.timer = 1.2;
+    } else if ((v.role === 'police' || v.role === 'squad') && dv > 11 && !v.destroyed && v.ai.mode !== 'leave') {
+      v.ai.mode = 'stunned';
+      v.ai.timer = 0.7;
+    }
+    if (v === this.player.vehicle && other.kind === 'vehicle') this.playerHitVehicle(v, this.vehicles[other.id]!, dv);
     const inv = 1 / dv;
     const half = v.params.width / 2;
     const isPlayer = v === this.player.vehicle || (other.kind === 'vehicle' && this.vehicles[other.id] === this.player.vehicle);
@@ -259,6 +336,37 @@ export class World {
     });
   }
 
+  /** Crimes from the player's car hitting another vehicle. */
+  private playerHitVehicle(pv: Vehicle, o: Vehicle, strength: number): void {
+    const heat = this.heat;
+    const dx = o.x - pv.x;
+    const dz = o.z - pv.z;
+    const len = Math.hypot(dx, dz) || 1;
+    // Who was the aggressor? Compare approach speeds before the contact resolved.
+    const mine = (pv.setVx * dx + pv.setVz * dz) / len;
+    const theirs = -(o.setVx * dx + o.setVz * dz) / len;
+    const rammed = mine > 3 && mine > theirs;
+    if (!rammed) return;
+    if (o.role === 'police' && strength > heat.config.ramMinStrength) heat.addPoints(heat.config.points.ramPolice, pv.x, pv.z);
+    else if (o.role === 'traffic' || o.role === 'parked') heat.civCarHit(this.time, pv.x, pv.z);
+  }
+
+  /** M3: a wrecked player car respawns at the start after a pause. */
+  private handlePlayerWreck(): void {
+    const v = this.player.vehicle;
+    if (!v || !v.destroyed) return;
+    if (this.time - v.destroyedTime < this.content.vehicles.damage.destroyedEjectSec + 1.5) return;
+    const start = this.content.map.spawns['starter_car'];
+    this.setPlayerVehicle(null);
+    v.role = 'parked';
+    if (start) {
+      const nv = this.spawnVehicle(start.variant, start.pos[0], start.pos[2], start.yaw, 'player');
+      this.setPlayerVehicle(nv);
+    }
+    this.heat.clear();
+    this.syncPlayer();
+  }
+
   /** Speed of the player's vehicle along its heading, m/s. */
   playerSpeed(): number {
     const v = this.player.vehicle;
@@ -272,6 +380,7 @@ export class World {
       if (!v.active) continue;
       parts.push(v.id, v.x, v.z, v.yaw, v.vx, v.vz, v.hp);
     }
+    parts.push(this.heat.level, this.heat.points, this.police.drone.x, this.police.drone.z);
     return parts.join(',');
   }
 
@@ -307,6 +416,7 @@ function makeVehicle(id: number, params: VehicleParams): Vehicle {
     setVx: 0,
     setVz: 0,
     sinceImpact: 10,
+    ai: makeAiState(),
   };
 }
 

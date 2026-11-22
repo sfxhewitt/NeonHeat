@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { FixedStepLoop, World, emptyIntents, forwardSpeed, initPhysics, type Intents } from '@neonheat/sim';
-import { CameraRig, Palette, VehiclesView, Viewport, buildCity } from '@neonheat/engine';
-import { DebugPanel, InputManager, SettingsMenu, loadSettings, storeSettings, type Settings } from '@neonheat/ui';
+import { FixedStepLoop, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type SimEvent } from '@neonheat/sim';
+import { CameraRig, DroneView, Palette, Particles, VehiclesView, Viewport, buildCity, type CityMeshes } from '@neonheat/engine';
+import { DebugPanel, Hud, InputManager, SettingsMenu, loadSettings, storeSettings, type Settings } from '@neonheat/ui';
 import { loadGameContent, type GameContent } from './content';
 import { setupTuning } from './tuning';
 
@@ -26,6 +26,13 @@ export class Game {
   readonly settings: Settings;
   world!: World;
   private vehiclesView!: VehiclesView;
+  private particles!: Particles;
+  private city!: CityMeshes;
+  private droneView!: DroneView;
+  readonly hud: Hud;
+  /** Remaining hit-stop, seconds of frozen simulation. */
+  private hitStop = 0;
+  private smokeTimer = 0;
   private readonly intents: Intents = emptyIntents();
   private paused = false;
   private last = 0;
@@ -48,6 +55,7 @@ export class Game {
     this.viewport.onResize(({ width, height }) => this.rig.setAspect(width / height));
     this.viewport.update();
     this.input = new InputManager(overlay, this.settings.scheme);
+    this.hud = new Hud(overlay);
     this.menu = new SettingsMenu(overlay, {
       settings: this.settings,
       onChange: (s) => {
@@ -83,8 +91,10 @@ export class Game {
     const key = new THREE.DirectionalLight(0xd0c0ff, 1.6);
     key.position.set(-40, 100, 30);
     s.add(key);
-    buildCity(s, this.content.sim.map);
+    this.city = buildCity(s, this.content.sim.map);
     this.vehiclesView = new VehiclesView(s);
+    this.particles = new Particles(s);
+    this.droneView = new DroneView(s, this.content.sim.heat.droneSightRange);
   }
 
   private setupDebug(): void {
@@ -141,12 +151,18 @@ export class Game {
     if (this.frameTimes.length > 600) this.frameTimes.shift();
 
     let alpha = 1;
-    if (!this.paused) {
+    if (!this.paused && this.hitStop > 0) {
+      // Hit-stop: freeze the sim for a beat but keep rendering (and shaking).
+      this.hitStop -= dt;
+      alpha = 1;
+    } else if (!this.paused) {
       alpha = this.loop.advance(dt, () => {
+        if (this.hitStop > 0) return;
         const t0 = performance.now();
         this.input.sample(this.intents);
         this.world.step(this.intents);
         st.tickMs = performance.now() - t0;
+        for (const e of this.world.events) this.onSimEvent(e);
       });
     }
     this.input.setMode(this.menu.isOpen ? 'menu' : 'driving', null);
@@ -154,14 +170,53 @@ export class Game {
     this.debug?.update(now);
   };
 
+  private onSimEvent(e: SimEvent): void {
+    const feel = this.content.feel;
+    if (e.type === 'impact') {
+      const n = Math.min(feel.sparksMax, Math.round(e.strength * feel.sparksPerStrength));
+      if (n > 0) this.particles.burstSparks(e.x, e.z, n, e.strength);
+      if (!e.involvesPlayer) return;
+      this.rig.addShake(Math.min(feel.shakeMax, e.strength * feel.shakePerStrength));
+      if (e.strength >= feel.hitStopMinStrength && this.hitStop <= 0) {
+        this.hitStop = Math.min(feel.hitStopMaxMs, feel.hitStopBaseMs + e.strength * feel.hitStopPerStrengthMs) / 1000;
+      }
+      if (e.strength >= feel.vibrateMinStrength && this.settings.vibration && typeof navigator.vibrate === 'function') {
+        navigator.vibrate(Math.min(feel.vibrateMaxMs, feel.vibrateBaseMs + e.strength * feel.vibratePerStrengthMs));
+      }
+    } else if (e.type === 'vehicleDestroyed') {
+      this.particles.burstSparks(e.x, e.z, 30, 20);
+      if (e.vehicleId === this.world.player.vehicle?.id) this.hud.toast('WRECKED', performance.now());
+    }
+  }
+
   private render(alpha: number, dt: number): void {
     const w = this.world;
     this.vehiclesView.update(w, alpha);
+    this.droneView.update(w.police.drone, alpha, w.time);
+    this.smokeTimer -= dt;
+    if (this.smokeTimer <= 0) {
+      this.smokeTimer = 0.08;
+      for (const v of w.vehicles) {
+        if (!v.active) continue;
+        const h = v.hp / v.params.maxHealth;
+        if (v.destroyed || h < 0.35) this.particles.puffSmoke(v.x, v.z, v.destroyed);
+      }
+    }
+    this.particles.update(dt);
+    this.rig.shakeMax = this.content.feel.shakeMax;
+    this.rig.shakeDecay = this.content.feel.shakeDecay;
+    const heat = w.heat;
+    this.hud.setHeat(heat.level, heat.seen && Math.floor(w.time * 4) % 2 === 0);
+    const pv0 = w.player.vehicle;
+    this.hud.setSpeed(pv0 ? Math.abs(forwardSpeed(pv0)) * 3.6 : null);
+    this.hud.setHealth(pv0 ? w.vehicleHealth(pv0) : 1);
+    this.hud.tick(performance.now());
     const pv = w.player.vehicle;
     if (pv) {
       const x = pv.prevX + (pv.x - pv.prevX) * alpha;
       const z = pv.prevZ + (pv.z - pv.prevZ) * alpha;
       this.rig.update({ x, z, vx: pv.vx, vz: pv.vz, speedT: Math.abs(forwardSpeed(pv)) / pv.params.topSpeed, onFoot: false }, dt);
+      this.city.focus.set(x, 1, z);
     }
     this.renderer.render(this.scene, this.rig.camera);
     this.stats.drawCalls = this.renderer.info.render.calls;

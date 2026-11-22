@@ -67,6 +67,29 @@ export function setupTuning(debug: DebugPanel, game: Game): void {
   for (const spec of CAMERA_SLIDERS) debug.addSlider(cam, game.content.camera, spec);
   const cs = debug.addButton(cam, 'Save camera.json', () => void save('camera', game.content.camera, cs));
 
+  const feel = debug.addGroup('Feel');
+  const f = game.content.feel;
+  for (const [key, min, max] of [
+    ['shakePerStrength', 0, 0.2],
+    ['shakeMax', 0, 4],
+    ['shakeDecay', 1, 20],
+    ['hitStopMinStrength', 0, 30],
+    ['hitStopBaseMs', 0, 120],
+    ['hitStopPerStrengthMs', 0, 10],
+    ['hitStopMaxMs', 0, 250],
+    ['sparksPerStrength', 0, 4],
+  ] as const) {
+    debug.addSlider(feel, f, { key, min, max });
+  }
+  const fs = debug.addButton(feel, 'Save feel.json', () => void save('feel', f, fs));
+
+  const heat = debug.addGroup('HEAT');
+  for (let l = 0; l <= 3; l++) debug.addButton(heat, `HEAT ${l}`, () => game.world.heat.setLevel(l, game.world.player.x, game.world.player.z));
+  debug.addSlider(heat, game.content.sim.heat, { key: 'decaySeconds', min: 2, max: 30 });
+  debug.addSlider(heat, game.content.sim.heat, { key: 'sightRange', min: 20, max: 150 });
+  debug.addSlider(heat, game.content.sim.heat, { key: 'droneSpeed', min: 5, max: 50 });
+  const hs = debug.addButton(heat, 'Save heat.json', () => void save('heat', game.content.sim.heat, hs));
+
   const cheats = debug.addGroup('World');
   debug.addButton(cheats, 'Respawn car', () => game.respawnPlayerCar());
   for (const name of Object.keys(vehicles.variants)) debug.addButton(cheats, `Drive ${name}`, () => game.respawnPlayerCar(name));

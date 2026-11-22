@@ -6,6 +6,7 @@ import { intents, loadContent, makeWorld, run } from './helpers';
 async function onOpenRoad(seed = 1, variant = 'kestrel') {
   const content = loadContent();
   content.map.buildings = [];
+  content.traffic.count = 0;
   const world = await makeWorld(seed, content);
   const car = world.spawnVehicle(variant, -110, 0, Math.PI / 2, 'player')!;
   world.setPlayerVehicle(car);
@@ -83,7 +84,9 @@ describe('arcade vehicle', () => {
   });
 
   it('collides with buildings instead of passing through them', async () => {
-    const world = await makeWorld(1);
+    const content = loadContent();
+    content.traffic.count = 0;
+    const world = await makeWorld(1, content);
     // Centre building spans x -29..1, z -27..3. Drive north into it from the road at z = 40.
     const car = world.spawnVehicle('kestrel', -14, 34, Math.PI, 'player')!;
     world.setPlayerVehicle(car);

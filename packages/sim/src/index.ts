@@ -6,3 +6,8 @@ export * from './physics';
 export * from './vehicle';
 export * from './events';
 export * from './world';
+export * from './ai';
+export * from './nav';
+export * from './heat';
+export * from './traffic';
+export * from './police';

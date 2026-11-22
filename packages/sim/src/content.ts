@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { HeatConfigSchema, type HeatConfig } from './heat';
+import { TrafficConfigSchema, type TrafficConfig } from './traffic';
 
 /** Zod schemas for every piece of content the simulation consumes. */
 
@@ -73,11 +75,15 @@ export type MapContent = z.infer<typeof MapSchema>;
 export interface SimContent {
   vehicles: VehiclesContent;
   map: MapContent;
+  heat: HeatConfig;
+  traffic: TrafficConfig;
 }
 
 export interface RawSimContent {
   vehicles: unknown;
   map: unknown;
+  heat: unknown;
+  traffic: unknown;
 }
 
 /** Validate raw JSON content. Throws a readable error on the first invalid file. */
@@ -89,8 +95,11 @@ export function parseSimContent(raw: RawSimContent): SimContent {
   };
   const vehicles = parse('vehicles', VehiclesSchema, raw.vehicles);
   const map = parse('map', MapSchema, raw.map);
+  const heat = parse('heat', HeatConfigSchema, raw.heat);
+  const traffic = parse('traffic', TrafficConfigSchema, raw.traffic);
+  for (const v of traffic.variants) if (!(v in vehicles.variants)) throw new Error(`Traffic uses unknown variant "${v}"`);
   for (const [id, s] of Object.entries(map.spawns)) {
     if (!(s.variant in vehicles.variants)) throw new Error(`Spawn "${id}" uses unknown variant "${s.variant}"`);
   }
-  return { vehicles, map };
+  return { vehicles, map, heat, traffic };
 }

@@ -10,6 +10,7 @@ import {
   PlaneGeometry,
   type Scene,
   type Material,
+  Vector3,
 } from 'three';
 import type { MapContent } from '@neonheat/sim';
 import { Palette } from './palette';
@@ -18,6 +19,8 @@ export interface CityMeshes {
   ground: Mesh;
   roads: Mesh;
   buildings: InstancedMesh;
+  /** Set to the player's world position each frame: buildings between it and the camera are cut away. */
+  focus: Vector3;
 }
 
 /** Build the static block: ground, road grid and instanced box buildings. */
@@ -45,6 +48,8 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
   }
   geo.setAttribute('color', new BufferAttribute(colours, 3));
   const mat = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const focus = new Vector3();
+  installCutaway(mat, focus);
   const buildings = new InstancedMesh(geo, mat, map.buildings.length);
   buildings.name = 'buildings';
   const o = new Object3D();
@@ -61,7 +66,7 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
   buildings.instanceMatrix.needsUpdate = true;
   scene.add(buildings);
 
-  return { ground, roads, buildings };
+  return { ground, roads, buildings, focus };
 }
 
 /** One merged mesh for the whole road grid, with world-space UVs for the road shader. */
@@ -93,4 +98,42 @@ export function buildRoadGeometry(map: MapContent): BufferGeometry {
   g.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2));
   g.computeVertexNormals();
   return g;
+}
+
+/**
+ * Occlusion cutaway: fragments of a building that sit between the camera and
+ * the focus point are screen-door dithered away, so the player is never hidden
+ * behind a building on the camera side.
+ */
+export function installCutaway(mat: Material, focus: Vector3, radius = 9): void {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uFocus = { value: focus };
+    shader.uniforms.uCutRadius = { value: radius };
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vNhWorld;')
+      .replace(
+        '#include <project_vertex>',
+        `#include <project_vertex>
+        vec4 nhWorld = vec4(transformed, 1.0);
+        #ifdef USE_INSTANCING
+          nhWorld = instanceMatrix * nhWorld;
+        #endif
+        vNhWorld = (modelMatrix * nhWorld).xyz;`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vNhWorld;\nuniform vec3 uFocus;\nuniform float uCutRadius;')
+      .replace(
+        'void main() {',
+        `void main() {
+        {
+          vec3 ab = uFocus - cameraPosition;
+          float t = clamp(dot(vNhWorld - cameraPosition, ab) / dot(ab, ab), 0.0, 1.0);
+          float d = length(vNhWorld - (cameraPosition + ab * t));
+          if (t < 0.985 && vNhWorld.y > 1.0 && d < uCutRadius) {
+            float checker = mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y), 2.0);
+            if (checker < 1.0 || d < uCutRadius * 0.55) discard;
+          }
+        }`,
+      );
+  };
 }
