@@ -20,6 +20,8 @@ export const TrafficConfigSchema = z.object({
   stuckSec: z.number().positive(),
   /** Abandoned (stolen then left) cars out of range for this long are recycled. */
   abandonedDespawnSec: z.number().positive(),
+  /** Most wrecks left in the world at once; the oldest beyond this is cleared even if nearby. */
+  maxWrecks: z.number().int().nonnegative(),
   aiHz: z.number().positive(),
 });
 export type TrafficConfig = z.infer<typeof TrafficConfigSchema>;
@@ -122,6 +124,15 @@ export class TrafficSystem {
         if (v.abandonedTime > cfg.abandonedDespawnSec) w.despawnVehicle(v);
       }
     }
+    // Bound the wreck count (police wrecks pile up if a fight stays in one place).
+    let wrecks = 0;
+    let oldest: (typeof w.vehicles)[number] | null = null;
+    for (const v of w.vehicles) {
+      if (!v.active || !v.destroyed || v.persistent || v === w.player.vehicle) continue;
+      wrecks++;
+      if (!oldest || v.destroyedTime < oldest.destroyedTime) oldest = v;
+    }
+    if (wrecks > cfg.maxWrecks && oldest && w.time - oldest.destroyedTime > 3) w.despawnVehicle(oldest);
   }
 
   private decide(v: Vehicle): void {

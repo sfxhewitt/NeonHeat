@@ -13,5 +13,6 @@
   "respawnMinDist": 70,
   "stuckSec": 3,
   "abandonedDespawnSec": 20,
+  "maxWrecks": 3,
   "aiHz": 15
 }

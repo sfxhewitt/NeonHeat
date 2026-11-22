@@ -60,6 +60,8 @@ export class MissionRunner {
   private firstCheckpoint: unknown = null;
   private scheduled: Scheduled[] = [];
   private hackDone = false;
+  /** Consecutive failures within half a second of an objective (re)starting. */
+  private instantFails = 0;
   /** Listeners for the app/director. */
   onObjectiveStart: ((o: Objective, index: number) => void) | null = null;
   onComplete: ((m: Mission) => void) | null = null;
@@ -86,6 +88,8 @@ export class MissionRunner {
   /** Retry from the checkpoint taken at the start of the failed objective. */
   retry(): void {
     if (this.state !== 'failed') return;
+    // A checkpoint that fails straight away can never be passed: fall back to a full restart.
+    if (this.instantFails >= 2) return this.restart();
     this.host.cleanup();
     if (this.checkpoint !== null) this.host.restoreCheckpoint(this.checkpoint);
     this.state = 'running';
@@ -95,6 +99,7 @@ export class MissionRunner {
 
   /** Instant restart from the first objective. */
   restart(): void {
+    this.instantFails = 0;
     this.host.cleanup();
     if (this.firstCheckpoint !== null) this.host.restoreCheckpoint(this.firstCheckpoint);
     this.state = 'running';
@@ -169,6 +174,7 @@ export class MissionRunner {
     const o = this.objective;
     this.state = 'failed';
     this.failReason = reason;
+    this.instantFails = this.objectiveTime < 0.5 ? this.instantFails + 1 : 0;
     this.scheduled.length = 0;
     this.runEvents(o?.onFail);
     this.onFail?.(reason);

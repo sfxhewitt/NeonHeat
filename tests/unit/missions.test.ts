@@ -142,6 +142,29 @@ describe('MissionRunner', () => {
     }
   });
 
+  it('a checkpoint that fails straight away falls back to a full restart instead of looping', () => {
+    const h = new FakeHost();
+    const r = new MissionRunner(hotChrome, h);
+    r.start();
+    h.player = { x: 100, z: 0 };
+    tick(r, 0.1);
+    r.reportHack(true);
+    tick(r, 0.1);
+    h.health = 0.4;
+    tick(r, 0.1);
+    expect(r.state).toBe('failed');
+    // The first failure was already instant; one more instant failure after a retry means the checkpoint is a dead end.
+    for (let i = 0; i < 1; i++) {
+      r.retry();
+      tick(r, 0.1);
+      expect(r.state).toBe('failed');
+      expect(r.objective?.id).toBe('deliver');
+    }
+    r.retry();
+    expect(r.state).toBe('running');
+    expect(r.objective?.id).toBe('goto_lot');
+  });
+
   it('instant restart rewinds to the first objective', () => {
     const h = new FakeHost();
     const r = new MissionRunner(hotChrome, h);
@@ -245,6 +268,15 @@ describe('MissionDirector in the world', () => {
     const restored = w.vehicles[d.runner!.view.vehicleId]!;
     expect(restored.destroyed).toBe(false);
     expect(Math.hypot(restored.x - car.x, restored.z - car.z)).toBeLessThan(3);
+    // Too damaged to sell: the retry hands back a sound car, so it does not fail again at once.
+    for (let i = 0; i < 60; i++) step();
+    w.damageVehicle(restored, restored.params.maxHealth * 0.6);
+    step();
+    expect(d.runner?.failReason).toMatch(/damaged/);
+    d.retry();
+    step();
+    expect(d.runner?.state).toBe('running');
+    expect(w.vehicleHealth(w.vehicles[d.runner!.view.vehicleId]!)).toBe(1);
     run(w, 0.1, intents());
   });
 });

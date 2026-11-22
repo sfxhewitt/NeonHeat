@@ -17,6 +17,8 @@ interface Sample {
   heapMb: number;
   completed: number;
   vehicles: number;
+  wrecks: number;
+  maxWrecks: number;
   peds: number;
 }
 
@@ -67,12 +69,14 @@ test(`soak: ${MINUTES} minute(s) of bot play shows no frame-time or memory creep
           heapMb: mem ? mem.usedJSHeapSize / 1048576 : 0,
           completed: g.director.completed.length,
           vehicles: w.vehicles.filter((v: { active: boolean }) => v.active).length,
+          wrecks: w.vehicles.filter((v: { active: boolean; destroyed: boolean }) => v.active && v.destroyed).length,
+          maxWrecks: w.content.traffic.maxWrecks,
           peds: w.peds.activeCount(),
         };
       });
       samples.push({ t: Math.round((now - start) / 1000), ...s });
       console.info(
-        `soak t=${samples.at(-1)!.t}s frame avg ${s.avgFrameMs.toFixed(1)} ms p95 ${s.p95FrameMs.toFixed(1)} ms heap ${s.heapMb.toFixed(1)} MB jobs ${s.completed} cars ${s.vehicles} peds ${s.peds}`,
+        `soak t=${samples.at(-1)!.t}s frame avg ${s.avgFrameMs.toFixed(1)} ms p95 ${s.p95FrameMs.toFixed(1)} ms heap ${s.heapMb.toFixed(1)} MB jobs ${s.completed} cars ${s.vehicles} wrecks ${s.wrecks} peds ${s.peds}`,
       );
     }
   }
@@ -87,7 +91,11 @@ test(`soak: ${MINUTES} minute(s) of bot play shows no frame-time or memory creep
   expect(last.avgFrameMs).toBeLessThan(base.avgFrameMs * 1.3 + 3);
   if (base.heapMb > 0) expect(last.heapMb).toBeLessThan(base.heapMb * 1.25 + 8);
   // Pools are bounded: entity counts never exceed the pool sizes.
-  for (const s of samples) expect(s.vehicles).toBeLessThanOrEqual(40);
+  for (const s of samples) {
+    expect(s.vehicles).toBeLessThanOrEqual(40);
+    // The player's own wreck and mission cars are exempt from the cap, hence the +2.
+    expect(s.wrecks).toBeLessThanOrEqual(s.maxWrecks + 2);
+  }
   if (MINUTES >= 10) expect(last.completed).toBeGreaterThanOrEqual(2);
   expect(errors).toEqual([]);
 });

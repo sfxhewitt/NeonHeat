@@ -177,7 +177,8 @@ export class WorldMissionHost implements MissionHost {
         this.spawned.set(snap.ref, v.id);
       }
       w.teleportVehicle(v, snap.x, snap.z, snap.yaw);
-      v.hp = snap.hp;
+      // A retry hands back a sound car: a checkpoint taken on a damaged car could never be passed.
+      v.hp = v.params.maxHealth;
       v.role = 'parked';
     }
     pc.hp = pc.maxHp;

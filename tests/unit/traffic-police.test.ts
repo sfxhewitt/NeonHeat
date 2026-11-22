@@ -56,6 +56,25 @@ describe('abandoned cars', () => {
   });
 });
 
+describe('wrecks', () => {
+  it('keeps at most maxWrecks wrecks, clearing the oldest even near the player', async () => {
+    const content = loadContent();
+    content.traffic.count = 0;
+    content.peds.count = 0;
+    const world = await makeWorld(6, content);
+    const p = world.player;
+    for (let i = 0; i < 6; i++) {
+      const v = world.spawnVehicle('interceptor', p.x + 8 + i * 6, p.z + 10, 0, 'police')!;
+      world.police.cap = 0;
+      world.damageVehicle(v, 1e6);
+      run(world, 0.5, idle);
+    }
+    run(world, 5, idle);
+    const wrecks = world.vehicles.filter((v) => v.active && v.destroyed).length;
+    expect(wrecks).toBeLessThanOrEqual(world.content.traffic.maxWrecks);
+  });
+});
+
 describe('damage', () => {
   it('hard crashes damage a car until it is destroyed, then the player is thrown out', async () => {
     const content = loadContent();
