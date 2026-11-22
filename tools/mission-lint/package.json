@@ -1,0 +1,11 @@
+{
+  "name": "@neonheat/mission-lint",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@neonheat/content": "workspace:*",
+    "@neonheat/missions": "workspace:*",
+    "@neonheat/sim": "workspace:*"
+  }
+}

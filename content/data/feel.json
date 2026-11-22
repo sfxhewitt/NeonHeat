@@ -1,0 +1,15 @@
+{
+  "shakePerStrength": 0.05,
+  "shakeMax": 1.6,
+  "shakeDecay": 7,
+  "hitStopMinStrength": 9,
+  "hitStopBaseMs": 35,
+  "hitStopPerStrengthMs": 3,
+  "hitStopMaxMs": 110,
+  "vibrateMinStrength": 5,
+  "vibrateBaseMs": 18,
+  "vibratePerStrengthMs": 3,
+  "vibrateMaxMs": 90,
+  "sparksPerStrength": 1.2,
+  "sparksMax": 28
+}

@@ -1,0 +1,12 @@
+{
+  "pitchDeg": 60,
+  "fovDeg": 32,
+  "heightMin": 72,
+  "heightMax": 105,
+  "heightOnFoot": 52,
+  "heightLerp": 1.6,
+  "lookAheadSec": 0.55,
+  "lookAheadMax": 20,
+  "lookAheadLerp": 2.5,
+  "followLerp": 9
+}
