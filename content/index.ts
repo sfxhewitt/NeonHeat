@@ -5,6 +5,8 @@ import map from './map/block0.json' with { type: 'json' };
 import heat from './data/heat.json' with { type: 'json' };
 import traffic from './data/traffic.json' with { type: 'json' };
 import feel from './data/feel.json' with { type: 'json' };
+import peds from './data/peds.json' with { type: 'json' };
+import weapons from './data/weapons.json' with { type: 'json' };
 
-export const rawContent = { vehicles, camera, map, heat, traffic, feel };
+export const rawContent = { vehicles, camera, map, heat, traffic, feel, peds, weapons };
 export type RawContent = typeof rawContent;

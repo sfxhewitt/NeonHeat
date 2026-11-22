@@ -9,7 +9,7 @@ async function onOpenRoad(seed = 1, variant = 'kestrel') {
   content.traffic.count = 0;
   const world = await makeWorld(seed, content);
   const car = world.spawnVehicle(variant, -110, 0, Math.PI / 2, 'player')!;
-  world.setPlayerVehicle(car);
+  world.playerCtl.enter(car);
   return { world, car };
 }
 
@@ -89,7 +89,7 @@ describe('arcade vehicle', () => {
     const world = await makeWorld(1, content);
     // Centre building spans x -29..1, z -27..3. Drive north into it from the road at z = 40.
     const car = world.spawnVehicle('kestrel', -14, 34, Math.PI, 'player')!;
-    world.setPlayerVehicle(car);
+    world.playerCtl.enter(car);
     run(world, 3, intents({ throttle: 1 }));
     expect(car.z).toBeGreaterThan(3);
     expect(car.hp).toBeLessThan(car.params.maxHealth);

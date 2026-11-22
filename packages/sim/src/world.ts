@@ -10,6 +10,8 @@ import { type AiState, makeAiState } from './ai';
 import { RoadGraph } from './nav';
 import { TrafficSystem } from './traffic';
 import { PoliceSystem } from './police';
+import { PedSystem } from './peds';
+import { PlayerController, type Interactable } from './player';
 
 export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad';
 
@@ -29,6 +31,8 @@ export interface Vehicle extends ArcadeState {
   destroyed: boolean;
   destroyedTime: number;
   locked: boolean;
+  /** A mission has made this vehicle hackable: the context button offers HACK. */
+  hackable: boolean;
   controls: DriveControls;
   body: RAPIER_NS.RigidBody | null;
   collider: RAPIER_NS.Collider | null;
@@ -80,6 +84,11 @@ export class World {
   readonly roads: RoadGraph;
   readonly traffic: TrafficSystem;
   readonly police: PoliceSystem;
+  readonly peds: PedSystem;
+  /** The on-foot player and the enter/exit/fire logic. */
+  readonly playerCtl: PlayerController;
+  /** Mission-placed things the context button can use. */
+  readonly interactables: Interactable[] = [];
   private readonly owners = new Map<number, ColliderOwner>();
   private readonly ctl = emptyControls();
 
@@ -95,10 +104,46 @@ export class World {
     this.roads = new RoadGraph(this.content.map);
     this.traffic = new TrafficSystem(this, this.content.traffic);
     this.police = new PoliceSystem(this, this.content.heat);
+    this.peds = new PedSystem(this, this.content.peds);
     this.buildStatics();
+    const start = this.content.map.markers['player_start']?.pos ?? [0, 0, 0];
+    this.playerCtl = new PlayerController(this, start[0], start[2]);
     this.spawnInitial();
     this.syncPlayer();
     this.traffic.populate();
+    this.peds.populate();
+  }
+
+  registerCollider(c: RAPIER_NS.Collider, kind: ImpactOther, id: number): void {
+    this.owners.set(c.handle, { kind, id });
+  }
+
+  unregisterCollider(c: RAPIER_NS.Collider): void {
+    this.owners.delete(c.handle);
+  }
+
+  colliderOwner(handle: number): ColliderOwner | undefined {
+    return this.owners.get(handle);
+  }
+
+  /** True if (x, z) is inside (or within `margin` of) a building footprint. */
+  insideBuilding(x: number, z: number, margin = 0): boolean {
+    for (const b of this.content.map.buildings) {
+      if (Math.abs(x - b.x) < b.w / 2 + margin && Math.abs(z - b.z) < b.d / 2 + margin) return true;
+    }
+    return false;
+  }
+
+  /** Apply damage to a vehicle; handles the destroyed transition. */
+  damageVehicle(v: Vehicle, amount: number): void {
+    if (v.destroyed || amount <= 0) return;
+    v.hp -= amount;
+    if (v.hp <= 0) {
+      v.hp = 0;
+      v.destroyed = true;
+      v.destroyedTime = this.time;
+      this.events.push({ type: 'vehicleDestroyed', vehicleId: v.id, x: v.x, z: v.z });
+    }
   }
 
   get heat(): PoliceSystem['heat'] {
@@ -117,6 +162,12 @@ export class World {
       p.z = v.z;
       p.vx = v.vx;
       p.vz = v.vz;
+    } else {
+      const c = this.playerCtl;
+      p.x = c.x;
+      p.z = c.z;
+      p.vx = c.vx;
+      p.vz = c.vz;
     }
   }
 
@@ -140,6 +191,17 @@ export class World {
       const gap = ahead - half - o.params.length / 2;
       if (gap < best) best = gap;
     }
+    const consider = (x: number, z: number): void => {
+      const dx = x - v.x;
+      const dz = z - v.z;
+      const ahead = dx * fx + dz * fz;
+      if (ahead <= 0 || ahead > range) return;
+      if (Math.abs(dx * fz - dz * fx) > laneHalfWidth + 0.5) return;
+      const gap = ahead - half - 0.5;
+      if (gap < best) best = gap;
+    };
+    for (const p of this.peds.peds) if (p.active && p.state !== 'down') consider(p.x, p.z);
+    if (!this.player.vehicle && !this.playerCtl.dead) consider(this.playerCtl.x, this.playerCtl.z);
     return best;
   }
 
@@ -175,9 +237,6 @@ export class World {
       const v = this.spawnVehicle(s.variant, s.pos[0], s.pos[2], s.yaw, 'parked');
       if (v) v.locked = s.locked;
     }
-    const start = this.content.map.spawns['starter_car'];
-    const car = start ? this.vehicles.find((v) => v.active && v.x === start.pos[0] && v.z === start.pos[2]) : undefined;
-    if (car) this.setPlayerVehicle(car);
   }
 
   setPlayerVehicle(v: Vehicle | null): void {
@@ -237,9 +296,11 @@ export class World {
 
   step(intents: Intents): void {
     this.events.length = 0;
+    this.playerCtl.preStep(intents, SIM_DT);
     const player = this.player.vehicle;
     this.traffic.step(SIM_DT);
     this.police.step(SIM_DT);
+    this.peds.step(SIM_DT);
     for (const v of this.vehicles) {
       if (!v.active) continue;
       v.prevX = v.x;
@@ -284,6 +345,8 @@ export class World {
       v.sinceImpact += SIM_DT;
       this.detectImpact(v);
     }
+    this.peds.postStep();
+    this.playerCtl.postStep();
     this.syncPlayer();
     this.police.postStep(SIM_DT);
     this.handlePlayerWreck();
@@ -302,17 +365,11 @@ export class World {
       other ??= this.owners.get(c.handle);
     });
     if (!other) return;
-    if (dv > dmg.impactThreshold && !v.destroyed) {
-      v.hp -= ((dv - dmg.impactThreshold) * dmg.damagePerMs) / v.params.armour;
-      if (v.hp <= 0) {
-        v.hp = 0;
-        v.destroyed = true;
-        v.destroyedTime = this.time;
-        this.events.push({ type: 'vehicleDestroyed', vehicleId: v.id, x: v.x, z: v.z });
-      }
-    }
+    if (other.kind === 'ped' || other.kind === 'player') return; // people are handled by their own systems
+    if (dv > dmg.impactThreshold) this.damageVehicle(v, ((dv - dmg.impactThreshold) * dmg.damagePerMs) / v.params.armour);
     if (v.sinceImpact < 0.12) return; // debounce continuous scraping
     v.sinceImpact = 0;
+    if (dv > this.content.peds.crashAlertStrength) this.peds.alarm(v.x, v.z, this.content.peds.crashAlertRadius);
     if (v.role === 'traffic' && dv > 6 && !v.destroyed) {
       v.ai.mode = 'stunned';
       v.ai.timer = 1.2;
@@ -351,19 +408,13 @@ export class World {
     else if (o.role === 'traffic' || o.role === 'parked') heat.civCarHit(this.time, pv.x, pv.z);
   }
 
-  /** M3: a wrecked player car respawns at the start after a pause. */
+  /** A wrecked player car throws the player out after a short pause. */
   private handlePlayerWreck(): void {
     const v = this.player.vehicle;
     if (!v || !v.destroyed) return;
-    if (this.time - v.destroyedTime < this.content.vehicles.damage.destroyedEjectSec + 1.5) return;
-    const start = this.content.map.spawns['starter_car'];
-    this.setPlayerVehicle(null);
-    v.role = 'parked';
-    if (start) {
-      const nv = this.spawnVehicle(start.variant, start.pos[0], start.pos[2], start.yaw, 'player');
-      this.setPlayerVehicle(nv);
-    }
-    this.heat.clear();
+    if (this.time - v.destroyedTime < this.content.vehicles.damage.destroyedEjectSec) return;
+    this.playerCtl.exit();
+    this.playerCtl.hurt(15, v.id);
     this.syncPlayer();
   }
 
@@ -381,6 +432,9 @@ export class World {
       parts.push(v.id, v.x, v.z, v.yaw, v.vx, v.vz, v.hp);
     }
     parts.push(this.heat.level, this.heat.points, this.police.drone.x, this.police.drone.z);
+    const pc = this.playerCtl;
+    parts.push(pc.x, pc.z, pc.hp, pc.facing);
+    for (const p of this.peds.peds) if (p.active) parts.push(p.id, p.x, p.z);
     return parts.join(',');
   }
 
@@ -410,6 +464,7 @@ function makeVehicle(id: number, params: VehicleParams): Vehicle {
     destroyed: false,
     destroyedTime: 0,
     locked: false,
+    hackable: false,
     controls: emptyControls(),
     body: null,
     collider: null,
@@ -434,6 +489,7 @@ function resetVehicle(v: Vehicle, variantId: string, params: VehicleParams, role
   v.destroyed = false;
   v.destroyedTime = 0;
   v.locked = false;
+  v.hackable = false;
   v.setVx = v.setVz = 0;
   v.sinceImpact = 10;
   const c = v.controls;

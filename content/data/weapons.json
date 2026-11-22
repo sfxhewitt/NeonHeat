@@ -1,0 +1,11 @@
+{
+  "pistol": {
+    "name": "Pistol",
+    "fireIntervalSec": 0.28,
+    "range": 30,
+    "lockConeDeg": 60,
+    "damageVehicle": 9,
+    "damagePed": 100,
+    "spreadDeg": 2
+  }
+}

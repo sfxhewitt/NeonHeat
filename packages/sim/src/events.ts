@@ -20,4 +20,49 @@ export interface VehicleDestroyedEvent {
   z: number;
 }
 
-export type SimEvent = ImpactEvent | VehicleDestroyedEvent;
+export interface ShotEvent {
+  type: 'shot';
+  x: number;
+  z: number;
+  /** Where the round ended (hit point or max range). */
+  hx: number;
+  hz: number;
+  hit: 'none' | 'static' | 'vehicle' | 'ped';
+}
+
+export interface PedHitEvent {
+  type: 'pedHit';
+  pedId: number;
+  x: number;
+  z: number;
+  byPlayer: boolean;
+}
+
+export interface PlayerEvent {
+  type: 'playerHurt' | 'playerDied' | 'playerRespawned' | 'enteredVehicle' | 'exitedVehicle' | 'dodge';
+  x: number;
+  z: number;
+  vehicleId: number;
+  amount: number;
+}
+
+/** The player used the context action on a mission interactable. */
+export interface InteractEvent {
+  type: 'interact';
+  id: string;
+}
+
+/** The player asked to hack a hackable vehicle. */
+export interface HackRequestEvent {
+  type: 'hackRequested';
+  vehicleId: number;
+}
+
+export type SimEvent =
+  | ImpactEvent
+  | VehicleDestroyedEvent
+  | ShotEvent
+  | PedHitEvent
+  | PlayerEvent
+  | InteractEvent
+  | HackRequestEvent;

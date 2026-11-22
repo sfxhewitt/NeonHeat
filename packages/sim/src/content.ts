@@ -72,11 +72,63 @@ export const MapSchema = z.object({
 });
 export type MapContent = z.infer<typeof MapSchema>;
 
+export const PedsConfigSchema = z.object({
+  count: z.number().int().nonnegative(),
+  radius: z.number().positive(),
+  mass: z.number().positive(),
+  walkSpeed: z.number().positive(),
+  runSpeed: z.number().positive(),
+  wanderRadius: z.number().positive(),
+  fleeSecMin: z.number().positive(),
+  fleeSecMax: z.number().positive(),
+  cowerChance: z.number().min(0).max(1),
+  cowerSec: z.number().positive(),
+  downSec: z.number().positive(),
+  knockdownSpeed: z.number().positive(),
+  gunshotAlertRadius: z.number().nonnegative(),
+  crashAlertRadius: z.number().nonnegative(),
+  crashAlertStrength: z.number().nonnegative(),
+  carDangerDist: z.number().nonnegative(),
+  carDangerSpeed: z.number().nonnegative(),
+  respawnMinDist: z.number().nonnegative(),
+  aiHz: z.number().positive(),
+  colours: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(1),
+  player: z.object({
+    radius: z.number().positive(),
+    mass: z.number().positive(),
+    moveSpeed: z.number().positive(),
+    dodgeSpeed: z.number().positive(),
+    dodgeSec: z.number().positive(),
+    dodgeCooldownSec: z.number().nonnegative(),
+    maxHealth: z.number().positive(),
+    enterRange: z.number().positive(),
+    exitMaxSpeed: z.number().positive(),
+    hitMinSpeed: z.number().nonnegative(),
+    hitDamagePerMs: z.number().nonnegative(),
+    respawnSec: z.number().nonnegative(),
+  }),
+});
+export type PedsConfig = z.infer<typeof PedsConfigSchema>;
+
+export const WeaponSchema = z.object({
+  name: z.string(),
+  fireIntervalSec: z.number().positive(),
+  range: z.number().positive(),
+  lockConeDeg: z.number().positive().max(180),
+  damageVehicle: z.number().nonnegative(),
+  damagePed: z.number().nonnegative(),
+  spreadDeg: z.number().nonnegative(),
+});
+export const WeaponsSchema = z.object({ pistol: WeaponSchema });
+export type WeaponsConfig = z.infer<typeof WeaponsSchema>;
+
 export interface SimContent {
   vehicles: VehiclesContent;
   map: MapContent;
   heat: HeatConfig;
   traffic: TrafficConfig;
+  peds: PedsConfig;
+  weapons: WeaponsConfig;
 }
 
 export interface RawSimContent {
@@ -84,6 +136,8 @@ export interface RawSimContent {
   map: unknown;
   heat: unknown;
   traffic: unknown;
+  peds: unknown;
+  weapons: unknown;
 }
 
 /** Validate raw JSON content. Throws a readable error on the first invalid file. */
@@ -101,5 +155,7 @@ export function parseSimContent(raw: RawSimContent): SimContent {
   for (const [id, s] of Object.entries(map.spawns)) {
     if (!(s.variant in vehicles.variants)) throw new Error(`Spawn "${id}" uses unknown variant "${s.variant}"`);
   }
-  return { vehicles, map, heat, traffic };
+  const peds = parse('peds', PedsConfigSchema, raw.peds);
+  const weapons = parse('weapons', WeaponsSchema, raw.weapons);
+  return { vehicles, map, heat, traffic, peds, weapons };
 }

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { FixedStepLoop, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type SimEvent } from '@neonheat/sim';
-import { CameraRig, DroneView, Palette, Particles, VehiclesView, Viewport, buildCity, type CityMeshes } from '@neonheat/engine';
+import { CameraRig, DroneView, Palette, Particles, PeopleView, VehiclesView, Viewport, buildCity, type CityMeshes } from '@neonheat/engine';
 import { DebugPanel, Hud, InputManager, SettingsMenu, loadSettings, storeSettings, type Settings } from '@neonheat/ui';
 import { loadGameContent, type GameContent } from './content';
 import { setupTuning } from './tuning';
@@ -27,6 +27,7 @@ export class Game {
   world!: World;
   private vehiclesView!: VehiclesView;
   private particles!: Particles;
+  private people!: PeopleView;
   private city!: CityMeshes;
   private droneView!: DroneView;
   readonly hud: Hud;
@@ -73,8 +74,8 @@ export class Game {
     const rapier = await initPhysics();
     this.world = new World({ seed, content: this.content.sim, rapier });
     this.buildScene();
-    const pv = this.world.player.vehicle;
-    if (pv) this.rig.snap({ x: pv.x, z: pv.z, vx: 0, vz: 0, speedT: 0, onFoot: false });
+    const p = this.world.player;
+    this.rig.snap({ x: p.x, z: p.z, vx: 0, vz: 0, speedT: 0, onFoot: !p.vehicle });
     const params = new URLSearchParams(location.search);
     if (import.meta.env.DEV || params.has('debug')) this.setupDebug();
     document.addEventListener('visibilitychange', () => {
@@ -94,6 +95,7 @@ export class Game {
     this.city = buildCity(s, this.content.sim.map);
     this.vehiclesView = new VehiclesView(s);
     this.particles = new Particles(s);
+    this.people = new PeopleView(s, this.content.sim.peds.colours);
     this.droneView = new DroneView(s, this.content.sim.heat.droneSightRange);
   }
 
@@ -124,13 +126,15 @@ export class Game {
   respawnPlayerCar(variant?: string): void {
     const w = this.world;
     const old = w.player.vehicle;
-    const start = this.content.sim.map.spawns['starter_car']!;
-    const x = old?.x ?? start.pos[0];
-    const z = old?.z ?? start.pos[2];
-    const yaw = old?.yaw ?? start.yaw;
-    if (old) w.despawnVehicle(old);
-    const v = w.spawnVehicle(variant ?? old?.variantId ?? 'kestrel', x, z, yaw, 'player');
-    w.setPlayerVehicle(v);
+    const x = old?.x ?? w.player.x + 3;
+    const z = old?.z ?? w.player.z;
+    const yaw = old?.yaw ?? 0;
+    if (old) {
+      w.playerCtl.exit();
+      w.despawnVehicle(old);
+    }
+    const v = w.spawnVehicle(variant ?? old?.variantId ?? 'kestrel', x, z, yaw, 'parked');
+    if (v) w.playerCtl.enter(v);
   }
 
   start(): void {
@@ -165,7 +169,8 @@ export class Game {
         for (const e of this.world.events) this.onSimEvent(e);
       });
     }
-    this.input.setMode(this.menu.isOpen ? 'menu' : 'driving', null);
+    const pc = this.world.playerCtl;
+    this.input.setMode(this.menu.isOpen ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
     this.render(alpha, dt);
     this.debug?.update(now);
   };
@@ -186,6 +191,24 @@ export class Game {
     } else if (e.type === 'vehicleDestroyed') {
       this.particles.burstSparks(e.x, e.z, 30, 20);
       if (e.vehicleId === this.world.player.vehicle?.id) this.hud.toast('WRECKED', performance.now());
+    } else if (e.type === 'shot') {
+      const dx = e.hx - e.x;
+      const dz = e.hz - e.z;
+      const len = Math.hypot(dx, dz) || 1;
+      this.particles.muzzle(e.x, 1.0, e.z, dx / len, dz / len);
+      this.people.addTracer(e.x, e.z, e.hx, e.hz);
+      if (e.hit !== 'none') this.particles.burstSparks(e.hx, e.hz, 4, 2);
+      this.rig.addShake(0.08);
+    } else if (e.type === 'pedHit') {
+      if (e.byPlayer) this.rig.addShake(0.3);
+    } else if (e.type === 'playerHurt') {
+      this.rig.addShake(Math.min(1.2, e.amount * 0.03));
+      if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(40);
+    } else if (e.type === 'playerDied') {
+      this.hud.toast('FLATLINED', performance.now(), 3);
+    } else if (e.type === 'playerRespawned') {
+      this.rig.snap({ x: e.x, z: e.z, vx: 0, vz: 0, speedT: 0, onFoot: true });
+      this.hud.toast('PATCHED UP', performance.now(), 2);
     }
   }
 
@@ -209,13 +232,20 @@ export class Game {
     this.hud.setHeat(heat.level, heat.seen && Math.floor(w.time * 4) % 2 === 0);
     const pv0 = w.player.vehicle;
     this.hud.setSpeed(pv0 ? Math.abs(forwardSpeed(pv0)) * 3.6 : null);
-    this.hud.setHealth(pv0 ? w.vehicleHealth(pv0) : 1);
+    this.hud.setHealth(pv0 ? w.vehicleHealth(pv0) : w.playerCtl.hp / w.playerCtl.maxHp, pv0 ? 'HULL' : 'BODY');
     this.hud.tick(performance.now());
+    this.people.update(w, alpha, dt, w.time);
     const pv = w.player.vehicle;
     if (pv) {
       const x = pv.prevX + (pv.x - pv.prevX) * alpha;
       const z = pv.prevZ + (pv.z - pv.prevZ) * alpha;
       this.rig.update({ x, z, vx: pv.vx, vz: pv.vz, speedT: Math.abs(forwardSpeed(pv)) / pv.params.topSpeed, onFoot: false }, dt);
+      this.city.focus.set(x, 1, z);
+    } else {
+      const pc = w.playerCtl;
+      const x = pc.prevX + (pc.x - pc.prevX) * alpha;
+      const z = pc.prevZ + (pc.z - pc.prevZ) * alpha;
+      this.rig.update({ x, z, vx: pc.vx * 0.5, vz: pc.vz * 0.5, speedT: 0, onFoot: true }, dt);
       this.city.focus.set(x, 1, z);
     }
     this.renderer.render(this.scene, this.rig.camera);

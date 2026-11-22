@@ -37,27 +37,25 @@ describe('traffic', () => {
 });
 
 describe('damage', () => {
-  it('a hard crash damages and eventually destroys a car', async () => {
+  it('hard crashes damage a car until it is destroyed, then the player is thrown out', async () => {
     const content = loadContent();
     content.traffic.count = 0;
+    content.peds.count = 0;
     const world = await makeWorld(1, content);
-    const car = world.player.vehicle!;
-    const hits: number[] = [];
-    // Ram the building north of the start repeatedly.
-    for (let i = 0; i < 12 && !car.destroyed; i++) {
-      car.vx = 0;
-      car.vz = 0;
-      world.despawnVehicle(car);
-      const v = world.spawnVehicle(car.variantId, -14, 34, Math.PI, 'player')!;
-      v.hp = car.hp;
-      world.setPlayerVehicle(v);
+    const car = world.spawnVehicle('kestrel', -14, 34, Math.PI, 'parked')!;
+    world.playerCtl.enter(car);
+    const hp: number[] = [];
+    for (let i = 0; i < 30 && !car.destroyed; i++) {
+      // Back off, then ram the building to the north again.
       run(world, 2.5, intents({ throttle: 1 }));
-      hits.push(v.hp);
-      if (v.destroyed) break;
-      car.hp = v.hp;
+      hp.push(car.hp);
+      run(world, 1.6, intents({ brake: 1 }));
     }
-    expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0]!).toBeLessThan(world.player.vehicle?.params.maxHealth ?? Infinity);
+    expect(hp[0]!).toBeLessThan(car.params.maxHealth);
+    expect(car.destroyed).toBe(true);
+    run(world, world.content.vehicles.damage.destroyedEjectSec + 0.5, intents());
+    expect(world.playerCtl.mode).toBe('foot');
+    expect(world.player.vehicle).toBeNull();
   });
 });
 
@@ -105,10 +103,8 @@ describe('police and HEAT in the world', () => {
 
   it('ramming a police car raises HEAT', async () => {
     const w = await chaseWorld(8);
-    const pv = w.player.vehicle!;
-    w.despawnVehicle(pv);
     const car = w.spawnVehicle('kestrel', -110, 120, Math.PI / 2, 'player')!;
-    w.setPlayerVehicle(car);
+    w.playerCtl.enter(car);
     const cop = w.spawnVehicle('interceptor', -60, 120, Math.PI / 2, 'police')!;
     // Hold the patrol car still so the test is about the ram, not the chase.
     cop.ai.mode = 'stunned';

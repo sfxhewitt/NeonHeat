@@ -10,9 +10,11 @@ Phase 0: feel prototype. Question being answered: is driving, crashing and escap
 
 - **M3 Something to hit, something to run from**: 10 pooled traffic cars on three lane loops with car-following (gap keeping, braking for obstacles, stuck recovery, brief "stunned" state after a hard hit); collision feedback (sparks, camera shake, hit-stop, Vibration API); vehicle damage with smoke and a destroyed state; HEAT 1–3 with 1–3 patrol cars that route along the road graph, pursue with lead and ram, and a level-3 surveillance drone that flies over buildings (its sight radius is drawn on the ground). HEAT decays one level after 10 s out of sight, and at level 2+ only while outside the search radius around the last known position. HEAT rises from ramming police, repeated hits on civilian cars (2 within 10 s), hitting peds and firing. HUD shows HEAT chevrons (flashing while seen), speed and hull. Buildings between the camera and the player are dithered away so the car is never hidden.
 
+- **M4 On foot**: the player starts on foot (capsule with a neon visor) next to a car. Floating-stick movement; one context button that appears only when relevant (ENTER / STEAL / EXIT / HACK / LOCKED / mission actions); stealing a moving traffic car throws the driver out, who flees; three civilian variants (Kestrel coupé, Vandal muscle, Brick van) parked nearby and in traffic, each with its own handling; pistol with soft-lock auto-aim on the nearest hostile in a 60° cone (red lock marker), hitscan via Rapier ray casts, tracers and muzzle flash; dodge roll with i-frames; 15 pooled pedestrians that wander, flee gunfire and crashes, dive away from fast cars, sometimes cower, and are knocked down by cars. Getting run over hurts; at zero health you are FLATLINED and patched up at the clinic with HEAT cleared. A wrecked car throws you out.
+
 ## Next
 
-- M4 On foot.
+- M5 The look.
 
 ## Open questions
 

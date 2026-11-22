@@ -11,3 +11,5 @@ export * from './nav';
 export * from './heat';
 export * from './traffic';
 export * from './police';
+export * from './peds';
+export * from './player';

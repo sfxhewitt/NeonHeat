@@ -217,9 +217,9 @@
   },
   "player_start": {
    "pos": [
-    -60,
+    -58,
     0,
-    131
+    130.5
    ]
   }
  },
@@ -242,6 +242,26 @@
     124
    ],
    "yaw": 1.5708,
+   "locked": false
+  },
+  "parked_vandal": {
+   "variant": "vandal",
+   "pos": [
+    -76,
+    0,
+    124.5
+   ],
+   "yaw": 1.5708,
+   "locked": false
+  },
+  "parked_brick": {
+   "variant": "brick",
+   "pos": [
+    -31,
+    0,
+    98
+   ],
+   "yaw": 3.1416,
    "locked": false
   }
  },

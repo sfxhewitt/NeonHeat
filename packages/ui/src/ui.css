@@ -1,5 +1,5 @@
 /* Touch controls */
-.nh-touch { position: fixed; inset: 0; pointer-events: none; z-index: 10; }
+.nh-touch { position: fixed; inset: 0; pointer-events: none !important; z-index: 25; }
 .nh-touch.is-menu { display: none; }
 .nh-touch__zone { position: absolute; left: 0; top: 18%; bottom: 0; width: 46%; pointer-events: auto; touch-action: none; }
 .nh-touch__stick {

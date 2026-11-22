@@ -29,6 +29,15 @@ test('boots to a full-screen canvas', async ({ page }) => {
 test('drives for 10 seconds via injected intents within the frame budget', async ({ page }) => {
   const errors = collectErrors(page);
   await boot(page);
+  // The player starts on foot beside a car: walk up to it and get in.
+  await page.evaluate(() => {
+    const w = window.__neon!.game.world;
+    const car = w.vehicles.find((v: { active: boolean; variantId: string }) => v.active && v.variantId === 'kestrel');
+    w.playerCtl.teleport(car.x, car.z + 2.4);
+  });
+  await page.waitForTimeout(200);
+  await page.evaluate(() => window.__neon!.setIntents({ interact: true }));
+  await page.waitForFunction(() => window.__neon!.game.world.player.vehicle !== null, null, { timeout: 5000 });
   const start = await page.evaluate(() => {
     const v = window.__neon!.game.world.player.vehicle!;
     return { x: v.x, z: v.z };
@@ -52,5 +61,20 @@ test('drives for 10 seconds via injected intents within the frame budget', async
   });
   expect(Math.hypot(result.x - start.x, result.z - start.z)).toBeGreaterThan(20);
   expect(result.stats.avgFrameMs).toBeLessThan(FRAME_BUDGET_MS);
+  expect(errors).toEqual([]);
+});
+
+test('on foot: walk, roll and fire without errors', async ({ page }) => {
+  const errors = collectErrors(page);
+  await boot(page);
+  await page.evaluate(() => window.__neon!.setIntents({ moveX: 1 }));
+  await page.waitForTimeout(800);
+  await page.evaluate(() => window.__neon!.setIntents({ moveX: -1, dodge: true }));
+  await page.waitForTimeout(500);
+  await page.evaluate(() => window.__neon!.setIntents({ fire: true }));
+  await page.waitForTimeout(1200);
+  const heat = await page.evaluate(() => window.__neon!.game.world.heat.level);
+  expect(heat).toBeGreaterThanOrEqual(1);
+  await expect(page.locator('.nh-heat .chev.on').first()).toBeAttached();
   expect(errors).toEqual([]);
 });

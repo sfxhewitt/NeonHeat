@@ -6,3 +6,4 @@ export * from './vehicles-view';
 export * from './particles';
 export * from './drone-view';
 export * from './feel';
+export * from './people-view';
