@@ -22,7 +22,7 @@ export default defineConfig({
   webServer: {
     command: 'pnpm build && pnpm preview --port 4173 --strictPort',
     port,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false, // always test the current build; a stale preview server hid fixes once
     timeout: 180_000,
   },
 });
