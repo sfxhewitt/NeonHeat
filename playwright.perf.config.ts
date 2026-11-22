@@ -1,0 +1,24 @@
+import { defineConfig, devices } from '@playwright/test';
+import { chromiumArgs } from './playwright.config';
+
+const port = 4173;
+const soakMinutes = Number(process.env.SOAK_MINUTES ?? '1');
+
+export default defineConfig({
+  testDir: 'tests/perf',
+  timeout: (soakMinutes * 60 + 180) * 1000,
+  workers: 1,
+  reporter: 'list',
+  use: {
+    baseURL: `http://localhost:${port}`,
+    trace: 'off',
+    launchOptions: { args: [...chromiumArgs, '--enable-precise-memory-info', '--js-flags=--expose-gc'] },
+  },
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 960, height: 540 } } }],
+  webServer: {
+    command: 'pnpm build && pnpm preview --port 4173 --strictPort',
+    port,
+    reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
+  },
+});
