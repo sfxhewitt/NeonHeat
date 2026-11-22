@@ -33,6 +33,8 @@ export const HeatConfigSchema = z.object({
   lookAheadSec: z.number().nonnegative(),
   stuckSec: z.number().positive(),
   reverseSec: z.number().positive(),
+  /** TRACE (0-100 % net trace) bleeds off at this rate. */
+  traceDecayPerSec: z.number().nonnegative(),
 });
 export type HeatConfig = z.infer<typeof HeatConfigSchema>;
 

@@ -196,16 +196,16 @@
   },
   "kurogane_lot": {
    "pos": [
-    -62,
+    95,
     0,
-    4
+    16
    ]
   },
   "gh_chopshop": {
    "pos": [
-    -16,
+    -60,
     0,
-    82
+    64
    ]
   },
   "clinic": {
@@ -227,11 +227,11 @@
   "prototype_car": {
    "variant": "prototype",
    "pos": [
-    -64,
+    100,
     0,
-    -8
+    8
    ],
-   "yaw": 0,
+   "yaw": -1.5708,
    "locked": true
   },
   "starter_car": {

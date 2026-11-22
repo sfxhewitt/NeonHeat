@@ -78,6 +78,8 @@ export class World {
   readonly physics: RAPIER_NS.World;
   tick = 0;
   time = 0;
+  /** TRACE: 0-100 % net trace. Phase 0 only raises it from failed hacks. */
+  trace = 0;
   readonly vehicles: Vehicle[] = [];
   readonly events: SimEvent[] = [];
   readonly player: PlayerState = { vehicle: null, x: 0, z: 0, vx: 0, vz: 0 };
@@ -132,6 +134,22 @@ export class World {
       if (Math.abs(x - b.x) < b.w / 2 + margin && Math.abs(z - b.z) < b.d / 2 + margin) return true;
     }
     return false;
+  }
+
+  addTrace(v: number): void {
+    this.trace = clamp(this.trace + v, 0, 100);
+  }
+
+  /** Move a vehicle instantly (checkpoints), stopping it. */
+  teleportVehicle(v: Vehicle, x: number, z: number, yaw: number): void {
+    v.x = v.prevX = x;
+    v.z = v.prevZ = z;
+    v.yaw = v.prevYaw = yaw;
+    v.vx = v.vz = v.yawRate = 0;
+    v.body?.setTranslation({ x, y: 0, z }, true);
+    v.body?.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
+    v.body?.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    v.body?.setAngvel({ x: 0, y: 0, z: 0 }, true);
   }
 
   /** Apply damage to a vehicle; handles the destroyed transition. */
@@ -349,6 +367,7 @@ export class World {
     this.playerCtl.postStep();
     this.syncPlayer();
     this.police.postStep(SIM_DT);
+    if (this.trace > 0) this.trace = Math.max(0, this.trace - this.content.heat.traceDecayPerSec * SIM_DT);
     this.handlePlayerWreck();
     this.tick++;
     this.time = this.tick * SIM_DT;
@@ -431,7 +450,7 @@ export class World {
       if (!v.active) continue;
       parts.push(v.id, v.x, v.z, v.yaw, v.vx, v.vz, v.hp);
     }
-    parts.push(this.heat.level, this.heat.points, this.police.drone.x, this.police.drone.z);
+    parts.push(this.trace, this.heat.level, this.heat.points, this.police.drone.x, this.police.drone.z);
     const pc = this.playerCtl;
     parts.push(pc.x, pc.z, pc.hp, pc.facing);
     for (const p of this.peds.peds) if (p.active) parts.push(p.id, p.x, p.z);

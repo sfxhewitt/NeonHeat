@@ -1,0 +1,1040 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9_]+$"
+    },
+    "faction": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "giver": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "payphone"
+        },
+        "pos": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "type",
+        "pos"
+      ]
+    },
+    "budgetMinutes": {
+      "type": "number",
+      "minimum": 3,
+      "maximum": 8
+    },
+    "objectives": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "const": "reach"
+              },
+              "target": {
+                "type": "string",
+                "pattern": "^(marker|spawn):[a-z0-9_]+$"
+              },
+              "radius": {
+                "default": 6,
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "onStart": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "dialogue"
+                        },
+                        "line": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "line"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "setHeat"
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "spawnSquad"
+                        },
+                        "squad": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "squad"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "addTrace"
+                        },
+                        "value": {
+                          "type": "number",
+                          "minimum": -100,
+                          "maximum": 100
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "onComplete": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "dialogue"
+                        },
+                        "line": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "line"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "setHeat"
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "spawnSquad"
+                        },
+                        "squad": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "squad"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "addTrace"
+                        },
+                        "value": {
+                          "type": "number",
+                          "minimum": -100,
+                          "maximum": 100
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "onFail": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "dialogue"
+                        },
+                        "line": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "line"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "setHeat"
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "spawnSquad"
+                        },
+                        "squad": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "squad"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "addTrace"
+                        },
+                        "value": {
+                          "type": "number",
+                          "minimum": -100,
+                          "maximum": 100
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "target"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "const": "hack"
+              },
+              "target": {
+                "type": "string",
+                "pattern": "^(marker|spawn):[a-z0-9_]+$"
+              },
+              "minigame": {
+                "type": "string",
+                "const": "sequence"
+              },
+              "difficulty": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "onStart": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "dialogue"
+                        },
+                        "line": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "line"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "setHeat"
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "spawnSquad"
+                        },
+                        "squad": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "squad"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "addTrace"
+                        },
+                        "value": {
+                          "type": "number",
+                          "minimum": -100,
+                          "maximum": 100
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "onComplete": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "dialogue"
+                        },
+                        "line": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "line"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "setHeat"
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "spawnSquad"
+                        },
+                        "squad": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "squad"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "addTrace"
+                        },
+                        "value": {
+                          "type": "number",
+                          "minimum": -100,
+                          "maximum": 100
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "onFail": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "dialogue"
+                        },
+                        "line": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "line"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "setHeat"
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "spawnSquad"
+                        },
+                        "squad": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "squad"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "addTrace"
+                        },
+                        "value": {
+                          "type": "number",
+                          "minimum": -100,
+                          "maximum": 100
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "target",
+              "minigame",
+              "difficulty"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "const": "deliverVehicle"
+              },
+              "vehicle": {
+                "type": "string",
+                "pattern": "^(marker|spawn):[a-z0-9_]+$"
+              },
+              "target": {
+                "type": "string",
+                "pattern": "^(marker|spawn):[a-z0-9_]+$"
+              },
+              "radius": {
+                "default": 6,
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "minHealth": {
+                "default": 0,
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "timeLimitSec": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "onStart": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "dialogue"
+                        },
+                        "line": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "line"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "setHeat"
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "spawnSquad"
+                        },
+                        "squad": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "squad"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "addTrace"
+                        },
+                        "value": {
+                          "type": "number",
+                          "minimum": -100,
+                          "maximum": 100
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "onComplete": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "dialogue"
+                        },
+                        "line": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "line"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "setHeat"
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "spawnSquad"
+                        },
+                        "squad": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "squad"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "addTrace"
+                        },
+                        "value": {
+                          "type": "number",
+                          "minimum": -100,
+                          "maximum": 100
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "onFail": {
+                "type": "array",
+                "items": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "dialogue"
+                        },
+                        "line": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "line"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "setHeat"
+                        },
+                        "value": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 5
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "spawnSquad"
+                        },
+                        "squad": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "squad"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "do": {
+                          "type": "string",
+                          "const": "addTrace"
+                        },
+                        "value": {
+                          "type": "number",
+                          "minimum": -100,
+                          "maximum": 100
+                        },
+                        "delaySec": {
+                          "type": "number",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "do",
+                        "value"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "type",
+              "vehicle",
+              "target"
+            ]
+          }
+        ]
+      }
+    },
+    "rewards": {
+      "type": "object",
+      "properties": {
+        "credits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "rep": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "number"
+          }
+        }
+      },
+      "required": [
+        "credits",
+        "rep"
+      ]
+    },
+    "failPolicy": {
+      "type": "string",
+      "enum": [
+        "checkpoint",
+        "restart"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "faction",
+    "title",
+    "giver",
+    "budgetMinutes",
+    "objectives",
+    "rewards",
+    "failPolicy"
+  ]
+}

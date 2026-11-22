@@ -21,5 +21,6 @@
   "ramDistance": 22,
   "lookAheadSec": 0.5,
   "stuckSec": 1.4,
-  "reverseSec": 0.9
+  "reverseSec": 0.9,
+  "traceDecayPerSec": 0.25
 }
