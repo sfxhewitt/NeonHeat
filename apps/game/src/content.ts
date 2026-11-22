@@ -1,4 +1,5 @@
-import { rawContent } from '@neonheat/content';
+import { rawContent, rawMissions } from '@neonheat/content';
+import { loadMissionContent, type MissionContent } from '@neonheat/missions';
 import { parseSimContent, type SimContent } from '@neonheat/sim';
 import { CameraConfigSchema, FeelConfigSchema, QualitySchema, type CameraConfig, type FeelConfig, type QualityConfig } from '@neonheat/engine';
 
@@ -7,6 +8,7 @@ export interface GameContent {
   camera: CameraConfig;
   feel: FeelConfig;
   quality: QualityConfig;
+  missions: MissionContent;
 }
 
 export function loadGameContent(): GameContent {
@@ -16,5 +18,6 @@ export function loadGameContent(): GameContent {
     camera: CameraConfigSchema.parse(raw.camera),
     feel: FeelConfigSchema.parse(raw.feel),
     quality: QualitySchema.parse(raw.quality),
+    missions: loadMissionContent(raw, structuredClone(rawMissions)),
   };
 }

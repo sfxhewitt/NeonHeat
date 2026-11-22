@@ -1,10 +1,13 @@
 import * as THREE from 'three';
-import { FixedStepLoop, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type SimEvent } from '@neonheat/sim';
+import { FixedStepLoop, SIM_DT, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type SimEvent } from '@neonheat/sim';
+import { MissionBot, MissionDirector } from '@neonheat/missions';
+import { IndexedDbStorage, MemoryStorage, SaveManager, applyMissionResult } from '@neonheat/save';
 import {
   BlobShadows,
   CameraRig,
   DroneView,
   DynamicResolution,
+  MarkersView,
   Palette,
   Particles,
   PeopleView,
@@ -21,7 +24,18 @@ import {
   type CityMeshes,
   type TierName,
 } from '@neonheat/engine';
-import { DebugPanel, Hud, InputManager, SettingsMenu, loadSettings, storeSettings, type Settings } from '@neonheat/ui';
+import {
+  DebugPanel,
+  EdgeArrow,
+  HackOverlay,
+  Hud,
+  InputManager,
+  SettingsMenu,
+  loadSettings,
+  showFailScreen,
+  storeSettings,
+  type Settings,
+} from '@neonheat/ui';
 import { loadGameContent, type GameContent } from './content';
 import { setupTuning } from './tuning';
 
@@ -53,6 +67,18 @@ export class Game {
   private shadows!: BlobShadows;
   private rain!: Rain;
   private roadMat!: THREE.ShaderMaterial;
+  private markers!: MarkersView;
+  director!: MissionDirector;
+  /** Set with ?bot=1: the mission bot plays through the intent layer (demo and soak test). */
+  bot: MissionBot | null = null;
+  readonly saves: SaveManager;
+  private readonly hackUi: HackOverlay;
+  private readonly arrow: EdgeArrow;
+  private closeFail: (() => void) | null = null;
+  private hackHideTimer = 0;
+  private freeRoamSaveTimer = 0;
+  private giversShown = false;
+  private readonly projected = new THREE.Vector3();
   readonly postfx: PostFx;
   tier: TierName = 'mid';
   private dynRes: DynamicResolution | null = null;
@@ -91,6 +117,9 @@ export class Game {
     this.viewport.update();
     this.input = new InputManager(overlay, this.settings.scheme);
     this.hud = new Hud(overlay);
+    this.arrow = new EdgeArrow(overlay);
+    this.hackUi = new HackOverlay(overlay);
+    this.saves = new SaveManager(typeof indexedDB === 'undefined' ? new MemoryStorage() : new IndexedDbStorage());
     this.menu = new SettingsMenu(overlay, {
       settings: this.settings,
       onChange: (s) => {
@@ -101,7 +130,16 @@ export class Game {
       onEditLayout: (on) => this.input.touch.setEditing(on),
       onResetLayout: () => this.input.touch.resetLayout(),
       onOpen: () => this.setPaused(true),
-      onClose: () => this.setPaused(false),
+      onClose: () => {
+        if (!this.closeFail) this.setPaused(false);
+      },
+      extra: () =>
+        this.director?.active
+          ? [
+              { label: 'Restart job', run: () => this.restartJob() },
+              { label: 'Walk away from the job', run: () => this.walkAway() },
+            ]
+          : [],
     });
   }
 
@@ -109,14 +147,74 @@ export class Game {
     const rapier = await initPhysics();
     this.world = new World({ seed, content: this.content.sim, rapier });
     this.buildScene();
+    const params = new URLSearchParams(location.search);
+    this.setupMissions(params.has('bot'));
     const p = this.world.player;
     this.rig.snap({ x: p.x, z: p.z, vx: 0, vz: 0, speedT: 0, onFoot: !p.vehicle });
-    const params = new URLSearchParams(location.search);
     if (import.meta.env.DEV || params.has('debug')) this.setupDebug();
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.setPaused(true);
-      else if (!this.menu.isOpen) this.setPaused(false);
+      else if (!this.menu.isOpen && !this.closeFail) this.setPaused(false);
     });
+    await this.saves.load().catch((err: unknown) => console.warn('Save unavailable', err));
+  }
+
+  private setupMissions(bot: boolean): void {
+    const mc = this.content.missions;
+    const d = new MissionDirector(this.world, mc.missions, mc.squads, mc.dialogue, { autoRetry: bot });
+    this.director = d;
+    if (bot) this.bot = new MissionBot(this.world, d);
+    d.host.onDialogue = (speaker, text) => this.hud.showDialogue(speaker, text, performance.now(), 6);
+    d.onStart = (m) => this.hud.toast(m.title.toUpperCase(), performance.now(), 2.5);
+    d.onHackStart = () => {
+      this.hackHideTimer = 0;
+      this.hackUi.show((n) => d.hackTap(n));
+    };
+    d.onHackEnd = (ok) => {
+      this.hud.toast(ok ? 'LOCK OPEN' : 'BREACH FAILED', performance.now(), 1.5);
+      this.hackHideTimer = 0.6;
+    };
+    d.onFail = (reason) => {
+      this.hud.toast('JOB FAILED', performance.now(), 2);
+      if (this.bot) return; // the director retries on its own
+      this.setPaused(true);
+      this.closeFail = showFailScreen(this.overlay, reason, [
+        { label: 'Retry from checkpoint', run: () => this.afterFail(() => d.retry()) },
+        { label: 'Restart job', run: () => this.afterFail(() => d.restart()) },
+        { label: 'Walk away', run: () => this.afterFail(() => d.abandon()) },
+      ]);
+    };
+    d.onComplete = (r) => {
+      this.hud.toast(`JOB DONE\n+${r.mission.rewards.credits.toLocaleString('en-GB')} cr`, performance.now(), 3.5);
+      this.saves.current = applyMissionResult(this.saves.current, r.mission.id, r.mission.rewards);
+      this.autosave('mission end');
+    };
+  }
+
+  private afterFail(action: () => void): void {
+    this.closeFail = null;
+    action();
+    this.snapCamera();
+    this.setPaused(this.menu.isOpen);
+  }
+
+  restartJob(): void {
+    this.director.restart();
+    this.snapCamera();
+  }
+
+  walkAway(): void {
+    this.director.abandon();
+  }
+
+  private snapCamera(): void {
+    const p = this.world.player;
+    this.rig.snap({ x: p.x, z: p.z, vx: 0, vz: 0, speedT: 0, onFoot: !p.vehicle });
+  }
+
+  private autosave(why: string): void {
+    this.freeRoamSaveTimer = 0;
+    this.saves.save().catch((err: unknown) => console.warn(`Autosave (${why}) failed`, err));
   }
 
   private buildScene(): void {
@@ -136,6 +234,7 @@ export class Game {
     this.vehiclesView = new VehiclesView(s);
     this.particles = new Particles(s);
     this.people = new PeopleView(s, this.content.sim.peds.colours);
+    this.markers = new MarkersView(s);
     this.droneView = new DroneView(s, this.content.sim.heat.droneSightRange);
     const top = this.content.quality.tiers.high;
     this.rain = new Rain(s, top.rainStreaks, top.rainSplashes);
@@ -224,20 +323,91 @@ export class Game {
       this.hitStop -= dt;
       alpha = 1;
     } else if (!this.paused) {
-      alpha = this.loop.advance(dt, () => {
-        if (this.hitStop > 0) return;
-        const t0 = performance.now();
-        this.input.sample(this.intents);
-        this.world.step(this.intents);
-        st.tickMs = performance.now() - t0;
-        for (const e of this.world.events) this.onSimEvent(e);
-      });
+      alpha = this.loop.advance(dt, () => this.simStep());
     }
     const pc = this.world.playerCtl;
     this.input.setMode(this.menu.isOpen ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
     this.render(alpha, dt);
     this.debug?.update(now);
   };
+
+  /** One fixed 60 Hz step: input, sim, missions, events, autosave. */
+  simStep(): void {
+    if (this.hitStop > 0) return;
+    const t0 = performance.now();
+    this.input.sample(this.intents);
+    if (this.bot && !this.input.override) Object.assign(this.intents, this.bot.next(SIM_DT));
+    // The hack panel takes the player's hands off the controls.
+    if (this.director.hack) Object.assign(this.intents, emptyIntents(), { scheme: this.intents.scheme });
+    this.world.step(this.intents);
+    this.director.tick(SIM_DT);
+    this.stats.tickMs = performance.now() - t0;
+    for (const e of this.world.events) this.onSimEvent(e);
+    this.saves.current.stats.playSeconds += SIM_DT;
+    if (!this.director.active) {
+      this.freeRoamSaveTimer += SIM_DT;
+      if (this.freeRoamSaveTimer >= 120) this.autosave('free roam');
+    }
+  }
+
+  /** Run simulation steps synchronously without rendering (tests). Skips hit-stop. */
+  fastForward(seconds: number): void {
+    const n = Math.round(seconds / SIM_DT);
+    for (let i = 0; i < n; i++) {
+      this.hitStop = 0;
+      this.simStep();
+    }
+    this.loop.reset();
+  }
+
+  private updateMissionHud(dt: number): void {
+    const d = this.director;
+    const r = d.runner;
+    if (d.hack) this.hackUi.update(d.hack);
+    if (this.hackHideTimer > 0) {
+      this.hackHideTimer -= dt;
+      if (this.hackHideTimer <= 0 && !d.hack) this.hackUi.hide();
+    }
+    if (r && r.state === 'running') {
+      const v = r.view;
+      const t = v.timeLeft;
+      const timer = t === null ? null : `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+      this.hud.setObjective(v.text, timer);
+      const o = r.objective;
+      const radius = o && 'radius' in o ? o.radius : 3;
+      this.markers.setTarget(v.targetX, v.targetZ, radius, this.world.time);
+      const p = this.projected.set(v.targetX, 0, v.targetZ).project(this.rig.camera);
+      this.arrow.setTone(false);
+      this.arrow.set(p.x, p.y, p.z > 1);
+      if (this.giversShown) this.markers.setGivers([]);
+      this.giversShown = false;
+    } else {
+      this.hud.setObjective(null, null);
+      this.markers.setTarget(null);
+      // Free roam: point at the nearest job payphone.
+      let best = Infinity;
+      let gx = 0;
+      let gz = 0;
+      const pl = this.world.player;
+      for (const m of d.missions) {
+        const dist = Math.hypot(m.giver.pos[0] - pl.x, m.giver.pos[2] - pl.z);
+        if (dist < best) {
+          best = dist;
+          gx = m.giver.pos[0];
+          gz = m.giver.pos[2];
+        }
+      }
+      if (best < Infinity && !d.active) {
+        const p = this.projected.set(gx, 0, gz).project(this.rig.camera);
+        this.arrow.setTone(true);
+        this.arrow.set(p.x, p.y, p.z > 1);
+      } else this.arrow.set(null);
+      if (!d.active && !this.giversShown) {
+        this.markers.setGivers(d.missions.map((m) => ({ x: m.giver.pos[0], z: m.giver.pos[2] })));
+        this.giversShown = true;
+      }
+    }
+  }
 
   private onSimEvent(e: SimEvent): void {
     const feel = this.content.feel;
@@ -297,6 +467,8 @@ export class Game {
     const pv0 = w.player.vehicle;
     this.hud.setSpeed(pv0 ? Math.abs(forwardSpeed(pv0)) * 3.6 : null);
     this.hud.setHealth(pv0 ? w.vehicleHealth(pv0) : w.playerCtl.hp / w.playerCtl.maxHp, pv0 ? 'HULL' : 'BODY');
+    this.hud.setTrace(w.trace);
+    this.updateMissionHud(dt);
     this.hud.tick(performance.now());
     this.people.update(w, alpha, dt, w.time);
     const pv = w.player.vehicle;

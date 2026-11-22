@@ -51,7 +51,7 @@
   background: var(--nh-panel); border: 1px solid var(--nh-magenta); padding: 10px 14px; font-size: 14px; line-height: 1.4;
 }
 .nh-dialogue b { color: var(--nh-magenta); display: block; font-size: 11px; letter-spacing: 0.15em; margin-bottom: 4px; }
-.nh-toast { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); font-size: 28px; letter-spacing: 0.25em; color: var(--nh-magenta); text-shadow: 0 0 12px var(--nh-magenta); text-align: center; }
+.nh-toast { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); font-size: 28px; letter-spacing: 0.25em; color: var(--nh-magenta); text-shadow: 0 0 12px var(--nh-magenta); text-align: center; white-space: pre-line; }
 
 /* Menus */
 .nh-menu-btn {
@@ -65,7 +65,7 @@
 .nh-modal__row { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 8px 0; font-size: 13px; }
 .nh-choice { display: flex; gap: 6px; }
 .nh-choice button, .nh-modal button.nh-wide {
-  min-height: 44px; min-width: 48px; padding: 0 12px; background: #1b1a38; color: var(--nh-ink); border: 1px solid #3b3a70; font: 600 12px var(--nh-font);
+  min-height: 48px; min-width: 48px; padding: 0 12px; background: #1b1a38; color: var(--nh-ink); border: 1px solid #3b3a70; font: 600 12px var(--nh-font);
 }
 .nh-choice button.is-on { border-color: var(--nh-cyan); color: var(--nh-cyan); }
 .nh-modal button.nh-wide { width: 100%; margin-top: 8px; }
@@ -74,3 +74,36 @@
 .nh-title h1 span { color: var(--nh-cyan); text-shadow: 0 0 18px var(--nh-cyan), 0 0 40px var(--nh-cyan); }
 .nh-title p { color: var(--nh-dim); letter-spacing: 0.2em; font-size: 13px; }
 .nh-title button { margin-top: 18px; min-height: 56px; padding: 0 36px; font: 700 16px var(--nh-font); letter-spacing: 0.25em; background: transparent; color: var(--nh-acid); border: 2px solid var(--nh-acid); }
+
+/* Hack minigame */
+.nh-hack { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(5, 5, 14, 0.55); pointer-events: auto; }
+.nh-hack[hidden] { display: none; }
+.nh-hack__box { background: #12122a; border: 1px solid var(--nh-cyan); padding: 14px 18px; text-align: center; }
+.nh-hack__box h2 { margin: 0 0 4px; font-size: 14px; letter-spacing: 0.2em; color: var(--nh-cyan); }
+.nh-hack__status { margin: 0 0 10px; color: var(--nh-ink); font-size: 13px; min-height: 1.2em; }
+.nh-hack__grid { display: grid; grid-template-columns: repeat(3, 72px); gap: 10px; justify-content: center; }
+.nh-hack__node {
+  position: relative; width: 72px; height: 72px; background: #1b1a38; border: 2px solid #3b3a70; border-radius: 10px; padding: 10px;
+  color: var(--c); touch-action: none; transition: transform 60ms, background 60ms;
+}
+.nh-hack__node svg { width: 100%; height: 100%; fill: none; stroke: var(--c); stroke-width: 3; }
+.nh-hack__node small { position: absolute; right: 5px; bottom: 3px; font-size: 10px; color: var(--nh-dim); }
+.nh-hack__node.is-lit { background: color-mix(in srgb, var(--c) 35%, #1b1a38); border-color: var(--c); box-shadow: 0 0 18px var(--c); }
+.nh-hack__node.is-lit svg { fill: var(--c); }
+.nh-hack__node.is-tap { animation: nh-tap 160ms ease-out; }
+@keyframes nh-tap { 50% { transform: scale(0.9); border-color: var(--c); } }
+.nh-hack[data-phase='show'] .nh-hack__node { pointer-events: none; opacity: 0.85; }
+.nh-hack[data-phase='success'] .nh-hack__box { border-color: var(--nh-acid); }
+.nh-hack[data-phase='fail'] .nh-hack__box { border-color: #ff3b3b; }
+.nh-hack__progress { margin-top: 10px; color: var(--nh-acid); letter-spacing: 0.2em; font-size: 14px; }
+.nh-hack__bar { margin-top: 8px; height: 4px; background: #1b1a38; }
+.nh-hack__bar i { display: block; height: 100%; background: var(--nh-cyan); }
+
+/* Objective arrow */
+.nh-arrow { position: fixed; left: 0; top: 0; width: 34px; height: 34px; z-index: 20; pointer-events: none; }
+.nh-arrow svg { width: 100%; height: 100%; fill: var(--nh-acid); filter: drop-shadow(0 0 6px var(--nh-acid)); }
+
+/* Fail screen */
+.nh-fail .nh-modal__box h2 { color: #ff3b5c; }
+.nh-fail__reason { font-size: 15px !important; color: var(--nh-ink) !important; }
+.nh-arrow.is-job svg { fill: var(--nh-cyan); filter: drop-shadow(0 0 6px var(--nh-cyan)); }

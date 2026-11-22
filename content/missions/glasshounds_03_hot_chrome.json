@@ -15,7 +15,8 @@
       "target": "marker:gh_chopshop", "minHealth": 0.5, "timeLimitSec": 180,
       "onStart": [{ "do": "setHeat", "value": 2 },
                   { "do": "dialogue", "line": "gh_03_alarm" },
-                  { "do": "spawnSquad", "squad": "kurogane_pursuit", "delaySec": 20 }] }
+                  { "do": "spawnSquad", "squad": "kurogane_pursuit", "delaySec": 20 }],
+      "onComplete": [{ "do": "dialogue", "line": "gh_03_done" }] }
   ],
   "rewards": { "credits": 1500, "rep": { "glasshounds": 10, "kurogane": -15 } },
   "failPolicy": "checkpoint"

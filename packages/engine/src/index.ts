@@ -14,3 +14,4 @@ export * from './rain';
 export * from './shadows';
 export * from './postfx';
 export * from './quality';
+export * from './markers-view';
