@@ -10,12 +10,22 @@ export const QualityTierSchema = z.object({
   traffic: z.number().int().nonnegative(),
   police: z.number().int().nonnegative(),
   dynamicResolution: z.boolean(),
+  /** Real-time light field: buffer texels (0 = off, baked pools only), world extent, shadow ray-march steps. */
+  lighting: z.object({ size: z.number().int().nonnegative(), extent: z.number().positive(), shadowSteps: z.number().int().min(0).max(32) }),
+  /** Screen-space reflections on the wet street. */
+  ssr: z.boolean(),
+  /** Scene brightness above which light also blooms. */
+  bloomThreshold: z.number().positive(),
 });
 export const QualitySchema = z.object({
-  tiers: z.object({ low: QualityTierSchema, mid: QualityTierSchema, high: QualityTierSchema }),
+  tiers: z.object({ low: QualityTierSchema, mid: QualityTierSchema, high: QualityTierSchema, ultra: QualityTierSchema }),
   benchmark: z.object({
     seconds: z.number().positive(),
-    /** Median frame time thresholds (ms): at or under highMs = high, at or under midMs = mid, else low. */
+    /**
+     * Median frame time thresholds (ms), measured while rendering the ultra
+     * tier: at or under ultraMs = ultra, highMs = high, midMs = mid, else low.
+     */
+    ultraMs: z.number().positive(),
     highMs: z.number().positive(),
     midMs: z.number().positive(),
   }),
@@ -30,6 +40,7 @@ export function tierFromFrameTimes(frameMs: number[], cfg: QualityConfig['benchm
   if (frameMs.length === 0) return 'mid';
   const sorted = [...frameMs].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)]!;
+  if (median <= cfg.ultraMs) return 'ultra';
   if (median <= cfg.highMs) return 'high';
   if (median <= cfg.midMs) return 'mid';
   return 'low';

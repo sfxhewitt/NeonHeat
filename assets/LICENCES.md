@@ -2,7 +2,7 @@
 
 Every imported asset gets a line here: file, source, licence, URL.
 
-Phase 0 uses only procedural geometry and procedurally generated textures created in code, so there are no third-party assets yet.
+Everything in the game so far, including the November 2026 visual overhaul (character, cars, props, city dressing, lighting, HUD), is procedural geometry, shaders and textures created in code. There are no third-party assets yet.
 
 | File | Source | Licence | URL |
 | ---- | ------ | ------- | --- |

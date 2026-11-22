@@ -58,7 +58,21 @@ export interface HackRequestEvent {
   vehicleId: number;
 }
 
+/** A vehicle smashed a breakable prop. */
+export interface PropBrokenEvent {
+  type: 'propBroken';
+  propId: number;
+  kind: string;
+  x: number;
+  z: number;
+  /** Direction and speed the debris flies. */
+  vx: number;
+  vz: number;
+  byPlayer: boolean;
+}
+
 export type SimEvent =
+  | PropBrokenEvent
   | ImpactEvent
   | VehicleDestroyedEvent
   | ShotEvent

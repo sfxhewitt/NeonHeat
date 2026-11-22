@@ -20,6 +20,8 @@ export const VehicleParamsSchema = z.object({
   airDrag: z.number().nonnegative(),
   grip: z.number().positive(),
   driftGrip: z.number().positive(),
+  /** Most sideways acceleration the tyres can give (m/s^2). Past it the car slides, then drifts. */
+  latGripMax: z.number().positive(),
   handbrakeGripMul: z.number().min(0).max(1),
   handbrakeDecel: z.number().nonnegative(),
   driftEnterSlip: z.number().positive(),
@@ -64,6 +66,8 @@ export const MapSchema = z.object({
   buildings: z.array(
     z.object({ x: z.number(), z: z.number(), w: z.number().positive(), d: z.number().positive(), h: z.number().positive() }),
   ),
+  /** Street furniture and clutter; sizes and behaviour come from props.json by kind. */
+  props: z.array(z.object({ kind: z.string(), x: z.number(), z: z.number(), yaw: z.number() })).default([]),
   markers: z.record(z.string(), z.object({ pos: Vec3 })),
   spawns: z.record(z.string(), z.object({ variant: z.string(), pos: Vec3, yaw: z.number(), locked: z.boolean() })),
   traffic: z.object({
@@ -71,6 +75,24 @@ export const MapSchema = z.object({
   }),
 });
 export type MapContent = z.infer<typeof MapSchema>;
+
+export const PropKindSchema = z.object({
+  w: z.number().positive(),
+  d: z.number().positive(),
+  h: z.number().positive(),
+  /** Breakable props are knocked flying by a vehicle instead of stopping it. */
+  breakable: z.boolean(),
+  /** Minimum vehicle speed (m/s) that smashes it. Slower, it just blocks. */
+  breakSpeed: z.number().nonnegative(),
+  /** Fraction of speed the vehicle loses when it smashes through. */
+  slowdown: z.number().min(0).max(1),
+});
+export const PropsConfigSchema = z.object({
+  kinds: z.record(z.string(), PropKindSchema),
+  respawnSec: z.number().positive(),
+  respawnMinDist: z.number().nonnegative(),
+});
+export type PropsConfig = z.infer<typeof PropsConfigSchema>;
 
 export const PedsConfigSchema = z.object({
   count: z.number().int().nonnegative(),
@@ -129,6 +151,7 @@ export interface SimContent {
   traffic: TrafficConfig;
   peds: PedsConfig;
   weapons: WeaponsConfig;
+  props: PropsConfig;
 }
 
 export interface RawSimContent {
@@ -138,6 +161,7 @@ export interface RawSimContent {
   traffic: unknown;
   peds: unknown;
   weapons: unknown;
+  props: unknown;
 }
 
 /** Validate raw JSON content. Throws a readable error on the first invalid file. */
@@ -157,5 +181,7 @@ export function parseSimContent(raw: RawSimContent): SimContent {
   }
   const peds = parse('peds', PedsConfigSchema, raw.peds);
   const weapons = parse('weapons', WeaponsSchema, raw.weapons);
-  return { vehicles, map, heat, traffic, peds, weapons };
+  const props = parse('props', PropsConfigSchema, raw.props);
+  for (const p of map.props) if (!(p.kind in props.kinds)) throw new Error(`Map prop uses unknown kind "${p.kind}"`);
+  return { vehicles, map, heat, traffic, peds, weapons, props };
 }

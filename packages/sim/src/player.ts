@@ -279,7 +279,13 @@ export class PlayerController {
       const speed = mag > 0.12 ? cfg.moveSpeed * Math.min(1, (mag - 0.12) / 0.6 + 0.35) : 0;
       this.vx = dirX * speed;
       this.vz = dirZ * speed;
-      if (speed > 0) this.facing = Math.atan2(dirX, dirZ);
+      // Turn quickly but not instantly, so the body swings round rather than snapping.
+      if (speed > 0) {
+        const want = Math.atan2(dirX, dirZ);
+        const d = Math.atan2(Math.sin(want - this.facing), Math.cos(want - this.facing));
+        const maxTurn = 16 * dt;
+        this.facing += Math.max(-maxTurn, Math.min(maxTurn, d));
+      }
     }
 
     // Soft-lock aim: nearest hostile in a cone around where we face.

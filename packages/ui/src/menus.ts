@@ -10,6 +10,8 @@ export interface SettingsMenuHooks {
   onClose?: () => void;
   /** Extra buttons, e.g. "Restart mission". */
   extra?: () => { label: string; run: () => void }[];
+  /** A live line about the device: tier, frame rate, resolution. */
+  info?: () => string;
 }
 
 /** The pause / settings menu behind the ☰ button. */
@@ -52,7 +54,10 @@ export class SettingsMenu {
       <div class="nh-modal__row"><span>Touch steering</span><div class="nh-choice" data-k="scheme">
         <button data-v="direction">Direction</button><button data-v="classic">Classic</button></div></div>
       <div class="nh-modal__row"><span>Graphics</span><div class="nh-choice" data-k="quality">
-        <button data-v="auto">Auto</button><button data-v="low">Low</button><button data-v="mid">Mid</button><button data-v="high">High</button></div></div>
+        <button data-v="auto">Auto</button><button data-v="low">Low</button><button data-v="mid">Mid</button><button data-v="high">High</button><button data-v="ultra">Max</button></div></div>
+      <div class="nh-modal__row"><span>Frame rate</span><div class="nh-choice" data-k="perf">
+        <button data-v="true">Show</button><button data-v="false">Hide</button></div></div>
+      <div class="nh-modal__info" data-info></div>
       <div class="nh-modal__row"><span>Vibration</span><div class="nh-choice" data-k="vibration">
         <button data-v="true">On</button><button data-v="false">Off</button></div></div>
       <div class="nh-modal__row"><span>Sound</span><div class="nh-choice" data-k="sound">
@@ -77,10 +82,17 @@ export class SettingsMenu {
         else if (k === 'quality') s.quality = v as QualityTier | 'auto';
         else if (k === 'vibration') s.vibration = v === 'true';
         else if (k === 'sound') s.sound = v === 'true';
+        else if (k === 'perf') s.perf = v === 'true';
         sync();
         this.hooks.onChange(s);
       });
     });
+    const info = m.querySelector('[data-info]') as HTMLElement;
+    const tickInfo = (): void => {
+      if (!this.modal) return;
+      info.textContent = this.hooks.info?.() ?? '';
+      setTimeout(tickInfo, 500);
+    };
     const extra = m.querySelector('[data-extra]') as HTMLElement;
     for (const x of this.hooks.extra?.() ?? []) {
       const b = document.createElement('button');
@@ -101,6 +113,7 @@ export class SettingsMenu {
     sync();
     this.parent.appendChild(m);
     this.modal = m;
+    tickInfo();
   }
 
   close(): void {

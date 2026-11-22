@@ -13,6 +13,12 @@
   --nh-safe-r: env(safe-area-inset-right, 0px);
   --nh-safe-t: env(safe-area-inset-top, 0px);
   --nh-safe-b: env(safe-area-inset-bottom, 0px);
+  /* The app's landscape size. Swapped below when a portrait phone draws it rotated. */
+  --app-w: 100vw;
+  --app-h: 100vh;
+}
+@supports (height: 100dvh) {
+  :root { --app-h: 100dvh; }
 }
 * { box-sizing: border-box; }
 html, body {
@@ -28,33 +34,47 @@ html, body {
   touch-action: none;
   overscroll-behavior: none;
 }
-#game {
+#app {
   position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--app-w);
+  height: var(--app-h);
+  overflow: hidden;
+  /* A transform makes this the containing block for every fixed overlay inside it. */
+  transform: translateZ(0);
+}
+#game {
+  position: absolute;
   inset: 0;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  width: 100%;
+  height: 100%;
   display: block;
   touch-action: none;
 }
-#overlay { position: fixed; inset: 0; pointer-events: none; }
+#overlay { position: absolute; inset: 0; pointer-events: none; }
 
-.rotate {
-  display: none;
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: var(--nh-bg);
-  color: var(--nh-cyan);
-  align-items: center;
-  justify-content: center;
-  font-size: 18px;
-  letter-spacing: 0.1em;
-  text-align: center;
-  padding: 24px;
-}
+/*
+ * Portrait phone (rotation lock on, or an iPhone home-screen app that will not
+ * rotate): draw the landscape game turned 90° clockwise. Hold the phone on its
+ * side and it plays exactly as in landscape. Safe-area insets rotate with it.
+ */
 @media (orientation: portrait) and (pointer: coarse) {
-  .rotate { display: flex; }
+  :root {
+    --app-w: 100vh;
+    --app-h: 100vw;
+    --nh-safe-l: env(safe-area-inset-top, 0px);
+    --nh-safe-t: env(safe-area-inset-right, 0px);
+    --nh-safe-r: env(safe-area-inset-bottom, 0px);
+    --nh-safe-b: env(safe-area-inset-left, 0px);
+  }
+  @supports (height: 100dvh) {
+    :root { --app-w: 100dvh; }
+  }
+  #app {
+    transform-origin: 0 0;
+    transform: translateX(100vw) rotate(90deg);
+  }
 }
 
 /* Debug panel */

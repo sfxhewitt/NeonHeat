@@ -11,6 +11,7 @@ import { RoadGraph } from './nav';
 import { TrafficSystem } from './traffic';
 import { PoliceSystem } from './police';
 import { PedSystem } from './peds';
+import { PropSystem } from './props';
 import { PlayerController, type Interactable } from './player';
 
 export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad';
@@ -91,6 +92,7 @@ export class World {
   readonly traffic: TrafficSystem;
   readonly police: PoliceSystem;
   readonly peds: PedSystem;
+  readonly props: PropSystem;
   /** The on-foot player and the enter/exit/fire logic. */
   readonly playerCtl: PlayerController;
   /** Mission-placed things the context button can use. */
@@ -105,13 +107,14 @@ export class World {
     this.R = options.rapier;
     this.physics = new this.R.World({ x: 0, y: 0, z: 0 });
     this.physics.timestep = SIM_DT;
-    const pool = options.maxVehicles ?? 40;
+    const pool = options.maxVehicles ?? 56;
     for (let i = 0; i < pool; i++) this.vehicles.push(makeVehicle(i, this.content.vehicles.variants[this.content.vehicles.player]!));
     this.roads = new RoadGraph(this.content.map);
     this.traffic = new TrafficSystem(this, this.content.traffic);
     this.police = new PoliceSystem(this, this.content.heat);
     this.peds = new PedSystem(this, this.content.peds);
     this.buildStatics();
+    this.props = new PropSystem(this, this.content.props);
     const start = this.content.map.markers['player_start']?.pos ?? [0, 0, 0];
     this.playerCtl = new PlayerController(this, start[0], start[2]);
     this.spawnInitial();
@@ -339,11 +342,13 @@ export class World {
           c.throttle = intents.throttle;
           c.brake = intents.brake;
         }
-        c.handbrake = intents.handbrake;
+        // Direction steering may flick the handbrake itself for a hairpin.
+        c.handbrake = intents.handbrake || (intents.scheme === 'direction' && c.handbrake);
       } else if (v.role === 'parked' || v.destroyed) {
         c.steer = 0;
         c.throttle = 0;
-        c.brake = 1;
+        // No foot brake: at a standstill the brake pedal means reverse.
+        c.brake = 0;
         c.handbrake = true;
       }
       stepArcade(v, v.params, c, SIM_DT);
@@ -353,6 +358,7 @@ export class World {
       v.body?.setAngvel({ x: 0, y: v.yawRate, z: 0 }, true);
     }
 
+    this.props.step(SIM_DT);
     this.physics.step();
 
     for (const v of this.vehicles) {

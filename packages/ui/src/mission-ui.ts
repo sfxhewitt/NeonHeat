@@ -152,7 +152,9 @@ export class EdgeArrow {
     const ex = x / m;
     const ey = y / m;
     const angle = Math.atan2(-y, x);
-    this.el.style.transform = `translate(${((ex + 1) / 2) * 100}vw, ${((1 - ey) / 2) * 100}vh) translate(-50%, -50%) rotate(${angle}rad)`;
+    this.el.style.left = `${((ex + 1) / 2) * 100}%`;
+    this.el.style.top = `${((1 - ey) / 2) * 100}%`;
+    this.el.style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
     if (!this.visible) this.el.hidden = false;
     this.visible = true;
   }

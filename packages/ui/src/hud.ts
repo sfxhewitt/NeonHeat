@@ -17,7 +17,7 @@ export class Hud {
   private readonly timerEl: HTMLElement;
   private readonly dialogueEl: HTMLElement;
   private readonly toastEl: HTMLElement;
-  private last = { heat: -1, flash: false, speed: -1, health: -1, trace: -1, obj: '', timer: '', dialogue: '', toast: '' };
+  private last = { label: '', heat: -1, flash: false, speed: -1, health: -1, trace: -1, obj: '', timer: '', dialogue: '', toast: '' };
   private toastUntil = 0;
   private dialogueUntil = 0;
 
@@ -77,8 +77,9 @@ export class Hud {
   /** Health fraction 0..1, with a label (HULL for vehicles, BODY on foot). */
   setHealth(frac: number, label = 'HULL'): void {
     const v = Math.round(frac * 100);
-    if (v === this.last.health) return;
+    if (v === this.last.health && label === this.last.label) return;
     this.last.health = v;
+    this.last.label = label;
     this.healthFill.style.width = `${v}%`;
     this.healthBar.classList.toggle('is-low', v < 35);
     (this.healthWrap.firstElementChild as HTMLElement).textContent = label;

@@ -7,13 +7,16 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="screen-orientation" content="landscape" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="NEON HEAT" />
     <title>NEON HEAT</title>
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
-    <canvas id="game"></canvas>
-    <div id="overlay"></div>
-    <div id="rotate" class="rotate">Turn your device to landscape</div>
+    <div id="app">
+      <canvas id="game"></canvas>
+      <div id="overlay"></div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

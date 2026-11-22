@@ -7,12 +7,16 @@ import {
   CameraRig,
   DroneView,
   DynamicResolution,
+  LightField,
   MarkersView,
   Palette,
   Particles,
   PeopleView,
   PostFx,
+  PropsView,
   Rain,
+  SceneLights,
+  SkidMarks,
   VehiclesView,
   Viewport,
   buildCity,
@@ -30,10 +34,12 @@ import {
   HackOverlay,
   Hud,
   InputManager,
+  Minimap,
   SettingsMenu,
   loadSettings,
   showFailScreen,
   storeSettings,
+  type MinimapDot,
   type Settings,
 } from '@neonheat/ui';
 import { loadGameContent, type GameContent } from './content';
@@ -68,6 +74,15 @@ export class Game {
   private rain!: Rain;
   private roadMat!: THREE.ShaderMaterial;
   private markers!: MarkersView;
+  private lightField!: LightField;
+  private propsView!: PropsView;
+  private skids!: SkidMarks;
+  private sceneLights!: SceneLights;
+  private perfEl: HTMLElement | null = null;
+  private minimap!: Minimap;
+  private readonly mapDots: MinimapDot[] = [];
+  private mapTarget: { x: number; z: number } | null = null;
+  private perfTimer = 0;
   director!: MissionDirector;
   /** Set with ?bot=1: the mission bot plays through the intent layer (demo and soak test). */
   bot: MissionBot | null = null;
@@ -82,6 +97,8 @@ export class Game {
   readonly postfx: PostFx;
   tier: TierName = 'mid';
   private dynRes: DynamicResolution | null = null;
+  /** Set while the first-boot benchmark runs, so dynamic resolution does not flatter the result. */
+  holdResolution = false;
   readonly hud: Hud;
   /** Remaining hit-stop, seconds of frozen simulation. */
   private hitStop = 0;
@@ -133,6 +150,7 @@ export class Game {
       onClose: () => {
         if (!this.closeFail) this.setPaused(false);
       },
+      info: () => this.perfLine(),
       extra: () =>
         this.director?.active
           ? [
@@ -147,6 +165,7 @@ export class Game {
     const rapier = await initPhysics();
     this.world = new World({ seed, content: this.content.sim, rapier });
     this.buildScene();
+    this.minimap = new Minimap(this.hud.root, this.content.sim.map);
     const params = new URLSearchParams(location.search);
     this.setupMissions(params.has('bot'));
     const p = this.world.player;
@@ -221,24 +240,54 @@ export class Game {
     const s = this.scene;
     s.background = new THREE.Color(Palette.bg);
     s.fog = new THREE.Fog(Palette.fog, 90, 260);
-    s.add(new THREE.HemisphereLight(0x9a8cff, 0x2a1030, 2.2));
-    const key = new THREE.DirectionalLight(0xd0c0ff, 1.6);
+    s.add(new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8));
+    const key = new THREE.DirectionalLight(0xc0b0ff, 0.85);
     key.position.set(-40, 100, 30);
     s.add(key);
     const map = this.content.sim.map;
     const signs = layoutSigns(map);
-    this.roadMat = createWetRoadMaterial(map, buildReflectionTexture(map, signs), buildNoiseTexture());
+    this.lightField = new LightField(map);
+    this.roadMat = createWetRoadMaterial(map, buildReflectionTexture(map, signs), buildNoiseTexture(), this.lightField.uniforms);
     this.city = buildCity(s, map, this.roadMat);
+    this.propsView = new PropsView(s, this.world.props.props);
+    this.sceneLights = new SceneLights(this.lightField, this.city.lamps, signs, this.propsView.lights());
     buildSignage(s, signs);
     this.shadows = new BlobShadows(s);
-    this.vehiclesView = new VehiclesView(s);
+    this.vehiclesView = new VehiclesView(s, this.content.sim.vehicles.variants);
     this.particles = new Particles(s);
+    this.skids = new SkidMarks(s);
     this.people = new PeopleView(s, this.content.sim.peds.colours);
     this.markers = new MarkersView(s);
     this.droneView = new DroneView(s, this.content.sim.heat.droneSightRange);
-    const top = this.content.quality.tiers.high;
-    this.rain = new Rain(s, top.rainStreaks, top.rainSplashes);
-    this.postfx.addOccluder(this.city.buildings, this.vehiclesView.body, this.vehiclesView.cabin);
+    const top = this.content.quality.tiers.ultra;
+    this.rain = new Rain(s, top.rainStreaks, top.rainSplashes, this.lightField.uniforms);
+    this.postfx.addOccluder(
+      this.city.buildings,
+      this.city.roofProps,
+      this.city.lampPosts,
+      ...this.vehiclesView.bodies,
+      this.vehiclesView.wheels,
+      ...this.people.meshes,
+      ...this.propsView.meshes,
+    );
+    // Everything solid receives the real-time light field; paint and glass also pick up a wet sheen.
+    const lf = this.lightField;
+    const mats = (m: THREE.Object3D): THREE.Material[] => {
+      const mm = (m as THREE.Mesh).material;
+      return Array.isArray(mm) ? mm : [mm];
+    };
+    const seen = new Set<THREE.Material>();
+    const lit = (gloss: number, ...objs: THREE.Object3D[]): void => {
+      for (const o of objs)
+        for (const m of mats(o)) {
+          if (seen.has(m)) continue;
+          seen.add(m);
+          lf.inject(m, { gloss });
+        }
+    };
+    lit(0.55, ...this.vehiclesView.bodies);
+    lit(0.12, this.city.buildings, this.city.pavements, this.city.ground);
+    lit(0, this.city.roofProps, this.city.lampPosts, this.vehiclesView.wheels, ...this.people.meshes, ...this.propsView.meshes, this.particles.debris.mesh);
   }
 
   /** Apply a quality tier: resolution cap, bloom, rain and simulation caps. */
@@ -249,6 +298,13 @@ export class Game {
     this.viewport.resolutionScale = 1;
     this.viewport.update();
     this.postfx.enabled = q.bloom;
+    this.postfx.ssr = q.ssr;
+    this.postfx.threshold = q.bloomThreshold;
+    this.lightField.configure(q.lighting);
+    this.city.lightPools.visible = q.lighting.size === 0;
+    this.city.lampCones.visible = q.lighting.shadowSteps > 0;
+    this.vehiclesView.beamStrength = q.lighting.size === 0 ? 0.5 : 0.14;
+    this.roadMat.uniforms.uFakeRefl!.value = q.ssr ? 0 : q.lighting.size > 0 ? 0.45 : 1;
     this.rain.visible = q.rain;
     this.rain.setCounts(q.rainStreaks, q.rainSplashes);
     this.world.peds.cap = q.peds;
@@ -311,7 +367,7 @@ export class Game {
     st.frameMs = elapsedMs;
     st.fps += (1000 / Math.max(elapsedMs, 0.1) - st.fps) * 0.05;
     this.frameTimes.push(elapsedMs);
-    if (this.dynRes && !this.paused) {
+    if (this.dynRes && !this.paused && !this.holdResolution) {
       const scale = this.dynRes.sample(elapsedMs);
       if (scale !== null) this.viewport.setResolutionScale(scale);
     }
@@ -376,6 +432,7 @@ export class Game {
       const o = r.objective;
       const radius = o && 'radius' in o ? o.radius : 3;
       this.markers.setTarget(v.targetX, v.targetZ, radius, this.world.time);
+      this.mapTarget = { x: v.targetX, z: v.targetZ };
       const p = this.projected.set(v.targetX, 0, v.targetZ).project(this.rig.camera);
       this.arrow.setTone(false);
       this.arrow.set(p.x, p.y, p.z > 1);
@@ -384,6 +441,7 @@ export class Game {
     } else {
       this.hud.setObjective(null, null);
       this.markers.setTarget(null);
+      this.mapTarget = null;
       // Free roam: point at the nearest job payphone.
       let best = Infinity;
       let gx = 0;
@@ -409,11 +467,51 @@ export class Game {
     }
   }
 
+  private updateMinimap(dt: number): void {
+    const w = this.world;
+    const dots = this.mapDots;
+    dots.length = 0;
+    for (const v of w.vehicles) {
+      if (!v.active || v === w.player.vehicle) continue;
+      if (v.role === 'police' || v.role === 'squad') dots.push({ x: v.x, z: v.z, kind: 'police' });
+    }
+    if (this.mapTarget) dots.push({ x: this.mapTarget.x, z: this.mapTarget.z, kind: 'target' });
+    else if (!this.director.active) for (const m of this.director.missions) dots.push({ x: m.giver.pos[0], z: m.giver.pos[2], kind: 'giver' });
+    const pv = w.player.vehicle;
+    const pc = w.playerCtl;
+    this.minimap.update(dt, pv ? pv.x : pc.x, pv ? pv.z : pc.z, pv ? pv.yaw : pc.facing, dots, w.time);
+  }
+
+  /** Tier and frame-rate readout (pause menu line, and an optional corner overlay). */
+  perfLine(): string {
+    const names: Record<TierName, string> = { low: 'Low', mid: 'Mid', high: 'High', ultra: 'Max' };
+    const px = this.renderer.getPixelRatio();
+    return `${names[this.tier]} graphics · ${this.stats.fps.toFixed(0)} fps · ${px.toFixed(2)}× pixels · ${this.lightField.count} lights`;
+  }
+
+  private updatePerf(dt: number): void {
+    if (!this.settings.perf) {
+      if (this.perfEl) this.perfEl.hidden = true;
+      return;
+    }
+    if (!this.perfEl) {
+      this.perfEl = document.createElement('div');
+      this.perfEl.className = 'nh-perf';
+      this.overlay.appendChild(this.perfEl);
+    }
+    this.perfEl.hidden = false;
+    this.perfTimer -= dt;
+    if (this.perfTimer > 0) return;
+    this.perfTimer = 0.5;
+    this.perfEl.textContent = this.perfLine();
+  }
+
   private onSimEvent(e: SimEvent): void {
     const feel = this.content.feel;
     if (e.type === 'impact') {
       const n = Math.min(feel.sparksMax, Math.round(e.strength * feel.sparksPerStrength));
       if (n > 0) this.particles.burstSparks(e.x, e.z, n, e.strength);
+      if (e.strength > 6) this.sceneLights.flash(e.x, e.z, 0xffb060, 0.12);
       if (!e.involvesPlayer) return;
       this.rig.addShake(Math.min(feel.shakeMax, e.strength * feel.shakePerStrength));
       if (e.strength >= feel.hitStopMinStrength && this.hitStop <= 0) {
@@ -424,15 +522,25 @@ export class Game {
       }
     } else if (e.type === 'vehicleDestroyed') {
       this.particles.burstSparks(e.x, e.z, 30, 20);
+      this.sceneLights.flash(e.x, e.z, 0xff8a3a, 0.6);
       if (e.vehicleId === this.world.player.vehicle?.id) this.hud.toast('WRECKED', performance.now());
     } else if (e.type === 'shot') {
       const dx = e.hx - e.x;
       const dz = e.hz - e.z;
       const len = Math.hypot(dx, dz) || 1;
       this.particles.muzzle(e.x, 1.0, e.z, dx / len, dz / len);
+      this.sceneLights.flash(e.x + (dx / len) * 0.8, e.z + (dz / len) * 0.8, 0xffc070);
       this.people.addTracer(e.x, e.z, e.hx, e.hz);
-      if (e.hit !== 'none') this.particles.burstSparks(e.hx, e.hz, 4, 2);
-      this.rig.addShake(0.08);
+      if (e.hit !== 'none') this.particles.burstSparks(e.hx, e.hz, e.hit === 'vehicle' ? 7 : 4, 2);
+      this.rig.addShake(0.1);
+      if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(e.hit === 'none' ? 6 : 12);
+    } else if (e.type === 'propBroken') {
+      const solidKinds = e.kind === 'bollard' || e.kind === 'hydrant';
+      this.particles.burstDebris(e.x, e.z, e.vx, e.vz, this.propsView.debrisColour(e.kind), solidKinds ? 6 : 12, e.kind === 'hydrant');
+      if (e.byPlayer) {
+        this.rig.addShake(solidKinds ? 0.35 : 0.2);
+        if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(solidKinds ? 25 : 12);
+      }
     } else if (e.type === 'pedHit') {
       if (e.byPlayer) this.rig.addShake(0.3);
     } else if (e.type === 'playerHurt') {
@@ -448,11 +556,14 @@ export class Game {
 
   private render(alpha: number, dt: number): void {
     const w = this.world;
-    this.vehiclesView.update(w, alpha);
+    this.vehiclesView.update(w, alpha, dt);
     this.droneView.update(w.police.drone, alpha, w.time);
+    this.skids.update(w, w.time);
     this.smokeTimer -= dt;
     if (this.smokeTimer <= 0) {
       this.smokeTimer = 0.08;
+      const sm = this.skids.smoke;
+      for (let i = 0; i < sm.length; i += 2) this.particles.puffSmoke(sm[i]!, sm[i + 1]!, false);
       for (const v of w.vehicles) {
         if (!v.active) continue;
         const h = v.hp / v.params.maxHealth;
@@ -469,6 +580,7 @@ export class Game {
     this.hud.setHealth(pv0 ? w.vehicleHealth(pv0) : w.playerCtl.hp / w.playerCtl.maxHp, pv0 ? 'HULL' : 'BODY');
     this.hud.setTrace(w.trace);
     this.updateMissionHud(dt);
+    this.updateMinimap(dt);
     this.hud.tick(performance.now());
     this.people.update(w, alpha, dt, w.time);
     const pv = w.player.vehicle;
@@ -489,7 +601,16 @@ export class Game {
     const focus = this.rig.focus;
     this.rain.update(w.time, focus.x, focus.z);
     this.roadMat.uniforms.uTime!.value = w.time;
+    (this.city.lampCones.material as THREE.ShaderMaterial).uniforms.uTime!.value = w.time;
+    this.renderer.getDrawingBufferSize(this.city.viewport);
+    const fp = this.projected.copy(this.city.focus).project(this.rig.camera);
+    this.city.focusScreen.set(fp.x * 0.5 + 0.5, fp.y * 0.5 + 0.5);
+    this.propsView.update();
+    this.sceneLights.update(w, alpha, this.paused ? 0 : dt);
+    // Centre the light buffer a little ahead (north) of the focus: the camera sees further up the screen.
+    this.lightField.render(this.renderer, focus.x, focus.z - 12);
     this.postfx.render(this.scene, this.rig.camera);
+    this.updatePerf(dt);
     this.stats.drawCalls = this.renderer.info.render.calls;
     this.stats.triangles = this.renderer.info.render.triangles;
   }

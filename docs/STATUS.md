@@ -1,5 +1,47 @@
 # Status
 
+## Visual and feel overhaul (22 Nov 2026): conclusions first
+
+- **Budget comes from the target phone, not a guess.** An iPhone 17 Pro Max (A19 Pro: 6-core GPU with hardware ray tracing, roughly desktop-M2 class; 12 GB RAM; 2868 × 1320 panel = 956 × 440 CSS px at DPR 3; ProMotion up to 120 Hz, but Safari runs `requestAnimationFrame` at 60 fps by default) can afford a full-resolution, heavily lit frame. So there is a fourth tier, **Max** (`ultra`), built for it. The three lower tiers stay for ordinary phones, and only they keep the hard < 100 draw-call cap (measured: low 39, mid 79, high 80 in the populated block).
+- **Lighting is the headline.** Max renders an HDR *light field*: every street lamp, sign, prop, headlight, tail light, police bar, muzzle flash and fire is splatted into a top-down HalfFloat texture, and each light's contribution is ray-marched against a building height map for soft, penumbra shadows (16 steps on Max, 8 on high). All materials sample it, so coloured light spills onto roads, pavements, walls, cars and people. On top: screen-space reflections on the wet road (28-step depth march + binary refine + streak blur), HDR exposure with a filmic shoulder, a grade, selective bloom, lit rain and volumetric lamp cones. That is real per-pixel ray marching against the city, within WebGL 2.
+- **WebGPU recommendation: not yet.** Safari 26 ships WebGPU, and it would allow a compute-shader light grid and proper hardware-accelerated ray queries later. But the current look already fits WebGL 2 at 60 fps on this class of GPU, and switching renderers is a large, risky change for Phase 1. Revisit once the game loop is settled: compute-based clustered lights and SSR would be the first wins.
+- **The first-boot benchmark now waits for real frames.** It used to sample a fixed 2 s window, which slow shader compilation could eat entirely. With no samples it silently stored "mid" for ever. It now waits until it has 40 frames (up to 6 s), holds dynamic resolution while measuring, and stores its result under a new key (`neonheat.benchmark.v3`) so every device re-measures once.
+- **What emulation cannot prove**: real iPhone frame times, thermal throttling over a long session, Safari's shader compile times, touch latency and haptics. Headless Chromium renders WebGL in software (SwiftShader); it proves the code paths and the draw-call counts, not the speed. The menu now has **Frame rate: Show**, which overlays tier, FPS, render scale and light count on the device.
+
+### What changed
+
+- **Character**: a modelled, animated runner (walk cycle, arms, visible pistol), 1.45× scale, white jacket, rim light, personal light and a ground ring, so the player reads at a glance. On-foot camera comes in to 27 m.
+- **Cars**: six distinct low-poly models (coupé, muscle, van, interceptor, enforcer, prototype) with working head, tail and brake lights, light beams, police light bars and visible damage.
+- **City**: map re-densified by `tools/map-compiler/src/densify.ts`: 133 buildings on subdivided lots, alleys and plazas, 379 props (bins, benches, bollards, hydrants, planters with trees, vending machines, kiosks, dumpsters, crates, barriers) and 19 parked cars. Roads gain kerbs, centre and edge lines, zebra crossings and stop lines; pavements are slabbed and toned; buildings get lit window grids, roof parapets, seams, plant and helipads, and neon signs facing the street.
+- **Props are physical**: every prop has a collider; light ones smash (debris, hydrant spray, shake, haptics) and slow the car, then respawn after 45 s once nobody is near.
+- **HUD and touch**: redesigned HEAT panel, italic speedo, segmented hull bar with a low-health pulse, a north-up minimap with police, objective and job markers, glassy touch buttons with a resting stick ring.
+- **Rotation lock**: the game always plays landscape, even held in portrait with rotation lock on (the app rotates itself and remaps touches).
+
+### Feel changes
+
+- **Driving weight**: each car has a lateral grip ceiling (`latGripMax`), so fast turns are limited by grip rather than snapping; sliding scrubs speed; yaw rate is grip-limited when not drifting. Kestrel: 0–100 km/h in 2.1 s; a 90° stick turn at 80 km/h takes 1.2 s and drops to 57 km/h; a hairpin takes 1.8 s; a 45° change of lane loses no speed.
+- **Direction steering assists**: pushing the stick hard against the direction of travel now brakes, then flicks the handbrake for a hairpin, so touch players can drift without a second thumb.
+- **Skid marks and tyre smoke** while sliding, handbraking or braking hard; they fade over 14 s.
+- **Impacts**: light flashes from gunfire, crashes and explosions; debris in each prop's colour; haptic pulses on shots (6–12 ms) and smashes.
+- **On foot**: facing turns at up to 16 rad/s, so aiming and rolling feel immediate.
+- **Traffic**: parked cars no longer count as lane obstacles, and traffic spawns respect them.
+- **Camera**: pitch 57°, FOV 30°, height 58–88 m driving, 27 m on foot.
+
+### Bugs found and fixed during the pass
+
+- Parked cars crept backwards on their own: the "parked" controls held the foot brake, which at a standstill means reverse, and on fast cars it beat the handbrake. Parked cars now hold only the handbrake (`tests/unit/vehicle.test.ts`, "parked cars").
+- A police car could shunt the locked Hot Chrome prototype into a corner during the hack, and every retry then restored it wedged there. A mission car the player has not driven yet is now checkpointed at its spawn point (`tests/unit/missions.test.ts`).
+
+### Tests
+
+- The iPhone touch path is the primary e2e path and runs first, at the exact Pro Max screen (440 × 956 portrait with rotation lock, 956 × 440 landscape, DPR 3): tap to start, walk with the floating stick, enter and drive, steal from traffic, answer the payphone, hack on the touch panel and deliver Hot Chrome. A second test checks every touch button stays on screen and at least 48 px.
+- 74 unit tests, 9 e2e tests, draw-call perf test and a 1-minute soak all pass locally.
+
+### Next from this pass
+
+- Measure on the real phone with **Frame rate: Show**, and tune the Max tier from those numbers (light count, shadow steps and SSR are the expensive knobs).
+- The start area is still quieter than the rest of the block; dress it in the next map pass.
+
 Phase 0: feel prototype. Question being answered: is driving, crashing and escaping the police fun on a phone?
 
 ## Done
@@ -39,19 +81,19 @@ Phase 0: feel prototype. Question being answered: is driving, crashing and escap
 
 ## Known issues
 
-- Hosted CI renders WebGL in software, so the smoke test budget is 120 ms per frame there (50 ms locally). It catches regressions only; real-device frame times must be measured on a phone.
+- Hosted CI renders WebGL in software, so the smoke test budget is 120 ms per frame there (50 ms locally). It catches regressions only; real-device frame times must be measured on a phone. Software rendering benchmarks as the low tier.
 - The bundle is about 1 MB gzip, mostly Rapier's inlined WASM (budget 1.6 MB).
-- Wet-road reflections are painted once from the sign layout; moving lights (police bars) do not reflect.
+- On low, mid and high, wet-road reflections are painted once from the sign layout, so moving lights do not reflect. Max uses screen-space reflections, which do reflect them but cannot show anything off screen.
 
 ## Tuning values settled on
 
-- **Camera**: pitch 60°, FOV 32°, height 72–105 m driving (by speed), 52 m on foot, look-ahead 0.55 s capped at 20 m.
+- **Camera**: pitch 57°, FOV 30°, height 58–88 m driving (by speed), 27 m on foot, look-ahead 0.55 s capped at 20 m.
 - **Kestrel (player default)**: top speed 36 m/s, acceleration 15, brake 32, grip 9, drift grip 1.6, handbrake grip ×0.14, drift enters at 9 m/s slip and exits at 2.2, steer rate 3.1 → 1.75 rad/s (low → high speed), auto-straighten 14.
 - **Vandal** is driftier (grip 6.5, drift enters at 7); **Brick** is heavy and slow (2,600 kg, top speed 25).
 - **Feel**: shake 0.05 per impact strength (max 1.6, decay 7); hit-stop from strength 9, 35 ms + 3 ms per strength, max 110 ms; vibration from strength 5, max 90 ms.
 - **World**: 10 traffic cars on mid and high; abandoned stolen cars recycled after 20 s out of range; at most 3 wrecks.
 - **HEAT**: thresholds 0 / 1 / 45 / 100; ram police 30, hit ped 14, repeated civilian hits 10, firing 6; decays a level after 10 s unseen; search radius 70 / 95 / 120 m at levels 1–3; drone at level 3 with 48 m sight.
-- **Quality**: benchmark 1.5 s; high at ≤ 18 ms, mid at ≤ 26 ms, else low; dynamic resolution targets 16.7 ms, floor 0.6.
+- **Quality**: the benchmark renders the Max tier for at least 2 s and 40 frames; Max at ≤ 18.5 ms median, high at ≤ 28 ms, mid at ≤ 40 ms, else low; dynamic resolution targets 16.7 ms, floor 0.6.
 
 ## Next
 

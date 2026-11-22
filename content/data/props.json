@@ -1,0 +1,16 @@
+{
+  "kinds": {
+    "bin": { "w": 0.6, "d": 0.6, "h": 1.0, "breakable": true, "breakSpeed": 2.5, "slowdown": 0.04 },
+    "bench": { "w": 1.8, "d": 0.6, "h": 0.8, "breakable": true, "breakSpeed": 3, "slowdown": 0.08 },
+    "bollard": { "w": 0.3, "d": 0.3, "h": 0.9, "breakable": true, "breakSpeed": 4, "slowdown": 0.1 },
+    "hydrant": { "w": 0.4, "d": 0.4, "h": 0.8, "breakable": true, "breakSpeed": 4, "slowdown": 0.1 },
+    "crate": { "w": 1.0, "d": 1.0, "h": 1.0, "breakable": true, "breakSpeed": 2, "slowdown": 0.06 },
+    "barrier": { "w": 2.4, "d": 0.5, "h": 0.9, "breakable": true, "breakSpeed": 2.5, "slowdown": 0.08 },
+    "tree": { "w": 0.5, "d": 0.5, "h": 5.0, "breakable": false, "breakSpeed": 0, "slowdown": 0 },
+    "vending": { "w": 1.0, "d": 0.8, "h": 1.9, "breakable": false, "breakSpeed": 0, "slowdown": 0 },
+    "kiosk": { "w": 3.0, "d": 2.4, "h": 2.8, "breakable": false, "breakSpeed": 0, "slowdown": 0 },
+    "dumpster": { "w": 2.0, "d": 1.2, "h": 1.3, "breakable": false, "breakSpeed": 0, "slowdown": 0 }
+  },
+  "respawnSec": 45,
+  "respawnMinDist": 45
+}
