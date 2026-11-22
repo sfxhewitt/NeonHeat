@@ -18,6 +18,8 @@ export const TrafficConfigSchema = z.object({
   laneHalfWidth: z.number().positive(),
   respawnMinDist: z.number().nonnegative(),
   stuckSec: z.number().positive(),
+  /** Abandoned (stolen then left) cars out of range for this long are recycled. */
+  abandonedDespawnSec: z.number().positive(),
   aiHz: z.number().positive(),
 });
 export type TrafficConfig = z.infer<typeof TrafficConfigSchema>;
@@ -109,10 +111,15 @@ export class TrafficSystem {
       const loop = w.rng.int(0, this.loops.length - 1);
       this.spawnAt(loop, w.rng.next() * this.loops[loop]!.length, true);
     }
-    // Recycle traffic that is wrecked and far away.
+    // Recycle traffic that is wrecked and far away, and cars the player stole and left behind.
     for (const v of w.vehicles) {
-      if (v.active && v.role === 'traffic' && v.destroyed && w.time - v.destroyedTime > 8 && w.distToPlayer(v.x, v.z) > cfg.respawnMinDist) {
+      if (!v.active) continue;
+      const far = w.distToPlayer(v.x, v.z) > cfg.respawnMinDist;
+      if (v.role === 'traffic' && v.destroyed && w.time - v.destroyedTime > 8 && far) {
         w.despawnVehicle(v);
+      } else if (v.role === 'parked' && !v.persistent) {
+        v.abandonedTime = far ? v.abandonedTime + dt : 0;
+        if (v.abandonedTime > cfg.abandonedDespawnSec) w.despawnVehicle(v);
       }
     }
   }

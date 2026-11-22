@@ -57,6 +57,7 @@ export class WorldMissionHost implements MissionHost {
     const v = this.world.spawnVehicle(s.variant, s.pos[0], s.pos[2], s.yaw, 'parked');
     if (!v) throw new Error(`No free vehicle slot for "${ref}"`);
     v.locked = s.locked;
+    v.persistent = true;
     this.spawned.set(ref, v.id);
     return v.id;
   }
@@ -172,6 +173,7 @@ export class WorldMissionHost implements MissionHost {
       if (!v) {
         v = w.spawnVehicle(snap.variant, snap.x, snap.z, snap.yaw, 'parked');
         if (!v) continue;
+        v.persistent = true;
         this.spawned.set(snap.ref, v.id);
       }
       w.teleportVehicle(v, snap.x, snap.z, snap.yaw);

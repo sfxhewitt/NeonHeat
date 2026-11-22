@@ -12,5 +12,6 @@
   "laneHalfWidth": 2.6,
   "respawnMinDist": 70,
   "stuckSec": 3,
+  "abandonedDespawnSec": 20,
   "aiHz": 15
 }

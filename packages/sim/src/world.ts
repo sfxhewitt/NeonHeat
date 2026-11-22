@@ -33,6 +33,10 @@ export interface Vehicle extends ArcadeState {
   locked: boolean;
   /** A mission has made this vehicle hackable: the context button offers HACK. */
   hackable: boolean;
+  /** Map and mission vehicles are never recycled; abandoned stolen cars are. */
+  persistent: boolean;
+  /** Seconds this car has sat abandoned out of the player's range. */
+  abandonedTime: number;
   controls: DriveControls;
   body: RAPIER_NS.RigidBody | null;
   collider: RAPIER_NS.Collider | null;
@@ -253,7 +257,10 @@ export class World {
     for (const s of Object.values(this.content.map.spawns)) {
       if (s.variant === 'prototype') continue; // mission vehicles are spawned by missions
       const v = this.spawnVehicle(s.variant, s.pos[0], s.pos[2], s.yaw, 'parked');
-      if (v) v.locked = s.locked;
+      if (v) {
+        v.locked = s.locked;
+        v.persistent = true;
+      }
     }
   }
 
@@ -484,6 +491,8 @@ function makeVehicle(id: number, params: VehicleParams): Vehicle {
     destroyedTime: 0,
     locked: false,
     hackable: false,
+    persistent: false,
+    abandonedTime: 0,
     controls: emptyControls(),
     body: null,
     collider: null,
@@ -508,6 +517,8 @@ function resetVehicle(v: Vehicle, variantId: string, params: VehicleParams, role
   v.destroyed = false;
   v.destroyedTime = 0;
   v.locked = false;
+  v.persistent = false;
+  v.abandonedTime = 0;
   v.hackable = false;
   v.setVx = v.setVz = 0;
   v.sinceImpact = 10;

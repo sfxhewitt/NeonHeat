@@ -36,6 +36,26 @@ describe('traffic', () => {
   });
 });
 
+describe('abandoned cars', () => {
+  it('recycles a stolen car left out of range, keeps map cars, and traffic tops back up', async () => {
+    const world = await makeWorld(5);
+    const stolen = world.vehicles.find((v) => v.active && v.role === 'traffic')!;
+    const mapCar = world.vehicles.find((v) => v.active && v.persistent)!;
+    world.playerCtl.enter(stolen);
+    expect(stolen.role).toBe('player');
+    world.playerCtl.exit();
+    expect(stolen.role).toBe('parked');
+    // Walk far from both cars.
+    const far = Math.abs(stolen.x) > 60 ? -Math.sign(stolen.x) * 120 : 120;
+    world.playerCtl.teleport(far, far);
+    run(world, world.content.traffic.abandonedDespawnSec + 3, idle);
+    expect(stolen.active === false || stolen.role !== 'parked').toBe(true);
+    expect(mapCar.active).toBe(true);
+    const traffic = world.vehicles.filter((v) => v.active && v.role === 'traffic').length;
+    expect(traffic).toBe(world.traffic.cap);
+  });
+});
+
 describe('damage', () => {
   it('hard crashes damage a car until it is destroyed, then the player is thrown out', async () => {
     const content = loadContent();
