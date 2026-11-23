@@ -4,6 +4,8 @@ import type { EconomyEvent } from './economy';
 import type { LifeEvent } from './life-events';
 export type { CombatEvent } from './combat-events';
 export type { LifeEvent } from './life-events';
+import type { ActivityEvent } from './activities/events';
+export type { ActivityEvent } from './activities/events';
 export type ImpactOther = 'static' | 'prop' | 'vehicle' | 'ped' | 'player' | 'officer';
 
 export interface ImpactEvent {
@@ -95,6 +97,7 @@ export type SimEvent =
   | CombatEvent
   | EconomyEvent
   | LifeEvent
+  | ActivityEvent
   | PropBrokenEvent
   | KerbEvent
   | ImpactEvent

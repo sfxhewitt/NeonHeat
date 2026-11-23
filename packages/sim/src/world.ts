@@ -25,6 +25,8 @@ import { EconomySystem } from './economy';
 import { ServicesSystem } from './services';
 import { GangSystem } from './gangs';
 import { CrowdSystem } from './crowds';
+import { ActivitySystem } from './activities';
+import { VEHICLE_GROUND_GROUPS } from './activities/jumps';
 
 /**
  * `mission`: driven by a mission actor (see actors.ts); traffic and police leave it alone.
@@ -71,6 +73,14 @@ export interface Vehicle extends ArcadeState {
   beacons: boolean;
   /** Siren sounding: traffic ahead pulls over. */
   siren: boolean;
+  /** Height above the road (stunt ramps and jumps) and vertical speed. */
+  y: number;
+  prevY: number;
+  vy: number;
+  /** Off the ground: no steering, no grip. */
+  airborne: boolean;
+  /** High enough to pass over traffic and people (collision groups switched). */
+  airHigh: boolean;
   ai: AiState;
 }
 
@@ -137,6 +147,8 @@ export class World {
   readonly services: ServicesSystem;
   readonly gangs: GangSystem;
   readonly crowds: CrowdSystem;
+  /** Side activities: rampages, stunt jumps, data shards, fares, street races. */
+  readonly activities: ActivitySystem;
   private readonly owners = new Map<number, ColliderOwner>();
   private readonly ctl = emptyControls();
   /** Counts spawns, so each new car rolls its own paint without drawing from the RNG. */
@@ -170,6 +182,7 @@ export class World {
     this.combat = new CombatSystem(this, this.content.weapons);
     this.pickups = new PickupSystem(this, this.content.pickups);
     this.economy = new EconomySystem(this, this.content.economy);
+    this.activities = new ActivitySystem(this, this.content.activities);
     this.spawnInitial();
     this.syncPlayer();
     this.traffic.populate();
@@ -207,6 +220,8 @@ export class World {
     v.z = v.prevZ = z;
     v.yaw = v.prevYaw = yaw;
     v.vx = v.vz = v.yawRate = 0;
+    v.y = v.prevY = v.vy = 0;
+    v.airborne = false;
     v.body?.setTranslation({ x, y: 0, z }, true);
     v.body?.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
     v.body?.setLinvel({ x: 0, y: 0, z: 0 }, true);
@@ -376,7 +391,7 @@ export class World {
         .setMass(params.mass)
         .setFriction(0.15)
         .setRestitution(0.2)
-        .setCollisionGroups(interactionGroups(Groups.vehicle, Groups.static | Groups.vehicle | Groups.ped | Groups.player)),
+        .setCollisionGroups(VEHICLE_GROUND_GROUPS),
       body,
     );
     v.body = body;
@@ -437,13 +452,16 @@ export class World {
         c.brake = 0;
         c.handbrake = true;
       }
-      stepArcade(v, v.params, c, SIM_DT);
+      // In the air: no steering and no grip, the car keeps the line it left on.
+      if (v.airborne) this.activities.jumps.air(v, SIM_DT);
+      else stepArcade(v, v.params, c, SIM_DT);
       v.setVx = v.vx;
       v.setVz = v.vz;
       v.body?.setLinvel({ x: v.vx, y: 0, z: v.vz }, true);
       v.body?.setAngvel({ x: 0, y: v.yawRate, z: 0 }, true);
     }
 
+    this.activities.preStep();
     this.props.step(SIM_DT);
     this.physics.step();
 
@@ -460,6 +478,7 @@ export class World {
       v.vz = lv.z;
       v.yawRate = av.y;
       v.sinceImpact += SIM_DT;
+      this.activities.jumps.vertical(v, SIM_DT);
       this.detectImpact(v);
       this.kerbs(v);
     }
@@ -476,6 +495,7 @@ export class World {
     this.survival.step(SIM_DT);
     this.economy.step(SIM_DT);
     this.score.step(SIM_DT);
+    this.activities.step(SIM_DT, intents);
     if (this.trace > 0) this.trace = Math.max(0, this.trace - this.content.heat.traceDecayPerSec * SIM_DT);
     this.handlePlayerWreck();
     this.tick++;
@@ -495,6 +515,12 @@ export class World {
     const front = onPavement(map, v.x + fx * axle, v.z + fz * axle);
     const rear = onPavement(map, v.x - fx * axle, v.z - fz * axle);
     if (front === v.kerbFront && rear === v.kerbRear) return;
+    if (v.y > 0.05) {
+      // Flying over (or riding a ramp across) the kerb: no bump.
+      v.kerbFront = front;
+      v.kerbRear = rear;
+      return;
+    }
     const cfg = this.content.vehicles.kerb;
     const speed = Math.hypot(v.vx, v.vz);
     let crossings = 0;
@@ -596,7 +622,7 @@ export class World {
     const parts: number[] = [this.tick];
     for (const v of this.vehicles) {
       if (!v.active) continue;
-      parts.push(v.id, v.x, v.z, v.yaw, v.vx, v.vz, v.hp);
+      parts.push(v.id, v.x, v.z, v.yaw, v.vx, v.vz, v.hp, v.y);
     }
     parts.push(this.trace, this.heat.level, this.heat.points, this.police.drone.x, this.police.drone.z);
     const pc = this.playerCtl;
@@ -646,6 +672,11 @@ function makeVehicle(id: number, params: VehicleParams): Vehicle {
     paintSeed: 0,
     beacons: false,
     siren: false,
+    y: 0,
+    prevY: 0,
+    vy: 0,
+    airborne: false,
+    airHigh: false,
     ai: makeAiState(),
   };
 }
@@ -671,6 +702,8 @@ function resetVehicle(v: Vehicle, variantId: string, params: VehicleParams, role
   v.sinceImpact = 10;
   v.kerbFront = v.kerbRear = false;
   v.beacons = v.siren = false;
+  v.y = v.prevY = v.vy = 0;
+  v.airborne = v.airHigh = false;
   const c = v.controls;
   c.steer = c.throttle = c.brake = 0;
   c.handbrake = false;

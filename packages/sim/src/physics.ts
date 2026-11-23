@@ -18,6 +18,8 @@ export const Groups = {
   player: 0x0008,
   /** Downed peds and ghosts: collide with nothing dynamic. */
   ghost: 0x0010,
+  /** Stunt ramp side rails: only cars on the ground hit them. */
+  ramp: 0x0020,
 } as const;
 
 export function interactionGroups(membership: number, filter: number): number {

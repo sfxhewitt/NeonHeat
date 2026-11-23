@@ -128,3 +128,55 @@ export function drawLandmark(c: CanvasRenderingContext2D, kind: LandmarkKind, x:
   c.fill(path2d(s.path));
   c.restore();
 }
+
+/** Side activities on the maps: each a hexagonal badge (activities are always hexes) with its own glyph and colour. */
+export type ActivityIconKind = 'rampage' | 'jump' | 'shard' | 'race' | 'fare' | 'parcel';
+
+export interface ActivityStyle {
+  colour: string;
+  name: string;
+  path: string;
+}
+
+export const ACTIVITY_STYLES: Record<ActivityIconKind, ActivityStyle> = {
+  rampage: { colour: '#ff5a36', name: 'Havoc run', path: 'M10.5 1.5h7l-4 8h4.5L8 23l2.5-10H6z' },
+  jump: { colour: '#ffb020', name: 'Stunt ramp', path: 'M1.5 20.5h21v2h-21zM2 19.5l12-7.5h3l-2 7.5zM15 3.5c3.2.3 5.6 2.4 6.5 5.6l1.5-.6-1 4.3-3.6-2.6 1.5-.6c-.7-2.3-2.4-3.7-4.9-4z' },
+  shard: { colour: '#b18cff', name: 'Data shard', path: 'M12 1l5.5 8.5L12 23 6.5 9.5zM12 5.2L9.4 9.6 12 16.8l2.6-7.2z' },
+  race: { colour: '#f2f0ff', name: 'Street race', path: 'M4 1.5h2.2v21H4zM7.5 3h3.5v3.5H7.5zM14.5 3H18v3.5h-3.5zM11 6.5h3.5V10H11zM18 6.5h3.5V10H18zM7.5 10H11v3.5H7.5zM14.5 10H18v3.5h-3.5z' },
+  fare: { colour: '#ffd23a', name: 'Taxi fare', path: 'M12 2a2.6 2.6 0 1 1 0 5.2A2.6 2.6 0 0 1 12 2zM9 8.5h5.2l3.3-5.3 1.8 1.1-3.8 6.4V23h-2.6v-7h-1.8v7H8.5V10.5L6 15l-1.8-1z' },
+  parcel: { colour: '#ffd23a', name: 'Parcel', path: 'M12 1.5l9.5 4.5v12L12 22.5 2.5 18V6zM12 4.3L6.4 6.9 12 9.6l5.6-2.7zM4.8 8.6v8l6 2.9v-8zM19.2 8.6l-6 2.9v8l6-2.9z' },
+};
+
+/** Inline SVG for an activity glyph (no badge). */
+export function activitySvg(kind: ActivityIconKind, size = 18): string {
+  const s = ACTIVITY_STYLES[kind];
+  return `<svg class="nh-act-icon" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true"><path d="${s.path}" fill="${s.colour}" fill-rule="evenodd"/></svg>`;
+}
+
+/** Draw an activity badge: a dark hexagon with a coloured rim and glyph, centred at (x, y). Done ones are dimmed. */
+export function drawActivity(c: CanvasRenderingContext2D, kind: ActivityIconKind, x: number, y: number, size: number, done = false): void {
+  const s = ACTIVITY_STYLES[kind];
+  const r = size / 2;
+  c.save();
+  c.globalAlpha *= done ? 0.5 : 1;
+  c.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = Math.PI / 6 + (i * Math.PI) / 3;
+    const px = x + Math.cos(a) * r;
+    const py = y + Math.sin(a) * r;
+    if (i === 0) c.moveTo(px, py);
+    else c.lineTo(px, py);
+  }
+  c.closePath();
+  c.fillStyle = 'rgba(6, 7, 18, 0.92)';
+  c.fill();
+  c.strokeStyle = s.colour;
+  c.lineWidth = Math.max(1, size / 13);
+  c.stroke();
+  const k = (size * 0.62) / 24;
+  c.translate(x - 12 * k, y - 12 * k);
+  c.scale(k, k);
+  c.fillStyle = s.colour;
+  c.fill(path2d(s.path), 'evenodd');
+  c.restore();
+}

@@ -25,7 +25,7 @@ import type { Vehicle, World } from './world';
  * scales flames and firelight by it.
  */
 
-export type ServiceKind = 'ambulance' | 'fire';
+export type EmergencyKind = 'ambulance' | 'fire';
 export type UnitState = 'enRoute' | 'onScene' | 'leaving';
 
 const MAX_CALLS = 16;
@@ -40,7 +40,7 @@ const ABOARD = 3;
 
 export interface ServiceCall {
   active: boolean;
-  kind: ServiceKind;
+  kind: EmergencyKind;
   /** Ped id (ambulance) or vehicle id (fire). */
   target: number;
   x: number;
@@ -55,7 +55,7 @@ export interface ServiceCall {
 export interface ServiceUnit {
   id: number;
   active: boolean;
-  kind: ServiceKind;
+  kind: EmergencyKind;
   vehicleId: number;
   /** Call slot being worked. */
   call: number;
@@ -175,7 +175,7 @@ export class ServicesSystem {
     return this.world.rng.range(a, Math.max(a, b));
   }
 
-  private open(c: ServiceCall, kind: ServiceKind, target: number, x: number, z: number, delay: number): void {
+  private open(c: ServiceCall, kind: EmergencyKind, target: number, x: number, z: number, delay: number): void {
     c.active = true;
     c.kind = kind;
     c.target = target;
@@ -186,7 +186,7 @@ export class ServicesSystem {
     c.unit = -1;
   }
 
-  private findCall(kind: ServiceKind, target: number): ServiceCall | null {
+  private findCall(kind: EmergencyKind, target: number): ServiceCall | null {
     for (const c of this.calls) if (c.active && c.kind === kind && c.target === target) return c;
     return null;
   }

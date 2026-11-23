@@ -80,6 +80,8 @@ export class VehiclesView {
   /** Smoothed kerb lift of each vehicle's front and rear axle, by vehicle id. */
   private readonly kerbF = new Float32Array(CAP);
   private readonly kerbR = new Float32Array(CAP);
+  /** Smoothed nose angle from vertical speed (ramps and jumps), by vehicle id. */
+  private readonly airPitch = new Float32Array(CAP);
 
   constructor(
     scene: Scene,
@@ -192,14 +194,17 @@ export class VehiclesView {
       const fy = (this.kerbF[slot] = this.kerbF[slot]! + ((v.kerbFront ? kh : 0) - this.kerbF[slot]!) * k);
       const ry = (this.kerbR[slot] = this.kerbR[slot]! + ((v.kerbRear ? kh : 0) - this.kerbR[slot]!) * k);
       const wheelbase = p.length * 0.64;
-      const pitch = (v.destroyed ? 0 : (v.controls.brake > 0.1 ? 0.025 : 0) - v.controls.throttle * 0.015) - (fy - ry) / wheelbase;
+      // Ramps and jumps: the nose follows the climb or the fall (negative pitch is nose up).
+      const ap = (this.airPitch[slot] = this.airPitch[slot]! + (-Math.atan2(v.vy, Math.max(4, Math.abs(fwd))) - this.airPitch[slot]!) * Math.min(1, dt * 12));
+      const pitch = (v.destroyed ? 0 : (v.controls.brake > 0.1 ? 0.025 : 0) - v.controls.throttle * 0.015) - (fy - ry) / wheelbase + ap;
       // Thrown over by an explosion: a barrel roll with a hop (the sim keeps cars flat).
       const flipT = world.combat.flip[v.id] ?? 0;
       const flipSec = world.content.weapons.explosion.flipSec;
       const fp = flipT > 0 && flipSec > 0 ? 1 - flipT / flipSec : 0;
-      o.position.set(x, (fy + ry) / 2 + Math.sin(fp * Math.PI) * 1.8, z);
+      o.position.set(x, (fy + ry) / 2 + lerp(v.prevY, v.y, alpha) + Math.sin(fp * Math.PI) * 1.8, z);
       o.rotation.set(pitch, yaw, roll + fp * Math.PI * 2 * ((v.id & 1) === 0 ? 1 : -1), 'YXZ');
-      const sc = L.scale;
+      // In the air the car grows a touch, so a jump reads from the top-down camera.
+      const sc = L.scale * (1 + Math.max(0, lerp(v.prevY, v.y, alpha) - 0.3) * 0.045);
       o.scale.set(sc, sc, sc);
       o.updateMatrix();
       this.carM.copy(o.matrix);

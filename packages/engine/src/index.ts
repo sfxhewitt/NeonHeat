@@ -23,3 +23,4 @@ export * from './combat-view';
 export * from './car-models';
 export * from './signals-view';
 export * from './services-view';
+export * from './activities-view';

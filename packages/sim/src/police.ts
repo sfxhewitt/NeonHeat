@@ -176,7 +176,9 @@ export class PoliceSystem {
     const w = this.world;
     if (v !== w.player.vehicle) return raw;
     const rd = this.config.ramDamage;
-    const police = other.kind === 'vehicle' && w.vehicles[other.id]!.role === 'police';
+    // Pursuing crews ram as hard as police do, so the same cap applies.
+    const role = other.kind === 'vehicle' ? w.vehicles[other.id]!.role : null;
+    const police = role === 'police' || role === 'squad';
     if (police) this.lastPoliceContact = w.time;
     else if (w.time - this.lastPoliceContact > rd.knockOnSec && !this.policeNear(v, rd.knockOnDist)) return raw;
     if (w.time - this.lastRamDamage < rd.cooldownSec) return 0;

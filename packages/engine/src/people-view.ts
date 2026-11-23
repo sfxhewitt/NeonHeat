@@ -313,7 +313,7 @@ export class PeopleView {
     speed: number,
     rig: Rig,
     dt: number,
-    pose: 'stand' | 'down' | 'cower' | 'roll' | 'hands',
+    pose: 'stand' | 'down' | 'cower' | 'roll' | 'hands' | 'wave',
     rollT: number,
     aiming: boolean,
     jacket: Color,
@@ -374,6 +374,7 @@ export class PeopleView {
 
       o.position.set(side * 0.29, SHOULDER_Y, 0);
       if (pose === 'hands') o.rotation.set(-Math.PI + 0.15, 0, side * -0.25);
+      else if (pose === 'wave' && side === 1) o.rotation.set(-Math.PI + 0.2, 0, -0.35 + Math.sin(rig.phase * 3) * 0.45);
       else if (aiming && side === -1) o.rotation.set(-Math.PI / 2 + 0.08, 0, 0);
       else if (pose === 'cower') o.rotation.set(-2.4, 0, side * 0.3);
       else if (act === Anim.hose) o.rotation.set(-Math.PI / 2 + 0.2, 0, -side * 0.18);
@@ -542,17 +543,21 @@ export class PeopleView {
       this.facingMark.rotation.set(0, facing - Math.PI / 2, 0);
     }
 
+    // A taxi fare waiting at the kerb waves the cab down.
+    const shift = world.activities.fares.shift;
+    const waver = shift && shift.phase === 'seek' && shift.actor && !shift.actor.riding ? shift.actor.pedId : -1;
     for (const p of world.peds.peds) {
       if (!p.active || this.n >= MAX_PEOPLE) continue;
       const x = lerp(p.prevX, p.x, alpha);
       const z = lerp(p.prevZ, p.z, alpha);
       const rig = this.rigs[(p.id % (MAX_PEOPLE - 1)) + 1]!;
-      const pose = p.state === 'down' ? 'down' : p.state === 'cower' ? 'cower' : 'stand';
+      const pose = p.state === 'down' ? 'down' : p.state === 'cower' ? 'cower' : p.id === waver && Math.hypot(p.vx, p.vz) < 0.5 ? 'wave' : 'stand';
       const speed = pose === 'stand' ? Math.hypot(p.vx, p.vz) : 0;
       const tags = world.peds.tags;
       const look = tags.look[p.id]!;
       const anim = tags.anim[p.id]!;
       const crew = look >= Look.crew && look < Look.crew + world.gangs.crews.length ? world.gangs.crews[look - Look.crew]! : null;
+      if (pose === 'wave') rig.phase += dt * 2.5;
       const shade = p.state === 'down' ? 0.45 : 1;
       const jacket =
         look === Look.medic

@@ -1,4 +1,4 @@
-import { crewById, drawCrewMark, drawLandmark } from './icons';
+import { crewById, drawActivity, drawCrewMark, drawLandmark, type ActivityIconKind } from './icons';
 import type { MapGeometry, RoutePoint } from './map-geometry';
 import { drawObjective, drawPlayerArrow, drawWaypoint, paintMap, prepareMap, strokeRoute, type PreparedMap } from './map-paint';
 
@@ -19,11 +19,22 @@ export interface MapLiveState {
   waypoint: { x: number; z: number } | null;
   route: RoutePoint[];
   payphones: { x: number; z: number; crew: string; title: string }[];
+  /** Side activities (rampages, ramps, races, fares; shards only near the player, minimap only). */
+  activities: ActivityMarker[];
   time: number;
 }
 
+export interface ActivityMarker {
+  x: number;
+  z: number;
+  kind: ActivityIconKind;
+  /** Completed (a ramp's unique jump, a race won, a rampage passed): drawn dimmed. */
+  done: boolean;
+  title: string;
+}
+
 export function emptyLiveState(): MapLiveState {
-  return { x: 0, z: 0, heading: 0, speed: 0, heat: 0, police: [], objective: null, waypoint: null, route: [], payphones: [], time: 0 };
+  return { x: 0, z: 0, heading: 0, speed: 0, heat: 0, police: [], objective: null, waypoint: null, route: [], payphones: [], activities: [], time: 0 };
 }
 
 /** HEAT level at which police vision cones appear on the maps. */
@@ -205,6 +216,13 @@ export class Minimap {
         drawCrewMark(c, crewById(ph.crew), cx, cy, dot * (edge ? 3.2 : 4.2));
       }
       c.globalAlpha = 1;
+    }
+    if (!s.objective) {
+      for (const a of s.activities) {
+        const [cx, cy] = toPx(a.x, a.z);
+        if (Math.hypot(cx - n / 2, cy - n / 2) > rim) continue;
+        drawActivity(c, a.kind, cx, cy, dot * (a.kind === 'shard' ? 3 : 3.8), a.done);
+      }
     }
     if (s.waypoint) {
       const [cx, cy] = clampRim(toPx(s.waypoint.x, s.waypoint.z));

@@ -35,3 +35,4 @@ export * from './ped-tags';
 export * from './services';
 export * from './gangs';
 export * from './crowds';
+export * from './activities';

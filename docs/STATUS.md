@@ -63,6 +63,26 @@ All tuning is in `content/data/life.json` (Zod: `packages/sim/src/life-config.ts
   - A responder sometimes parks at an angle part-way into the lane.
   - The first dispatch of a route runs a Dijkstra, which may cause a small hitch on a slow phone.
   - Wrecks too light to burn (bikes) no longer smoke.
+## Side activities (23 Nov 2026)
+
+- **Sim** (`packages/sim/src/activities/`, tuned in `content/data/activities.json`): seeded placement of the ramps, havoc tokens, 50 data shards and race flags, with spawn and marker clearances. Placement also checks for clutter, so a fare never waits under a tree. Each activity is off while a story job runs.
+- **HAVOC runs** (the on-screen name for rampages): glowing bolt tokens start a timed challenge. The three kinds are wrecking cars, smashing props, or taking down a spawned hostile crew. Civilians never count. Each run has a countdown, a pass/fail card, a reward and a best time.
+- **Stunt jumps**: 12 ramps with hazard-striped decks and chevrons. The car has a real airtime state (sim `y`/`vy`), with pitch and scale in vehicles-view and a shadow on the ground. Rewards come from distance and airtime, plus a one-off unique-jump bonus. Slow motion and a lower camera kick in on big jumps. A ramp turns teal once its unique jump is done.
+- **Data shards**: 50 shards with a counter toast and 50 cr each, plus a bonus every 10.
+- **Taxi and courier duty**: T, the gamepad Y button or the touch pill. A fare waves at the kerb, with a timer, GPS arrow, tips and a streak bonus. Courier duty uses a van or bike and carries parcels.
+- **Street races**: flags lead to a countdown, checkpoints with chevrons and 2–3 AI racers. The HUD shows position, checkpoint and time, and best times are kept.
+- **UI**: shape-plus-colour icons on the minimap and the full map ("Side jobs" legend), eight new Stats tab counters, and the activity HUD panel (`packages/ui/src/activity-hud.ts`).
+- **Save v3** stores activity progress, with a v2→v3 migration and a test.
+- **Render cost**: the activity view is one solid mesh per nearby ramp plus three `BatchedMesh` draws. Measured at high tier, 956×440:
+
+  | Scene | Draw calls |
+  |---|---|
+  | Token | 93 |
+  | Race | 89 |
+  | Taxi | 87 |
+- **Open**:
+  - Jump height reads only subtly from the top-down camera.
+  - `phone.spec` "steal" step: it failed in 2 of 3 full-suite runs. The player was FLATLINED on foot after being teleported beside a traffic car, likely hit by traffic in the live lane. It passed 5 of 5 runs alone or with 4 workers. The cause is not pinned down yet.
 
 ## Wanted, combat and survival (23 Nov 2026)
 

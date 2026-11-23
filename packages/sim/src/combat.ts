@@ -160,6 +160,12 @@ export class CombatSystem {
     return changed;
   }
 
+  /** Put an owned weapon in hand (a rampage hands one over). */
+  equip(id: string): void {
+    const i = this.order.indexOf(id);
+    if (i >= 0 && this.usable(i)) this.select(i);
+  }
+
   private select(i: number): void {
     if (i === this.current) return;
     this.current = i;

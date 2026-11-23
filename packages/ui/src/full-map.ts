@@ -1,4 +1,4 @@
-import { CREWS, LANDMARK_STYLES, crewById, crewSvg, drawCrewMark, drawLandmark, landmarkSvg } from './icons';
+import { ACTIVITY_STYLES, CREWS, LANDMARK_STYLES, activitySvg, crewById, crewSvg, drawActivity, drawCrewMark, drawLandmark, landmarkSvg } from './icons';
 import { routeLength } from './map-geometry';
 import { drawObjective, drawPlayerArrow, drawWaypoint, paintMap, strokeRoute, type PreparedMap } from './map-paint';
 import { CONE_HEAT, type MapLiveState } from './minimap';
@@ -69,6 +69,8 @@ export class FullMap {
       (['clinic', 'precinct', 'safehouse', 'respray', 'arms', 'chopshop'] as const)
         .map((k) => `<div>${landmarkSvg(k, 14)}<span>${LANDMARK_STYLES[k].name}</span></div>`)
         .join('') +
+      `<h4>Side jobs</h4>` +
+      (['rampage', 'jump', 'race', 'fare'] as const).map((k) => `<div>${activitySvg(k, 14)}<span>${ACTIVITY_STYLES[k].name}</span></div>`).join('') +
       `<div><i class="nh-key-route"></i><span>GPS route</span></div><div><i class="nh-key-obj"></i><span>Objective</span></div>`;
     this.root.querySelector('.nh-fullmap__tools')!.addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest('button');
@@ -374,6 +376,14 @@ export class FullMap {
       c.stroke();
       drawCrewMark(c, crew, x, y, 16);
       if (labels) this.label(c, p.title, x, y + 16, crew.colour);
+    }
+    // Side activities (shards stay hidden: finding them is the point).
+    for (const a of s.activities) {
+      if (a.kind === 'shard') continue;
+      const [x, y] = this.toScreen(a.x, a.z);
+      if (x < -30 || y < -30 || x > this.w + 30 || y > this.h + 30) continue;
+      drawActivity(c, a.kind, x, y, 20, a.done);
+      if (labels && z > 1.4) this.label(c, a.title, x, y + 13, ACTIVITY_STYLES[a.kind].colour);
     }
     if (s.objective) {
       const [x, y] = this.toScreen(s.objective.x, s.objective.z);

@@ -62,6 +62,24 @@ export const SaveV2Schema = z.object({
 });
 
 /**
+ * Side activities (mirrors the sim's ActivityProgress): rampages passed, best
+ * jumps and unique jumps, data shards found, race records and fare work.
+ */
+export const ActivitiesSaveSchema = z.object({
+  rampages: z.record(z.string(), z.object({ passes: z.number().int().nonnegative(), bestSec: z.number().nonnegative() })).default({}),
+  jumps: z.record(z.string(), z.object({ best: z.number().nonnegative(), unique: z.boolean() })).default({}),
+  shards: z.array(z.string()).default([]),
+  races: z.record(z.string(), z.object({ wins: z.number().int().nonnegative(), finishes: z.number().int().nonnegative(), bestSec: z.number().nonnegative() })).default({}),
+  fares: z.record(z.string(), z.object({ done: z.number().int().nonnegative(), earned: z.number().nonnegative(), bestStreak: z.number().int().nonnegative() })).default({}),
+});
+export type ActivitiesSave = z.infer<typeof ActivitiesSaveSchema>;
+
+export function newActivities(): ActivitiesSave {
+  return { rampages: {}, jumps: {}, shards: [], races: {}, fares: {} };
+}
+
+
+/**
  * Version 3: the economy. What you carry (weapons and ammo, armour), the
  * cyberware you have installed and the chop shops' export list. Owned
  * safehouses and bought weapons stay in `unlocks` (`safehouse:<marker>`,
@@ -76,6 +94,8 @@ export const SaveV3Schema = SaveV2Schema.extend({
   cyberware: z.array(z.string()),
   /** Variant ids the chop shops want; empty means roll a new list. */
   exportList: z.array(z.string()),
+  /** Side activities: rampages, jumps, shards, races, fares. */
+  activities: ActivitiesSaveSchema.default({ rampages: {}, jumps: {}, shards: [], races: {}, fares: {} }),
 });
 export const SaveSchema = SaveV3Schema;
 export type SaveData = z.infer<typeof SaveV3Schema>;
@@ -89,6 +109,7 @@ export function newSave(): SaveData {
     unlocks: [],
     missions: {},
     stats: newStats(),
+    activities: newActivities(),
     savedAt: new Date(0).toISOString(),
     loadout: null,
     armour: 0,
@@ -116,7 +137,7 @@ export const MIGRATIONS: Record<number, Migration> = {
     const { rep, ...rest } = SaveV1Schema.parse(old);
     return { ...rest, version: 2, respect: { ...rep }, unlocks: [], missions: {} };
   },
-  2: (old) => ({ ...SaveV2Schema.parse(old), version: 3, loadout: null, armour: 0, cyberware: [], exportList: [] }),
+  2: (old) => ({ ...SaveV2Schema.parse(old), version: 3, loadout: null, armour: 0, cyberware: [], exportList: [], activities: newActivities() }),
 };
 
 /** Bring any known older save up to the current version and validate it. */

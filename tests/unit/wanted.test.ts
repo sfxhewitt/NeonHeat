@@ -274,6 +274,14 @@ describe('police chase you, they do not kill you', () => {
     expect(w.police.scaleImpactDamage(car, { kind: 'static', id: -1 }, raw)).toBe(raw);
   });
 
+  it('a mission pursuit car rams with the same capped damage as police', async () => {
+    const w = await quietWorld(12);
+    const car = w.spawnVehicle('kestrel', -100, 0, 0, 'parked')!;
+    w.playerCtl.enter(car);
+    const chaser = w.spawnVehicle('interceptor', -100, 6, 0, 'squad')!;
+    expect(w.police.scaleImpactDamage(car, { kind: 'vehicle', id: chaser.id }, 80)).toBeLessThanOrEqual(w.content.heat.ramDamage.maxPerHit);
+  });
+
   it('patrol cars pull up short of a player on foot and officers get out', async () => {
     const w = await quietWorld(13);
     w.heat.setLevel(2, w.player.x, w.player.z);

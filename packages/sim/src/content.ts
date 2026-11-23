@@ -7,6 +7,8 @@ import { SurvivalConfigSchema, type SurvivalConfig } from './survival';
 import { CitySpecSchema, generateCity, type GeneratedMap } from './citygen';
 import { EconomyConfigSchema, type EconomyConfig } from './economy';
 import { LifeConfigSchema, SimCrewsSchema, type LifeConfig, type SimCrews } from './life-config';
+import { ActivitiesConfigSchema, type ActivitiesConfig } from './activities/config';
+import { clearActivitySites, placeActivities, type ActivitySites } from './activities/placement';
 
 /** Zod schemas for every piece of content the simulation consumes. */
 
@@ -270,6 +272,8 @@ export interface SimContent {
   life: LifeConfig;
   /** Crew names, colours and home districts (crews.json). */
   crews: SimCrews;
+  /** Side activities and where they sit in this city (null when no activities content is loaded). */
+  activities: { config: ActivitiesConfig; sites: ActivitySites } | null;
 }
 
 export interface RawSimContent {
@@ -288,7 +292,11 @@ export interface RawSimContent {
   economy?: unknown;
   life?: unknown;
   crews?: unknown;
+  /** Optional: no side activities when absent. */
+  activities?: unknown;
 }
+
+const sitesCache = new Map<string, ActivitySites>();
 
 /** Validate raw JSON content. Throws a readable error on the first invalid file. */
 export function parseSimContent(raw: RawSimContent): SimContent {
@@ -319,7 +327,22 @@ export function parseSimContent(raw: RawSimContent): SimContent {
   checkCombatRefs(vehicles, heat, weapons, pickups);
   checkEconomyRefs(economy, weapons);
   checkLifeRefs(life, crews, vehicles, map);
-  return { vehicles, map, heat, traffic, peds, weapons, props, pickups, survival, weather, economy, life, crews };
+  let activities: SimContent['activities'] = null;
+  if (raw.activities !== undefined) {
+    const config = parse('activities', ActivitiesConfigSchema, raw.activities);
+    checkActivityRefs(config, vehicles, weapons, map);
+    const key = JSON.stringify([raw.map, raw.activities]);
+    let sites = sitesCache.get(key);
+    if (!sites) {
+      sites = placeActivities(map, config);
+      sitesCache.set(key, sites);
+    }
+    const own = JSON.parse(JSON.stringify(sites)) as ActivitySites;
+    clearActivitySites(map, own, config);
+    activities = { config, sites: own };
+  }
+
+  return { vehicles, map, heat, traffic, peds, weapons, props, pickups, survival, weather, economy, life, crews, activities };
 }
 
 /** Shop prices must name real weapons. */
@@ -327,6 +350,22 @@ function checkEconomyRefs(economy: EconomyConfig, weapons: WeaponsConfig): void 
   for (const id of [...Object.keys(economy.arms.weapons), ...Object.keys(economy.arms.ammo)]) {
     if (!(id in weapons.weapons)) throw new Error(`Economy prices unknown weapon "${id}"`);
   }
+}
+
+/** Cross-file references of the side activities: weapons, vehicle classes and variants, districts. */
+function checkActivityRefs(a: ActivitiesConfig, vehicles: VehiclesContent, weapons: WeaponsConfig, map: GeneratedMap): void {
+  const districts = new Set(map.districts.map((d) => d.id));
+  const classes = new Set(Object.values(vehicles.variants).map((v) => v.class));
+  for (const r of a.rampages.defs) {
+    if (r.weapon && !(r.weapon in weapons.weapons)) throw new Error(`Rampage "${r.id}" gives unknown weapon "${r.weapon}"`);
+    if (!districts.has(r.district)) throw new Error(`Rampage "${r.id}" is in unknown district "${r.district}"`);
+    if (r.kind === 'takedown' && !r.gang) throw new Error(`Rampage "${r.id}" needs a gang`);
+  }
+  for (const r of a.races.defs) {
+    for (const v of r.opponentVariants) if (!(v in vehicles.variants)) throw new Error(`Race "${r.id}" uses unknown variant "${v}"`);
+    if (!districts.has(r.district)) throw new Error(`Race "${r.id}" is in unknown district "${r.district}"`);
+  }
+  for (const [id, f] of Object.entries(a.fares)) for (const c of f.classes) if (!classes.has(c as VehicleClass)) throw new Error(`Fare job "${id}" uses unknown vehicle class "${c}"`);
 }
 
 /** Cross-file references of the combat layer: police variants, pickup weapons. */

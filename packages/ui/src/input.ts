@@ -15,6 +15,8 @@ export class InputManager {
   private interactLatch = false;
   private dodgeLatch = false;
   private weaponLatch = false;
+  private activityLatch = false;
+  private padActivityWas = false;
   private padWeaponWas = false;
   private mouseFire = false;
   private padInteractWas = false;
@@ -30,6 +32,7 @@ export class InputManager {
       if (e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter') this.interactLatch = true;
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.dodgeLatch = true;
       if (e.code === 'KeyQ' || e.code === 'Tab') this.weaponLatch = true;
+      if (e.code === 'KeyT') this.activityLatch = true;
       if (e.code.startsWith('Arrow') || e.code === 'Space' || e.code === 'Tab') e.preventDefault();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
@@ -58,6 +61,7 @@ export class InputManager {
       this.override.interact = false;
       this.override.dodge = false;
       this.override.nextWeapon = false;
+      this.override.activity = false;
       return out;
     }
     const e = emptyIntents();
@@ -77,6 +81,8 @@ export class InputManager {
     let interact = this.interactLatch;
     let dodge = this.dodgeLatch;
     let nextWeapon = this.weaponLatch;
+    let activity = this.activityLatch;
+    this.activityLatch = false;
     this.interactLatch = false;
     this.dodgeLatch = false;
     this.weaponLatch = false;
@@ -97,6 +103,10 @@ export class InputManager {
       const lb = pad.buttons[4]?.pressed ?? false;
       if (lb && !this.padWeaponWas) nextWeapon = true;
       this.padWeaponWas = lb;
+      // Y / triangle: the side-activity button.
+      const y = pad.buttons[3]?.pressed ?? false;
+      if (y && !this.padActivityWas) activity = true;
+      this.padActivityWas = y;
       this.padInteractWas = a;
       this.padDodgeWas = rb;
       if (ax !== 0 || ay !== 0 || rt > 0.05 || lt > 0.05) {
@@ -133,9 +143,11 @@ export class InputManager {
     if (t.interact) interact = true;
     if (t.dodge) dodge = true;
     if (t.nextWeapon) nextWeapon = true;
+    if (t.activity) activity = true;
     e.interact = interact;
     e.dodge = dodge;
     e.nextWeapon = nextWeapon;
+    e.activity = activity;
     return Object.assign(out, e);
   }
 }
