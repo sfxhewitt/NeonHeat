@@ -208,7 +208,8 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
     w.teleportVehicle(w.player.vehicle, m[0], m[2], Math.PI);
   });
   await expect(page.locator('.nh-toast')).toContainText('JOB DONE', { timeout: 10_000 });
-  expect(await page.evaluate(() => window.__neon!.mission().credits)).toBe(1500);
+  // The job pays 1,500 cr; street score banked on the way can add a little.
+  expect(await page.evaluate(() => window.__neon!.mission().credits)).toBeGreaterThanOrEqual(1500);
 
   // The pause menu opens and closes with a tap.
   await page.locator('.nh-menu-btn').first().tap();
