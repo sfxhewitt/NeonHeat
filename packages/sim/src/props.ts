@@ -92,7 +92,7 @@ export class PropSystem {
           if (!cell) continue;
           for (const id of cell) {
             const p = this.props[id]!;
-            if (p.broken) continue;
+            if (p.broken || v.y > p.h) continue; // a jumping car sails over
             const k = cfg.kinds[p.kind]!;
             if (speed < k.breakSpeed) continue;
             const dx = p.x - px;

@@ -125,6 +125,8 @@ describe('kerbs', () => {
         if (Math.hypot(x - start[0], sg.z0 - start[2]) > 200) continue;
         // Clear of junction mouths: no crossing road within its half-width plus a margin.
         if (w.roads.nodes.some((n) => Math.abs(n.z - sg.z0) < 1 && Math.abs(n.x - x) < 16)) continue;
+        // Stunt ramps have side rails: real obstacles, like parked cars.
+        if (w.activities.sites.ramps.some((r) => Math.hypot(r.x - x, r.z - sg.z0) < 30)) continue;
         for (const side of [1, -1] as const) {
           const kerbZ = sg.z0 + side * hw;
           // A real kerb with pavement (not a side road, water or a building) just beyond it.

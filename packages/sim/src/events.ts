@@ -1,6 +1,8 @@
 /** Events the simulation emits each step, for rendering, audio, haptics and missions. */
 import type { CombatEvent } from './combat-events';
 export type { CombatEvent } from './combat-events';
+import type { ActivityEvent } from './activities/events';
+export type { ActivityEvent } from './activities/events';
 export type ImpactOther = 'static' | 'prop' | 'vehicle' | 'ped' | 'player' | 'officer';
 
 export interface ImpactEvent {
@@ -90,6 +92,7 @@ export interface KerbEvent {
 
 export type SimEvent =
   | CombatEvent
+  | ActivityEvent
   | PropBrokenEvent
   | KerbEvent
   | ImpactEvent
