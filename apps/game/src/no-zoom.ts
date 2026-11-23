@@ -30,10 +30,14 @@ export function blockPageZoom(doc: Document = document): void {
       const quick = now - last < DOUBLE_TAP_MS;
       last = now;
       if (!quick || e.touches.length > 0 || e.changedTouches.length !== 1) return;
-      const t = e.target as HTMLElement | null;
+      const t = e.target as Element | null;
       if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
       e.preventDefault();
-      if (t && typeof t.click === 'function' && !(t instanceof HTMLCanvasElement)) t.click();
+      // A real click event (it reaches SVG icons inside buttons too, which have no .click()).
+      if (t && !(t instanceof HTMLCanvasElement)) {
+        const p = e.changedTouches[0]!;
+        t.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: p.clientX, clientY: p.clientY, screenX: p.screenX, screenY: p.screenY }));
+      }
     },
     { passive: false },
   );

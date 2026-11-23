@@ -324,6 +324,13 @@ test('iPhone: the minimap opens the full map, a tap sets a waypoint, the menu cl
   await page.locator('.nh-tab[data-tab="settings"]').tap();
   expect(await page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1);
   await expect(page.locator('.nh-tab[data-tab="settings"]')).toHaveClass(/is-on/);
+  // Taps on a button's icon (SVG) still click it when they come quickly.
+  await page.locator('.nh-tab[data-tab="map"]').tap();
+  const zoomOf = () => page.evaluate(() => (window.__neon!.game.flow as unknown as { fullMap: { view: { zoom: number } } }).fullMap.view.zoom);
+  const z0 = await zoomOf();
+  await page.locator('.nh-fullmap [data-map="in"] svg').first().tap();
+  await page.locator('.nh-fullmap [data-map="in"] svg').first().tap();
+  await expect.poll(zoomOf).toBeGreaterThan(z0);
 
   // Resume by touch: the menu goes and the game runs again.
   await page.locator('[data-act="resume"]').tap();
