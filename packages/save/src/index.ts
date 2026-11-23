@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Current save format. Bump and add a migration whenever the shape changes. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /**
  * Lifetime stats for the pause menu. Fields added after the first v1 saves
@@ -19,6 +19,8 @@ export const StatsSchema = z.object({
   booked: z.number().int().nonnegative().default(0),
   highestHeat: z.number().int().nonnegative().default(0),
   creditsEarned: z.number().int().nonnegative().default(0),
+  creditsSpent: z.number().int().nonnegative().default(0),
+  exportsDelivered: z.number().int().nonnegative().default(0),
 });
 export type SaveStats = z.infer<typeof StatsSchema>;
 
@@ -58,12 +60,29 @@ export const SaveV2Schema = z.object({
   stats: StatsSchema,
   savedAt: z.string(),
 });
-export const SaveSchema = SaveV2Schema;
-export type SaveData = z.infer<typeof SaveV2Schema>;
+
+/**
+ * Version 3: the economy. What you carry (weapons and ammo, armour), the
+ * cyberware you have installed and the chop shops' export list. Owned
+ * safehouses and bought weapons stay in `unlocks` (`safehouse:<marker>`,
+ * `weapon:<id>`).
+ */
+export const SaveV3Schema = SaveV2Schema.extend({
+  version: z.literal(3),
+  /** Weapon id to ammo carried; null means the starting loadout (a fresh save). */
+  loadout: z.record(z.string(), z.number().int().nonnegative()).nullable(),
+  armour: z.number().nonnegative(),
+  /** Installed cyberware ids (reflex, plating, ghost). */
+  cyberware: z.array(z.string()),
+  /** Variant ids the chop shops want; empty means roll a new list. */
+  exportList: z.array(z.string()),
+});
+export const SaveSchema = SaveV3Schema;
+export type SaveData = z.infer<typeof SaveV3Schema>;
 
 export function newSave(): SaveData {
   return {
-    version: 2,
+    version: 3,
     credits: 0,
     respect: {},
     completedMissions: [],
@@ -71,6 +90,10 @@ export function newSave(): SaveData {
     missions: {},
     stats: newStats(),
     savedAt: new Date(0).toISOString(),
+    loadout: null,
+    armour: 0,
+    cyberware: [],
+    exportList: [],
   };
 }
 
@@ -93,6 +116,7 @@ export const MIGRATIONS: Record<number, Migration> = {
     const { rep, ...rest } = SaveV1Schema.parse(old);
     return { ...rest, version: 2, respect: { ...rep }, unlocks: [], missions: {} };
   },
+  2: (old) => ({ ...SaveV2Schema.parse(old), version: 3, loadout: null, armour: 0, cyberware: [], exportList: [] }),
 };
 
 /** Bring any known older save up to the current version and validate it. */
@@ -195,6 +219,8 @@ export class IndexedDbStorage implements SaveStorage {
 export class SaveManager {
   current: SaveData = newSave();
   lastSaved = 0;
+  /** Called before each write, to fold live state (loadout, economy) into the save. */
+  beforeSave: ((s: SaveData) => SaveData) | null = null;
 
   constructor(
     private readonly storage: SaveStorage,
@@ -217,6 +243,7 @@ export class SaveManager {
   }
 
   async save(now = new Date()): Promise<void> {
+    if (this.beforeSave) this.current = this.beforeSave(this.current);
     this.current = { ...this.current, savedAt: now.toISOString() };
     await this.storage.write(this.slot, this.current);
     this.lastSaved = now.getTime();

@@ -43,7 +43,7 @@ describe('save', () => {
     };
     const s = migrate(v1);
     expect(s).toEqual({
-      version: 2,
+      version: 3,
       credits: 1500,
       respect: { glasshounds: 10, kurogane: -15 },
       completedMissions: ['glasshounds_03_hot_chrome'],
@@ -51,13 +51,17 @@ describe('save', () => {
       missions: {},
       stats: { ...newStats(), missionsPassed: 1, playSeconds: 321 },
       savedAt: '2026-11-22T10:00:00.000Z',
+      loadout: null,
+      armour: 0,
+      cyberware: [],
+      exportList: [],
     });
     expect(() => migrate({ ...v1, credits: -5 })).toThrow();
   });
 
   it('migrates a version 0 save', () => {
     const s = migrate({ money: 250.7, missions: ['old_job'] });
-    expect(s.version).toBe(2);
+    expect(s.version).toBe(3);
     expect(s.credits).toBe(250);
     expect(s.completedMissions).toEqual(['old_job']);
   });
@@ -72,6 +76,44 @@ describe('save', () => {
       savedAt: '2026-01-01T00:00:00.000Z',
     });
     expect(s.stats).toMatchObject({ missionsPassed: 1, playSeconds: 30, distanceDriven: 0, carsStolen: 0, flatlined: 0, highestHeat: 0 });
+  });
+
+  it('migrates a version 2 save to 3: keeps unlocks and progress, starting loadout, no cyberware', () => {
+    const v2 = {
+      version: 2,
+      credits: 3200,
+      respect: { rustmouth: 12 },
+      completedMissions: ['rustmouth_01_scrap_value'],
+      unlocks: ['safehouse:safehouse_2', 'weapon:smg'],
+      missions: { rustmouth_01_scrap_value: { bestSeconds: 200, passes: 1 } },
+      stats: { missionsPassed: 1, playSeconds: 900 },
+      savedAt: '2026-11-23T01:00:00.000Z',
+    };
+    const s = migrate(v2);
+    expect(s.version).toBe(3);
+    expect(s.credits).toBe(3200);
+    expect(s.unlocks).toEqual(['safehouse:safehouse_2', 'weapon:smg']);
+    expect(s.missions.rustmouth_01_scrap_value).toEqual({ bestSeconds: 200, passes: 1 });
+    expect(s.loadout).toBeNull();
+    expect(s.armour).toBe(0);
+    expect(s.cyberware).toEqual([]);
+    expect(s.exportList).toEqual([]);
+    expect(s.stats.creditsSpent).toBe(0);
+    expect(() => migrate({ ...v2, unlocks: 'nope' })).toThrow();
+  });
+
+  it('folds live state in before each write (beforeSave) and round-trips the v3 fields', async () => {
+    const storage = new MemoryStorage();
+    const a = new SaveManager(storage);
+    await a.load();
+    a.beforeSave = (s) => ({ ...s, loadout: { fists: 0, smg: 77 }, armour: 40, cyberware: ['ghost'], exportList: ['hatch', 'saloon', 'mule'] });
+    await a.save();
+    const b = new SaveManager(storage);
+    const loaded = await b.load();
+    expect(loaded.loadout).toEqual({ fists: 0, smg: 77 });
+    expect(loaded.armour).toBe(40);
+    expect(loaded.cyberware).toEqual(['ghost']);
+    expect(loaded.exportList).toEqual(['hatch', 'saloon', 'mule']);
   });
 
   it('counts credits earned from jobs', () => {

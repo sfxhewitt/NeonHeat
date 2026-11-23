@@ -130,7 +130,7 @@ export class CombatLayer {
       health: pc.hp,
       maxHealth: pc.maxHp,
       armour: pc.armour,
-      maxArmour: w.content.survival.player.maxArmour,
+      maxArmour: pc.maxArmour,
       weapon: c.weaponId,
       weaponName: wpn.name,
       ammo: wpn.ammoMax > 0 ? c.currentAmmo : -1,

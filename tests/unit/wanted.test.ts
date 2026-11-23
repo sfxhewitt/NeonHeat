@@ -188,11 +188,12 @@ describe('escape', () => {
     expect(w.police.respray()).toBe('seen');
   });
 
-  it('driving slowly into a respray marker resprays the car', async () => {
+  it('driving slowly into a respray marker resprays the car (for a fee)', async () => {
     const w = await quietWorld(10, (c) => {
       c.map.markers['respray_test'] = { pos: [-100, 0, 0] };
     });
     w.police.cap = 0;
+    w.score.credits = 1000;
     const car = w.spawnVehicle('kestrel', -100, 0, 0, 'parked')!;
     w.playerCtl.enter(car);
     w.heat.setLevel(2, 100, 100);
@@ -203,6 +204,7 @@ describe('escape', () => {
     const ev = collect(w, 0.5);
     expect(ev.some((e) => e.type === 'respray' && e.result === 'cleared')).toBe(true);
     expect(w.heat.level).toBe(0);
+    expect(w.score.credits).toBe(1000 - w.content.economy.respray.price);
   });
 });
 

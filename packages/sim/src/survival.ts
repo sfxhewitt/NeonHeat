@@ -94,7 +94,10 @@ export class SurvivalSystem {
     this.fate = 'alive';
     this.timer = 0;
     const prefix = fate === 'booked' ? this.config.booked.marker : this.config.flatlined.marker;
-    this.world.playerCtl.respawnAt(prefix);
+    const pc = this.world.playerCtl;
+    // FLATLINED: an owned safehouse nearer than the nearest clinic wins (economy.ts). BOOKED: always the precinct.
+    const spot = fate === 'booked' ? null : this.world.economy.respawnPoint(pc.x, pc.z, prefix);
+    pc.respawnAt(prefix, spot);
   }
 
   /** Nearest marker whose id starts with `prefix`, else player_start, else the origin. */

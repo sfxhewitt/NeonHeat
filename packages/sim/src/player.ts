@@ -82,8 +82,9 @@ export class PlayerController {
     return this.world.content.peds.player.maxHealth;
   }
 
+  /** Armour capacity: the survival base plus Plating cyberware. */
   get maxArmour(): number {
-    return this.world.content.survival.player.maxArmour;
+    return this.world.content.survival.player.maxArmour + this.world.economy.armourBonus;
   }
 
   /** Flatlined or booked: no control until the respawn. */
@@ -281,6 +282,7 @@ export class PlayerController {
       this.vz = dirZ * cfg.dodgeSpeed;
       this.facing = Math.atan2(dirX, dirZ);
       w.events.push({ type: 'dodge', x: this.x, z: this.z, vehicleId: -1, amount: 0 });
+      w.economy.onDodge();
     }
 
     if (this.dodgeTime > 0) {
@@ -333,6 +335,8 @@ export class PlayerController {
   hurt(amount: number, by: number): void {
     if (this.incapacitated || amount <= 0) return;
     const w = this.world;
+    // Reflex cyberware: untouchable for a moment from the start of a dodge.
+    if (w.economy.invulnerable) return;
     const soak = Math.min(this.armour, amount * w.content.survival.player.armourAbsorb);
     this.armour -= soak;
     this.hp = Math.max(0, this.hp - (amount - soak));
@@ -351,11 +355,11 @@ export class PlayerController {
     else this.respawnAt(this.world.content.survival.flatlined.marker);
   }
 
-  /** Back on your feet at the nearest marker whose id starts with `prefix`, HEAT cleared. */
-  respawnAt(prefix: string): void {
+  /** Back on your feet at the nearest marker whose id starts with `prefix` (or at `spot`), HEAT cleared. */
+  respawnAt(prefix: string, spot?: { x: number; z: number } | null): void {
     const w = this.world;
     if (this.mode === 'driving') this.exit();
-    const at = w.survival.nearestMarker(prefix, this.x, this.z);
+    const at = spot ?? w.survival.nearestMarker(prefix, this.x, this.z);
     this.dead = false;
     this.busted = false;
     this.hp = this.maxHp;

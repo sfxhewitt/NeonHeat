@@ -57,7 +57,6 @@ export class PoliceSystem {
   /** Vehicle the player was last seen in (-1 on foot). */
   private seenVehicleId = -1;
   private swapUsed = false;
-  private resprayInside = false;
   private readonly ray: RAPIER_NS.Ray;
   private readonly losGroups = interactionGroups(0xffff, Groups.static);
 
@@ -261,7 +260,7 @@ export class PoliceSystem {
     this.roadblocks.step(dt);
   }
 
-  /** Post-physics: who can see the player, HEAT decay, arrests, resprays. */
+  /** Post-physics: who can see the player, HEAT decay, arrests. (Resprays at `respray*` markers: economy.ts.) */
   postStep(dt: number): void {
     const w = this.world;
     const p = w.player;
@@ -278,7 +277,6 @@ export class PoliceSystem {
     this.witnesses.step(dt);
     this.heat.update(dt, seen, p.x, p.z);
     this.updateArrest(dt);
-    this.updateRespray();
     if (this.heat.level !== this.lastLevel) {
       const reason = this.levelReason ?? (this.heat.level > this.lastLevel ? 'up' : 'escape');
       w.events.push({ type: 'heat', level: this.heat.level, previous: this.lastLevel, reason });
@@ -324,20 +322,6 @@ export class PoliceSystem {
       this.arrestProgress = 0;
       w.survival.book();
     }
-  }
-
-  /** Drive slowly into a `respray*` marker to respray the car. */
-  private updateRespray(): void {
-    const w = this.world;
-    const pv = w.player.vehicle;
-    let inside = false;
-    if (pv && Math.abs(forwardSpeed(pv)) <= this.config.respray.maxSpeed) {
-      for (const [id, m] of Object.entries(w.content.map.markers)) {
-        if (id.startsWith('respray') && Math.hypot(m.pos[0] - pv.x, m.pos[2] - pv.z) < this.config.respray.radius) inside = true;
-      }
-    }
-    if (inside && !this.resprayInside) w.events.push({ type: 'respray', result: this.respray() });
-    this.resprayInside = inside;
   }
 
   spawnUnit(role: 'police' | 'squad', variant: string): Vehicle | null {

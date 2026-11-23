@@ -28,3 +28,4 @@ export * from './citygen';
 export * from './road-main';
 export * from './roster';
 export * from './weather';
+export * from './economy';
