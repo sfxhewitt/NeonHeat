@@ -16,6 +16,8 @@ export interface AudioVehicleView {
   drifting: boolean;
   controls: { throttle: number; brake: number; handbrake: boolean };
   params: { topSpeed: number };
+  /** An ambulance or fire tender on a call (police sirens follow HEAT). */
+  siren?: boolean;
 }
 
 export interface AudioPedView {

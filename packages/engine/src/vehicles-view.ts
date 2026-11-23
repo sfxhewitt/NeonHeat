@@ -228,7 +228,8 @@ export class VehiclesView {
 
       if (v.destroyed) continue;
       const braking = v.controls.brake > 0.1 || (v.controls.handbrake && !parked);
-      const onCall = !parked && L.beacons !== 'none';
+      // Police show their lights whenever they are out; ambulances and fire tenders only on a call.
+      const onCall = !parked && L.beacons !== 'none' && (v.beacons || v.role === 'police' || v.role === 'squad');
       const ph = (world.time * 1.6 + slot * 0.29) % 1;
       const strobeA = ph < 0.5 && ((ph * 6) % 1) < 0.75;
       const strobeB = ph >= 0.5 && (((ph - 0.5) * 6) % 1) < 0.75;
@@ -268,6 +269,9 @@ export class VehiclesView {
     const gen = ++this.slotGen[slot]!;
     const seed = slot * 7919 + gen * 104729;
     this.slotPaint[slot]!.set(paintFor(world.content.vehicles, v.variantId, seed));
+    // Crew cars cruise in their crew's colour.
+    const crew = world.gangs.carCrew[v.id] ?? -1;
+    if (crew >= 0) this.slotPaint[slot]!.set(world.gangs.crews[crew]!.colour).multiplyScalar(0.8);
     this.slotJacket[slot] = JACKETS[(seed >>> 3) % JACKETS.length]!;
     this.lean[slot] = 0;
     this.batch.setGeometryIdAt(slot, entry.geo);

@@ -327,6 +327,9 @@ export class Game {
     this.world.peds.cap = q.peds;
     this.world.traffic.cap = q.traffic;
     this.world.police.cap = q.police;
+    this.world.services.cap = q.responders;
+    this.world.gangs.cap = q.gangMembers;
+    this.world.gangs.carCap = q.gangCars;
     this.dynRes = q.dynamicResolution ? new DynamicResolution(this.content.quality.dynamicResolution) : null;
   }
 

@@ -16,6 +16,10 @@ export const QualityTierSchema = z.object({
   ssr: z.boolean(),
   /** Scene brightness above which light also blooms. */
   bloomThreshold: z.number().positive(),
+  /** Living city: most ambulances and fire tenders out at once, crew members and crew cars around the player. */
+  responders: z.number().int().nonnegative().default(2),
+  gangMembers: z.number().int().nonnegative().default(12),
+  gangCars: z.number().int().nonnegative().default(1),
 });
 export const QualitySchema = z.object({
   tiers: z.object({ low: QualityTierSchema, mid: QualityTierSchema, high: QualityTierSchema, ultra: QualityTierSchema }),

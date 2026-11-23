@@ -110,15 +110,22 @@ export class SceneLights {
       const fz = Math.cos(yaw);
       const hl = v.params.length / 2;
       if (v.destroyed) {
-        // Burning wreck: flickering orange.
+        // Burning wreck: flickering orange, dying down as the fire burns out or is put out.
+        const burn = world.services.burnOf(v.id);
+        if (burn <= 0.01) continue;
         const fl = 0.75 + 0.25 * Math.sin(t * 23 + v.id) * Math.sin(t * 7.3 + v.id * 2);
-        f.point(x, 1.4, z, 9, 0xff7a2a, 1.4 * fl);
+        f.point(x, 1.4, z, 5 + 4 * Math.sqrt(burn), 0xff7a2a, 1.4 * fl * Math.min(1, burn * 1.6));
         continue;
       }
       const police = v.role === 'police' || v.role === 'squad';
       f.spot(x + fx * (hl - 0.2), 0.8, z + fz * (hl - 0.2), 24, police ? 0xc8d6ff : 0xffe2b0, 2.2, fx, fz, 0.86, 0.1);
       const braking = v.controls.brake > 0.1 || v.controls.handbrake;
       f.point(x - fx * (hl + 0.6), 0.7, z - fz * (hl + 0.6), braking ? 4 : 2.6, 0xff1a30, braking ? 0.9 : 0.35);
+      if (v.beacons && !police) {
+        // Ambulance and fire tender beacons light the street red and blue-white.
+        const side = phase ? 1 : -1;
+        f.point(x + Math.cos(yaw) * 0.7 * side, 2.4, z - Math.sin(yaw) * 0.7 * side, 13, phase ? 0xff2a3a : 0xd8e4ff, 2.2);
+      }
       if (police) {
         const squad = v.role === 'squad';
         const side = phase ? 1 : -1;

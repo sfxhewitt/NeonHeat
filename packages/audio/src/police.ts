@@ -72,13 +72,13 @@ export class PoliceAudio {
     const t = ctx.currentTime;
 
     this.byId.clear();
-    for (const v of w.vehicles) if (v.active && v.role === 'police' && !v.destroyed) this.byId.set(v.id, v);
+    for (const v of w.vehicles) if (v.active && !v.destroyed && (v.role === 'police' || v.siren)) this.byId.set(v.id, v);
     this.allocTimer -= dt;
     if (this.allocTimer <= 0) {
       this.allocTimer = 0.1;
       const c = this.candidates;
       c.length = 0;
-      if (heat > 0) for (const v of this.byId.values()) c.push({ id: v.id, dist: Math.hypot(v.x - lx, v.z - lz), pinned: false });
+      for (const v of this.byId.values()) if (heat > 0 || v.siren) c.push({ id: v.id, dist: Math.hypot(v.x - lx, v.z - lz), pinned: false });
       allocateVoices(c, this.slots, pc.maxSirens, 6, L.maxDistance * 1.6);
     }
     for (let i = 0; i < this.sirens.length; i++) {
