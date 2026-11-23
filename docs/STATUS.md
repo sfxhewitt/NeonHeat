@@ -1,13 +1,30 @@
 # Status
 
+## Wanted, combat and survival (23 Nov 2026)
+
+- **HEAT 1-5, fairer.** A crime counts in full only when a police unit, the drone or a witness sees it. A witness is a pedestrian within 25 m with line of sight who phones it in after 4 s, unless they are knocked down first. Unwitnessed crime gives 20% of the points and is capped at HEAT 1, so a few shots fired in an empty street never bring a pursuit. Each level is distinct (`heat.json` `levels`):
+  - HEAT 1: one patrol investigates and tails you.
+  - HEAT 2: pursuit with flank, cut-off and PIT roles, plus box-in.
+  - HEAT 3: the drone arrives and officers shoot at a player on foot.
+  - HEAT 4: wardens (heavy interceptors), roadblocks and spike strips.
+  - HEAT 5: patrol vans with tactical officers.
+- **Escaping HEAT.** Break line of sight and it decays per level. Swapping cars unseen drops a level. A `respray*` marker, or `world.police.respray()`, clears HEAT up to 3 if you are unseen.
+- **The police stop you instead of killing you.** Ram damage is capped per hit, with a cooldown and knock-on capping, so a car comes out of a 60 s HEAT 2 chase with more than half its hull. A unit at the cut-off position eases off once it is ahead of you. Patrol cars pull up short of a player on foot and officers get out. Officers cuff a slow player (BOOKED) and, from HEAT 3, shoot with spread.
+- **FLATLINED / BOOKED.** You lose 10% or 15% of your credits and your weapons. You respawn at the nearest `clinic*` or `precinct*` marker (or `player_start`) with HEAT cleared, and a full-screen card shows what it cost.
+- **Weapons** (`weapons.json`): fists (three-hit combo), bat, pistol, SMG, shotgun, rifle, grenade launcher (arcing shot, area damage, throws cars over) and arc caster (chains to two more targets and stuns them). Ammo and an inventory come with a `nextWeapon` intent: the touch WPN button, Q/Tab, or the gamepad's left shoulder. The SMG and pistol can be fired from a car (drive-by). Wrecked cars explode; bikes crumple (`wreckMinMass`).
+- **Pickups** (`pickups.json`) are placed from `pickup_<kind>_*` markers; `grenade` and `taser` are aliases for the launcher and the arc caster. They respawn after 40 s and render as glowing, spinning icons, each with its own shape and colour.
+- **Street score** (`survival.json`): crimes earn credits on a chain multiplier. The pending credits bank once HEAT has been 0 for a short while. The score is kept in step with the save's credits.
+- **HUD**: BODY and ARMOUR bars, the weapon icon, its name and ammo, the score chain, credits, and a CUFFS meter under the HEAT chevrons. The hull bar only shows while driving.
+- **Open**: the vehicle flip is visual only (the sim keeps cars flat). Jobs do not fail on FLATLINED or BOOKED; you respawn and the job goes on. Respray is reachable only through markers or the API, and the city has no `respray*` markers yet. Arc bolt flicker uses `Math.random` (visual only). Officers do not show a getting-out animation.
+
 ## Vehicle roster (23 Nov 2026)
 
 - **23 variants** (17 new): hatchback, saloon, cab, estate, SUV, two sports cars, two supercars, muscle, pickup, van, box truck, hauler, bus, ambulance, fire tender, patrol car, patrol van, heavy interceptor, corporate enforcer, motorbike and sport bike. Every handling value is in `vehicles.json`. New optional fields (all defaulted): `class`, `model`, `twoWheel`, `traffic` (weight), `districts`, `paints`, `leanMax`, plus class paint palettes under `paints`.
-- **Roster helpers** in `packages/sim/src/roster.ts`: `variantsOfClass`, `pickTrafficVariant` (weighted, district-boosted, seeded) and `paintFor`. Traffic and police do not call them yet: `traffic.ts` still picks from `traffic.json` (now a wider civilian mix) and `police.ts` still spawns `interceptor` at every HEAT level.
+- **Roster helpers** in `packages/sim/src/roster.ts`: `variantsOfClass`, `pickTrafficVariant` (weighted, district-boosted, seeded) and `paintFor`. Police escalate to `warden` (HEAT 4) and `patrolvan` (HEAT 5) through `heat.json`.
 - **Bikes**: a two-wheeler only slides on the rear brake (handbrake); the view leans it into turns and seats a rider. They are light, so cars knock them about.
 - **Rendering**: all bodies and riders are one `BatchedMesh` (one draw call) with per-instance paint. A `paintMask` vertex attribute keeps trim untinted. Lamps (head, tail and brake, beacons, taxi sign, clearance lamps and accent strips) are one instanced mesh. The whole roster costs 4 draw calls. Parked cars go dark.
 - **Showroom**: `?garage=1` (add `&labels=1` for names, `&city=1` to keep the buildings) loads `apps/game/src/garage.ts` on demand.
-- **Open**: police escalation to the van and heavy interceptor at high HEAT; district-aware traffic; per-class engine audio; a sustained shove from a light car still moves a parked lorry (the arcade model's push ignores mass until the contact).
+- **Open**: district-aware traffic; per-class engine audio; a sustained shove from a light car still moves a parked lorry (the arcade model's push ignores mass until the contact).
 ## Sound (23 Nov 2026)
 
 The game had no sound. It now has a fully procedural sound layer (`packages/audio`, tuned in `content/data/audio.json`). Nothing is shipped as an audio file: one-shots are rendered from code at runtime, in a frame-budgeted queue after the first tap.

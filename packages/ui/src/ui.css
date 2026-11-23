@@ -222,3 +222,6 @@
 .nh-modal__sub { margin: 14px 0 4px; font-size: 11px; letter-spacing: 0.24em; color: var(--nh-cyan); border-top: 1px solid #2a2950; padding-top: 10px; }
 .nh-choice--wrap { flex-wrap: wrap; justify-content: flex-end; max-width: 340px; }
 .nh-slider { width: 180px; height: 48px; accent-color: var(--nh-magenta); background: transparent; }
+/* Flex containers ignore the hidden attribute unless told. */
+.nh-health[hidden], .nh-vitals[hidden], .nh-score[hidden], .nh-arrest[hidden], .nh-fate[hidden] { display: none; }
+.nh-fate { pointer-events: none; }

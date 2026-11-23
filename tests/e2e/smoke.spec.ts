@@ -89,6 +89,9 @@ test('on foot: walk, roll and fire without errors', async ({ page }) => {
   expect(heat.level).toBeLessThanOrEqual(1);
   await expect(page.locator('.nh-vitals .nh-bar--body')).toBeAttached();
   await expect(page.locator('.nh-weapon__name')).toHaveText(/\S/);
+  // Hidden overlays must really be hidden (flex boxes ignore [hidden] without a rule).
+  await expect(page.locator('.nh-fate')).toBeHidden();
+  await expect(page.locator('.nh-arrest')).toBeHidden();
   expect(errors).toEqual([]);
 });
 
