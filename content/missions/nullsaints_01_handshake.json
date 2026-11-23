@@ -12,7 +12,7 @@
     {
       "id": "shards",
       "type": "collect",
-      "pickups": ["marker:undercroft_door_1", "marker:undercroft_door_3", "marker:undercroft_door_5", "marker:rail_yard"],
+      "pickups": ["marker:undercroft_lot_1", "marker:undercroft_road_5", "marker:undercroft_door_5", "marker:junkyard"],
       "radius": 3.5,
       "vehicle": "none",
       "text": "Find the data shards on foot",
@@ -22,7 +22,7 @@
     {
       "id": "node",
       "type": "hack",
-      "target": "marker:undercroft_door_6",
+      "target": "marker:undercroft_road_2",
       "minigame": "sequence",
       "difficulty": 2,
       "text": "Hack the Saints' test node",

@@ -5,7 +5,7 @@
   "title": "Guest List",
   "summary": "Seraphine is headlining tonight and her driver has gone missing. You are the driver now. Do not get her noticed.",
   "chain": 1,
-  "giver": { "type": "payphone", "at": "marker:lantern_payphone_1" },
+  "giver": { "type": "payphone", "at": "marker:lantern_payphone_3" },
   "prerequisites": { "missions": ["story_01_first_call"] },
   "budgetMinutes": 5,
   "actors": {

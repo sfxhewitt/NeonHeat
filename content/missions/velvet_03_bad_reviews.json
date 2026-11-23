@@ -10,14 +10,14 @@
   "budgetMinutes": 6,
   "spawns": {
     "van_glass": { "variant": "brick", "at": "marker:glass_lot_3", "locked": true, "role": "target" },
-    "van_ashgrove": { "variant": "brick", "at": "marker:ashgrove_lot_3", "locked": true, "role": "target" },
-    "van_undercroft": { "variant": "brick", "at": "marker:undercroft_lot_3", "locked": true, "role": "target" }
+    "van_lantern": { "variant": "brick", "at": "marker:lantern_lot_3", "locked": true, "role": "target" },
+    "van_undercroft": { "variant": "brick", "at": "marker:undercroft_lot_1", "locked": true, "role": "target" }
   },
   "objectives": [
     {
       "id": "vans",
       "type": "destroyVehicle",
-      "targets": ["spawn:van_glass", "spawn:van_ashgrove", "spawn:van_undercroft"],
+      "targets": ["spawn:van_glass", "spawn:van_lantern", "spawn:van_undercroft"],
       "text": "Wreck the promoter's poster vans",
       "timeLimitSec": 300,
       "onStart": [

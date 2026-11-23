@@ -5,12 +5,12 @@
   "title": "Blue Screen",
   "summary": "Kurogane is moving two relay trucks to the central tower to patch the hole the Saints made. They cannot arrive.",
   "chain": 4,
-  "giver": { "type": "payphone", "at": "marker:undercroft_payphone_4" },
+  "giver": { "type": "payphone", "at": "marker:undercroft_payphone_2" },
   "prerequisites": { "missions": ["nullsaints_03_root_access"], "respect": { "null_saints": 25 } },
   "budgetMinutes": 6,
   "spawns": {
     "relay_north": { "variant": "enforcer", "at": "marker:lantern_road_5", "locked": true, "role": "target" },
-    "relay_south": { "variant": "enforcer", "at": "marker:saltworks_road_4", "locked": true, "role": "target" }
+    "relay_south": { "variant": "enforcer", "at": "marker:undercroft_road_3", "locked": true, "role": "target" }
   },
   "objectives": [
     {
@@ -22,8 +22,8 @@
       "text": "Wreck both relay trucks before they reach the tower",
       "onStart": [
         { "do": "dialogue", "line": "n04_intro" },
-        { "do": "drive", "vehicle": "spawn:relay_north", "mode": "route", "route": ["marker:lantern_road_1", "marker:central_tower"], "speed": 10 },
-        { "do": "drive", "vehicle": "spawn:relay_south", "mode": "route", "route": ["marker:bridge_central", "marker:central_tower"], "speed": 10 },
+        { "do": "drive", "vehicle": "spawn:relay_north", "mode": "route", "route": ["marker:lantern_road_4", "marker:central_tower"], "speed": 10 },
+        { "do": "drive", "vehicle": "spawn:relay_south", "mode": "route", "route": ["marker:bridge_west", "marker:central_tower"], "speed": 10 },
         { "do": "spawnSquad", "squad": "kurogane_pursuit", "delaySec": 35 },
         { "do": "dialogue", "line": "n04_escort", "delaySec": 35 }
       ],

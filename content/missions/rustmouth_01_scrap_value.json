@@ -9,7 +9,7 @@
   "prerequisites": { "missions": ["story_01_first_call"] },
   "budgetMinutes": 6,
   "spawns": {
-    "scrap_van": { "variant": "brick", "at": "marker:saltworks_lot_1", "yaw": 0, "role": "target" }
+    "scrap_van": { "variant": "brick", "at": "marker:saltworks_lot_4", "yaw": 0, "role": "target" }
   },
   "objectives": [
     {
@@ -22,7 +22,7 @@
     {
       "id": "salvage",
       "type": "collect",
-      "pickups": ["marker:saltworks_road_1", "marker:saltworks_road_5", "marker:dock_cranes", "marker:saltworks_door_4", "marker:saltworks_road_7"],
+      "pickups": ["marker:saltworks_road_7", "marker:saltworks_road_1", "marker:saltworks_lot_3", "marker:saltworks_door_3", "marker:saltworks_road_3"],
       "radius": 7,
       "vehicle": "spawn:scrap_van",
       "text": "Pick up the salvage",
@@ -33,7 +33,7 @@
       "id": "weigh_in",
       "type": "deliverVehicle",
       "vehicle": "spawn:scrap_van",
-      "target": "marker:junkyard",
+      "target": "marker:chopshop_1",
       "radius": 10,
       "onComplete": [{ "do": "dialogue", "line": "r01_done" }]
     }

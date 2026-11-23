@@ -5,11 +5,11 @@
   "title": "Repo Job",
   "summary": "A Rustmouth chancer drove off in one of Vesper's cars. She would like it back, ideally not in pieces.",
   "chain": 4,
-  "giver": { "type": "payphone", "at": "marker:ashgrove_payphone_2" },
+  "giver": { "type": "payphone", "at": "marker:saltworks_payphone_2" },
   "prerequisites": { "missions": ["glasshounds_03_hot_chrome"], "respect": { "glasshounds": 25 } },
   "budgetMinutes": 6,
   "spawns": {
-    "lifted_car": { "variant": "vandal", "at": "marker:saltworks_road_3", "locked": true, "role": "target" }
+    "lifted_car": { "variant": "vandal", "at": "marker:saltworks_road_7", "locked": true, "role": "target" }
   },
   "objectives": [
     {
@@ -39,7 +39,7 @@
       "id": "return",
       "type": "deliverVehicle",
       "vehicle": "spawn:lifted_car",
-      "target": "marker:chopshop_1",
+      "target": "marker:chopshop_2",
       "minHealth": 0.15,
       "onComplete": [{ "do": "dialogue", "line": "gh04_done" }]
     }

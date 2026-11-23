@@ -24,7 +24,7 @@
     {
       "id": "box_lantern",
       "type": "hack",
-      "target": "marker:lantern_door_5",
+      "target": "marker:lantern_door_4",
       "minigame": "sequence",
       "difficulty": 3,
       "text": "Hack the junction box in Lantern Row",
@@ -35,7 +35,7 @@
     {
       "id": "box_ashgrove",
       "type": "hack",
-      "target": "marker:ashgrove_door_5",
+      "target": "marker:ashgrove_door_4",
       "minigame": "sequence",
       "difficulty": 3,
       "text": "Hack the junction box in Ashgrove",

@@ -16,7 +16,7 @@
   "actors": {
     "cleaner_1": { "faction": "kurogane", "at": "marker:safehouse_2", "offset": [8, 4], "behaviour": "guard", "hostile": true, "group": "cleaners" },
     "cleaner_2": { "faction": "kurogane", "at": "marker:safehouse_2", "offset": [-7, 5], "behaviour": "guard", "hostile": true, "group": "cleaners" },
-    "cleaner_3": { "faction": "kurogane", "at": "marker:safehouse_2", "offset": [2, -8], "behaviour": "guard", "hostile": true, "hp": 2, "group": "cleaners" }
+    "cleaner_3": { "faction": "kurogane", "at": "marker:safehouse_2", "offset": [3, 9], "behaviour": "guard", "hostile": true, "hp": 2, "group": "cleaners" }
   },
   "objectives": [
     {

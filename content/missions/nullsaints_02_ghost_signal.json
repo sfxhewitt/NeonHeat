@@ -9,7 +9,7 @@
   "prerequisites": { "missions": ["nullsaints_01_handshake"] },
   "budgetMinutes": 6,
   "spawns": {
-    "sniffer": { "variant": "brick", "at": "marker:undercroft_road_5", "locked": true, "role": "courier" }
+    "sniffer": { "variant": "brick", "at": "marker:undercroft_road_7", "locked": true, "role": "courier" }
   },
   "objectives": [
     {
@@ -25,7 +25,7 @@
       "id": "tail",
       "type": "tail",
       "target": "spawn:sniffer",
-      "route": ["marker:undercroft_road_1", "marker:glass_road_3", "marker:glass_road_6"],
+      "route": ["marker:undercroft_road_3", "marker:bridge_west", "marker:glass_road_5"],
       "speed": 11,
       "minRange": 15,
       "maxRange": 70,
@@ -40,7 +40,7 @@
       "text": "Wreck the van before it reaches the tower",
       "onStart": [
         { "do": "dialogue", "line": "n02_wreck" },
-        { "do": "drive", "vehicle": "spawn:sniffer", "mode": "route", "route": ["marker:central_tower"], "speed": 15 }
+        { "do": "drive", "vehicle": "spawn:sniffer", "mode": "route", "route": ["marker:central_tower"], "speed": 12 }
       ],
       "onComplete": [{ "do": "dialogue", "line": "n02_done" }]
     }

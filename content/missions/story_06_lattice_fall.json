@@ -50,7 +50,7 @@
       "checkpoints": ["marker:bridge_central", "marker:saltworks_road_6", "marker:bridge_east", "marker:ashgrove_road_5"],
       "radius": 14,
       "vehicle": "spawn:uplink",
-      "timeLimitSec": 150,
+      "timeLimitSec": 180,
       "text": "Shake the tracker: hit the bridges",
       "failOn": [{ "if": "vehicleDestroyed", "target": "spawn:uplink", "message": "The uplink was wrecked" }],
       "onStart": [
@@ -63,7 +63,7 @@
       "type": "escape",
       "text": "Lose every last patrol",
       "failOn": [{ "if": "vehicleDestroyed", "target": "spawn:uplink", "message": "The uplink was wrecked" }],
-      "onStart": [{ "do": "setHeat", "value": 4 }, { "do": "dialogue", "line": "s06_heat" }]
+      "onStart": [{ "do": "setHeat", "value": 3 }, { "do": "dialogue", "line": "s06_heat" }]
     },
     {
       "id": "drown",

@@ -1,7 +1,8 @@
 {
   "s01_hello": { "speaker": "VESPER · GLASSHOUNDS", "text": "You picked up. Good start. I'm Vesper, and I need someone who can drive, walk and duck, ideally in that order. There's a Kestrel in the yard. It's open. Don't make it weird." },
   "s01_drive": { "speaker": "VESPER · GLASSHOUNDS", "text": "Lovely. Now take it up the road. Gently. It's not stolen yet, technically." },
-  "s01_spotter": { "speaker": "VESPER · GLASSHOUNDS", "text": "See the suit in the park with the camera? Kurogane spotter. He's been photographing my garage for a week. Warm up first. He shoots like he's paid by the bullet." },
+  "s01_spotter": { "speaker": "VESPER · GLASSHOUNDS", "text": "See the suit by the stadium with the camera? Kurogane spotter. He's been photographing my garage for a week. Warm up first. He shoots like he's paid by the bullet." },
+  "s01_wheels": { "speaker": "VESPER · GLASSHOUNDS", "text": "Someone will have heard that. Back to the car, please. Loitering next to a scuffle is a look, and not a good one." },
   "s01_heat": { "speaker": "VESPER · GLASSHOUNDS", "text": "And that's HEAT. One chevron means a patrol is curious. Get out of sight and stay out of sight until they lose interest." },
   "s01_done": { "speaker": "VESPER · GLASSHOUNDS", "text": "Not bad for a nobody. The garage is yours to sleep in. Keep the burner on. When it rings in cyan, it's me." },
 
@@ -125,7 +126,7 @@
   "s04_convoy": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Two trucks heading for the tower, one each way, and an outrider who thinks he's hard. Wreck the trucks." },
   "s04_wrecked": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Beautiful. My lads have pulled the cores out of the wreckage and stashed them on the quay." },
   "s04_crates": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Three crates. Grab them. They're not heavy, they're just expensive." },
-  "s04_heat": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Every copper in the Saltworks is coming. Lose them, then the junkyard." },
+  "s04_heat": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Every copper in the Saltworks is coming. Lose them, then the chop shop on the front." },
   "s04_done": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Cores are under a tonne of scrap. Kurogane won't find them. I can barely find them." },
 
   "s05_intro": { "speaker": "LITANY · NULL SAINTS", "text": "They found the rig. They're coming. I'm loading the van now. Get here with a car, and fast." },

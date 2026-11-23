@@ -7,12 +7,12 @@
   "story": true,
   "chain": 0,
   "giver": { "type": "payphone", "at": "marker:ashgrove_payphone_2" },
-  "budgetMinutes": 6,
+  "budgetMinutes": 7,
   "spawns": {
-    "practice_car": { "variant": "kestrel", "at": "marker:ashgrove_lot_1", "yaw": 0, "role": "target" }
+    "practice_car": { "variant": "kestrel", "at": "marker:ashgrove_lot_4", "yaw": 0, "role": "target" }
   },
   "actors": {
-    "spotter": { "faction": "kurogane", "at": "marker:park_ashgrove", "behaviour": "guard", "hostile": true, "armed": true, "hp": 2, "role": "target" }
+    "spotter": { "faction": "kurogane", "at": "marker:stadium", "behaviour": "guard", "hostile": true, "armed": true, "hp": 2, "role": "target" }
   },
   "onStart": [{ "do": "dialogue", "line": "s01_hello" }],
   "objectives": [
@@ -28,7 +28,7 @@
     {
       "id": "drive",
       "type": "reach",
-      "target": "marker:ashgrove_road_4",
+      "target": "marker:ashgrove_road_7",
       "radius": 10,
       "vehicle": "spawn:practice_car",
       "text": "Drive to the marker",
@@ -40,10 +40,10 @@
     {
       "id": "walk",
       "type": "reach",
-      "target": "marker:park_ashgrove",
+      "target": "marker:stadium",
       "radius": 22,
       "vehicle": "none",
-      "text": "Get out and walk to the park",
+      "text": "Get out and walk to the stadium",
       "onStart": [{ "do": "hint", "text": "Slow down, then tap EXIT to get out.", "desktop": "Slow down, then press E to get out.", "durationSec": 6 }]
     },
     {
@@ -66,6 +66,16 @@
         { "do": "aggro", "refs": ["actor:spotter"] },
         { "do": "hint", "text": "Turn to face them and tap FIRE. Roll when they shoot.", "desktop": "Face them and click (or press F) to fire. Roll when they shoot.", "durationSec": 7 }
       ],
+      "onComplete": [{ "do": "dialogue", "line": "s01_wheels" }]
+    },
+    {
+      "id": "wheels",
+      "type": "reach",
+      "target": "marker:ashgrove_road_7",
+      "radius": 40,
+      "vehicle": "any",
+      "text": "Get back in a car",
+      "onStart": [{ "do": "hint", "text": "Your Kestrel is where you left it. Or tap STEAL beside any car in traffic.", "desktop": "Your Kestrel is where you left it. Or press E beside any car in traffic.", "durationSec": 7 }],
       "onComplete": [{ "do": "setHeat", "value": 1 }]
     },
     {
@@ -82,8 +92,7 @@
       "target": "marker:safehouse_1",
       "radius": 8,
       "vehicle": "any",
-      "text": "Take any car to Vesper's garage",
-      "onStart": [{ "do": "hint", "text": "Any car will do. Tap STEAL beside one in traffic to take it.", "desktop": "Any car will do. Press E beside one in traffic to take it.", "durationSec": 7 }],
+      "text": "Drive to Vesper's garage",
       "onComplete": [{ "do": "dialogue", "line": "s01_done" }]
     }
   ],

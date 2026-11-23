@@ -30,7 +30,7 @@
       "id": "tail",
       "type": "tail",
       "target": "spawn:courier",
-      "route": ["marker:lantern_road_6", "marker:glass_road_5", "marker:central_tower", "marker:market_square"],
+      "route": ["marker:lantern_road_6", "marker:lantern_road_4", "marker:glass_road_4", "marker:market_square"],
       "speed": 12,
       "minRange": 14,
       "maxRange": 75,
