@@ -283,6 +283,12 @@ export class CombatSystem {
       const p = w.peds.peds[gangs.hostilePeds[i]!]!;
       if (p.active && p.state !== 'down') consider('ped', p.id, p.x, p.z, -3);
     }
+    // Mission heavies (guards, hit squads, targets).
+    for (const a of w.actors.actors) {
+      if (!a.active || a.dead || a.riding || !a.hostile || a.pedId < 0) continue;
+      const p = w.peds.peds[a.pedId];
+      if (p && p.active && p.state !== 'down') consider('ped', p.id, p.x, p.z, a.aggro ? -3 : -1);
+    }
     for (const v of w.vehicles) {
       if (!v.active || v.destroyed || v === exclude || v === w.player.vehicle) continue;
       if (v.role !== 'police' && v.role !== 'squad') continue;

@@ -235,8 +235,11 @@ export class GangSystem {
 
   /** Would hurting this ped be a police matter? Crew members only count when police see it. */
   reportable(pedId: number): boolean {
-    if (this.crewOfPed(pedId) < 0) return true;
     const w = this.world;
+    // Armed mission heavies who are already shooting count as a gunfight too, not a crime on the public.
+    const a = w.actors.actorForPed(pedId);
+    const fight = this.crewOfPed(pedId) >= 0 || (a !== null && a.hostile && a.aggro && a.armed);
+    if (!fight) return true;
     return w.police.policeSees(w.player.x, w.player.z);
   }
 
