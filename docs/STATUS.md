@@ -1,5 +1,29 @@
 # Status
 
+## Economy: shops, resprays, safehouses, cyberware, exports (23 Nov 2026)
+
+Done:
+- **Shop fronts in the world** (`packages/engine/src/services-view.ts`, 3 draw calls for all of them). Each kind has an original name, colour, icon and lit sign: MERCY LINE clinic, CITY WATCH precinct, HIDEOUT safehouse, FRESH COAT respray, LOUD GOODS arms and CHOP CHOP export yard. Each also has a glowing pad. Walk-in shops have a lit shopfront, a canopy and a kerbside sign. Drive-ins (respray, chop shop) have a garage building, a roller door, a roof sign and a drive pad with chevrons. Shop icons also show on the minimap and the full map.
+- **Respray** (FRESH COAT): drive onto the pad slowly. It costs `respray.price` (150 cr). You get a new paint, which is kept as `vehicle.paintSeed`, a repaired car and cleared HEAT under the police rules. It refuses with a message if the police can see you, you are too hot or you cannot pay. The police no longer respray for free.
+- **Arms shop** (LOUD GOODS): walk onto the pad and a touch panel opens with the game held. It sells weapons, ammo and armour at the prices in `economy.json`. FLATLINED or BOOKED takes your weapons. Anything you have bought before can be rebought at `rebuyFraction` of the price.
+- **Clinic** (MERCY LINE): sells healing and cyberware. Cyberware is permanent:
+  - Reflex: dodging slows time and gives i-frames.
+  - Plating: +50 maximum armour.
+  - Ghost: HEAT builds at 0.65×.
+- **Safehouses**: buy one at the door (the context button shows BUY). `safehouse_1` is owned from the start. Walking into an owned one heals you and autosaves.
+- **Respawn rule**: after FLATLINED you respawn at the nearest owned safehouse when it is nearer than the nearest clinic, otherwise at the clinic. After BOOKED you always respawn at the precinct.
+- **Export list**: 4 civilian variants, chosen by seed. Delivering one to a CHOP CHOP pad with at least 50% condition and no HEAT pays by class × condition, and a new car replaces it on the list. The list is shown in the pause menu's Jobs tab.
+- **While a job runs**, resprays are free ("on the crew's tab") and the chop shops do not buy, so a mission car cannot be sold.
+- **Save v3** (migration from v2 is tested). It adds the loadout, armour, cyberware, the export list, `creditsSpent` and `exportsDelivered`.
+- **Tests**: 21 rules in `tests/unit/economy.test.ts`, plus the save migration and round trip.
+
+Known gaps:
+- Reflex slows the whole fixed-step clock: the world, sound and timers all slow, not just the enemies.
+- The precinct front is decoration only: there is no interaction there yet.
+- Garage buildings are only placed for drive-in sites on open lots.
+- The sign posts have no colliders.
+- The chop shop's yard floodlight barely shows in the light field.
+
 ## Wanted, combat and survival (23 Nov 2026)
 
 - **HEAT 1-5, fairer.** A crime counts in full only when a police unit, the drone or a witness sees it. A witness is a pedestrian within 25 m with line of sight who phones it in after 4 s, unless they are knocked down first. Unwitnessed crime gives 20% of the points and is capped at HEAT 1, so a few shots fired in an empty street never bring a pursuit. Each level is distinct (`heat.json` `levels`):
