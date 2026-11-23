@@ -142,7 +142,17 @@ export class Minimap {
     c.scale(k / ls, k / ls);
     c.translate(-(s.x + this.half[0]) * ls, -(s.z + this.half[1]) * ls);
     c.imageSmoothingEnabled = true;
-    c.drawImage(this.layer, 0, 0);
+    // Blit only the window around the player (a rotated view needs the square's diagonal).
+    const lw = this.layer.width;
+    const lh = this.layer.height;
+    const r = Math.ceil((this.span / 2) * ls * (this.rotate ? 1.42 : 1.02));
+    const cx = (s.x + this.half[0]) * ls;
+    const cz = (s.z + this.half[1]) * ls;
+    const sx0 = Math.max(0, Math.floor(cx - r));
+    const sz0 = Math.max(0, Math.floor(cz - r));
+    const sx1 = Math.min(lw, Math.ceil(cx + r));
+    const sz1 = Math.min(lh, Math.ceil(cz + r));
+    if (sx1 > sx0 && sz1 > sz0) c.drawImage(this.layer, sx0, sz0, sx1 - sx0, sz1 - sz0, sx0, sz0, sx1 - sx0, sz1 - sz0);
     c.restore();
 
     const dot = n / 52; // base marker size in px

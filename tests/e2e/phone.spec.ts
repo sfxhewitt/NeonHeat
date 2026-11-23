@@ -124,9 +124,11 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect.poll(async () => (await player(page)).driving).toBe(true);
 
   // --- Drive: direction steering, push the stick the way you want to go.
+  // Push the way the car faces (parked cars in the city face any direction), so the test drives rather than turns.
   p0 = await player(page);
+  const yaw = await page.evaluate(() => window.__neon!.game.world.player.vehicle!.yaw as number);
   await finger.press(sx, sy);
-  await finger.move(sx + 70, sy);
+  await finger.move(sx + Math.sin(yaw) * 70, sy + Math.cos(yaw) * 70);
   await page.waitForTimeout(2500);
   p1 = await player(page);
   await finger.release();
@@ -158,7 +160,8 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
     w.heat.clear();
-    w.playerCtl.teleport(-31, 21);
+    const giver = window.__neon!.game.director.missions[0].giver.pos;
+    w.playerCtl.teleport(giver[0], giver[2] + 1);
   });
   await expect(context).toHaveText('ANSWER');
   await context.tap();
@@ -166,7 +169,10 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect(page.locator('.nh-mission__obj')).toHaveText('Get to the marker');
 
   // Reach the lot, then hack the prototype on the touch panel.
-  await page.evaluate(() => window.__neon!.game.world.playerCtl.teleport(95, 16));
+  await page.evaluate(() => {
+    const p = window.__neon!.game.world.content.map.markers.glass_lot_2.pos;
+    window.__neon!.game.world.playerCtl.teleport(p[0], p[2]);
+  });
   await expect.poll(() => page.evaluate(() => window.__neon!.mission().objective)).toBe('hack_car');
   await page.evaluate(() => {
     const g = window.__neon!.game;
@@ -195,7 +201,8 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect(page.locator('.nh-mission__timer')).toHaveText(/^[0-3]:[0-5]\d$/);
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
-    w.teleportVehicle(w.player.vehicle, -60, 66, Math.PI);
+    const p = w.content.map.markers.chopshop_1.pos;
+    w.teleportVehicle(w.player.vehicle, p[0], p[2], Math.PI);
   });
   // The job-done card: title, pay, Continue.
   await expect(page.locator('.nh-done h2')).toHaveText('Hot Chrome', { timeout: 10_000 });
@@ -257,7 +264,8 @@ test('iPhone: the minimap opens the full map, a tap sets a waypoint, the menu cl
 
   // Tap the map: a waypoint, and a GPS route from the player to it.
   const box = (await page.locator('.nh-fullmap__canvas').boundingBox())!;
-  await page.touchscreen.tap(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  // Off-centre: the map opens centred on the player, and a waypoint on top of the player clears itself.
+  await page.touchscreen.tap(box.x + box.width * 0.3, box.y + box.height * 0.3);
   await expect.poll(() => page.evaluate(() => window.__neon!.game.flow.live.waypoint !== null)).toBe(true);
   expect(await page.evaluate(() => window.__neon!.game.flow.live.route.length)).toBeGreaterThanOrEqual(2);
   await expect(page.locator('.nh-fullmap__readout')).toContainText('Waypoint');
