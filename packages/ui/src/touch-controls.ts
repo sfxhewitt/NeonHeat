@@ -19,7 +19,7 @@ export interface TouchState {
   activity: boolean;
 }
 
-const LAYOUT_KEY = 'neonheat.touchLayout.v1';
+const LAYOUT_KEY = 'neonheat.touchLayout.v2';
 const STICK_RADIUS = 64;
 
 type ButtonId = 'handbrake' | 'fire' | 'dodge' | 'context' | 'left' | 'right' | 'gas' | 'brake' | 'weapon' | 'driveby' | 'activity';
@@ -36,10 +36,14 @@ interface ButtonDef {
   scheme?: DriveScheme;
   /** Edge-triggered rather than held. */
   tap?: boolean;
+  /** Default position and size under the classic scheme, where the pedals take the thumb spots. */
+  classic?: { x: number; y: number; size: number };
 }
 
 const BUTTONS: ButtonDef[] = [
-  { id: 'handbrake', label: 'DRIFT', side: 'right', x: 4, y: 8, size: 84, modes: ['driving'] },
+  // Direction steering keeps the car screen to a stick plus EXIT (and SHOOT when armed): the stick
+  // drifts the car round hairpins by itself. The classic scheme gets the full set of pedals.
+  { id: 'handbrake', label: 'DRIFT', side: 'right', x: 4, y: 8, size: 84, modes: ['driving'], scheme: 'classic' },
   { id: 'gas', label: 'GAS', side: 'right', x: 18, y: 6, size: 84, modes: ['driving'], scheme: 'classic' },
   { id: 'brake', label: 'BRAKE', side: 'right', x: 18, y: 28, size: 68, modes: ['driving'], scheme: 'classic' },
   { id: 'left', label: '◀', side: 'left', x: 4, y: 8, size: 84, modes: ['driving'], scheme: 'classic' },
@@ -47,8 +51,8 @@ const BUTTONS: ButtonDef[] = [
   { id: 'fire', label: 'FIRE', side: 'right', x: 4, y: 8, size: 92, modes: ['foot'] },
   { id: 'dodge', label: 'ROLL', side: 'right', x: 18, y: 6, size: 64, modes: ['foot'], tap: true },
   { id: 'context', label: '', side: 'right', x: 6, y: 40, size: 76, modes: ['driving', 'foot'], tap: true },
-  { id: 'weapon', label: 'WPN', side: 'right', x: 4, y: 58, size: 56, modes: ['driving', 'foot'], tap: true },
-  { id: 'driveby', label: 'SHOOT', side: 'right', x: 30, y: 8, size: 64, modes: ['driving'] },
+  { id: 'weapon', label: 'WPN', side: 'right', x: 4, y: 58, size: 56, modes: ['foot'], tap: true },
+  { id: 'driveby', label: 'SHOOT', side: 'right', x: 4, y: 8, size: 84, modes: ['driving'], classic: { x: 30, y: 8, size: 64 } },
   { id: 'activity', label: '', side: 'right', x: 17, y: 42, size: 60, modes: ['driving'], tap: true },
 ];
 
@@ -72,6 +76,8 @@ export class TouchControls {
   private stickOrigin = { x: 0, y: 0 };
   private stick = { x: 0, y: 0 };
   private readonly held = new Map<ButtonId, number>();
+  /** Held buttons pressed since the last read: a quick tap (down and up between two sim steps) still counts. */
+  private readonly pressed = new Set<ButtonId>();
   private readonly taps = new Set<ButtonId>();
   private readonly els = new Map<ButtonId, HTMLElement>();
   private layout: Partial<Record<ButtonId, { x: number; y: number }>> = {};
@@ -99,7 +105,6 @@ export class TouchControls {
     for (const def of BUTTONS) {
       const el = div(`nh-btn nh-btn--${def.id}`);
       el.textContent = def.label;
-      el.style.width = el.style.height = `${def.size}px`;
       this.place(el, def);
       this.root.appendChild(el);
       this.els.set(def.id, el);
@@ -175,6 +180,7 @@ export class TouchControls {
       this.markTouch(e);
       this.held.set(def.id, e.pointerId);
       if (def.tap) this.taps.add(def.id);
+      else this.pressed.add(def.id);
       el.classList.add('is-down');
     });
     el.addEventListener('pointermove', (e) => {
@@ -206,7 +212,10 @@ export class TouchControls {
   }
 
   private place(el: HTMLElement, def: ButtonDef): void {
-    const pos = this.layout[def.id] ?? { x: def.x, y: def.y };
+    const alt = this.scheme === 'classic' ? def.classic : undefined;
+    const size = alt?.size ?? def.size;
+    el.style.width = el.style.height = `${size}px`;
+    const pos = this.layout[def.id] ?? (alt ? { x: alt.x, y: alt.y } : { x: def.x, y: def.y });
     el.style.left = el.style.right = '';
     el.style[def.side] = `calc(${pos.x / 100} * var(--app-w) + var(--nh-safe-${def.side === 'left' ? 'l' : 'r'}))`;
     el.style.bottom = `calc(${pos.y / 100} * var(--app-h) + var(--nh-safe-b))`;
@@ -230,6 +239,7 @@ export class TouchControls {
 
   setScheme(scheme: DriveScheme): void {
     this.scheme = scheme;
+    for (const def of BUTTONS) this.place(this.els.get(def.id)!, def);
     this.refresh();
   }
 
@@ -278,12 +288,12 @@ export class TouchControls {
   }
 
   read(): TouchState {
-    const h = (id: ButtonId): boolean => this.held.has(id);
+    const h = (id: ButtonId): boolean => this.pressed.delete(id) || this.held.has(id);
     const tap = (id: ButtonId): boolean => this.taps.delete(id);
     const classic = this.mode === 'driving' && this.scheme === 'classic';
     return {
       // A thumb held still sends no events, so a held stick or button stays live however long it is held.
-      active: this.stickId !== null || this.held.size > 0,
+      active: this.stickId !== null || this.held.size > 0 || this.pressed.size > 0,
       scheme: this.scheme,
       moveX: classic ? 0 : this.stick.x,
       moveY: classic ? 0 : this.stick.y,

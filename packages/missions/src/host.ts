@@ -29,6 +29,8 @@ interface Checkpoint {
   pz: number;
   facing: number;
   drivingRef: string | null;
+  /** The player's own (non-mission) car at the checkpoint, handed back on a retry. */
+  ride: { variant: string; x: number; z: number; yaw: number } | null;
   vehicles: VehicleSnap[];
   actors: ActorSnap[];
   gone: string[];
@@ -43,6 +45,7 @@ interface Checkpoint {
 /** MissionHost implemented over the simulation world. */
 /** Police and squad cars this close to a checkpoint are removed when it is restored (m). */
 const RETRY_CLEAR_RADIUS = 150;
+const RETRY_CAR_RADIUS = 25;
 
 export class WorldMissionHost implements MissionHost {
   /** The mission whose spawns and actors refs resolve against. */
@@ -102,6 +105,7 @@ export class WorldMissionHost implements MissionHost {
     if (!v) return null;
     v.locked = def.locked;
     v.hackable = def.hackable;
+    v.hp = v.params.maxHealth * def.hull;
     v.persistent = true;
     this.spawned.set(ref, v.id);
     return v;
@@ -486,7 +490,9 @@ export class WorldMissionHost implements MissionHost {
       actors.push({ ref, x: a.x, z: a.z, hp: a.hp, dead: a.dead, riding: a.riding, aggro: a.aggro });
     }
     for (const ref of this.deadActors) if (!this.actorSlots.has(ref)) actors.push({ ref, x: 0, z: 0, hp: 0, dead: true, riding: false, aggro: false });
-    return { px: w.player.x, pz: w.player.z, facing: w.playerCtl.facing, drivingRef, vehicles, actors, gone: [...this.gone], heat: w.heat.level, trace: w.trace, owned: [...w.combat.owned], ammo: [...w.combat.ammo], weapon: w.combat.current };
+    const pv = w.player.vehicle;
+    const ride = pv && !drivingRef && pv.active && !pv.destroyed ? { variant: pv.variantId, x: pv.x, z: pv.z, yaw: pv.yaw } : null;
+    return { px: w.player.x, pz: w.player.z, facing: w.playerCtl.facing, drivingRef, ride, vehicles, actors, gone: [...this.gone], heat: w.heat.level, trace: w.trace, owned: [...w.combat.owned], ammo: [...w.combat.ammo], weapon: w.combat.current };
   }
 
   restoreCheckpoint(raw: unknown): void {
@@ -521,7 +527,7 @@ export class WorldMissionHost implements MissionHost {
       w.actors.stopDriving(v.id);
       w.teleportVehicle(v, snap.x, snap.z, snap.yaw);
       // A retry hands back a sound car: a checkpoint taken on a damaged car could never be passed.
-      if (!snap.destroyed) v.hp = v.params.maxHealth;
+      if (!snap.destroyed) v.hp = v.params.maxHealth * (resolveSpawnDef(w.content.map, this.mission, snap.ref)?.hull ?? 1);
       v.role = 'parked';
       v.locked = snap.locked;
     }
@@ -546,8 +552,23 @@ export class WorldMissionHost implements MissionHost {
     const driving = cp.drivingRef ? this.vehicle(cp.drivingRef) : null;
     if (driving) pc.enter(driving);
     else {
-      pc.teleport(cp.px, cp.pz);
-      pc.facing = pc.prevFacing = cp.facing;
+      // A retry is never a long walk: the car you had comes back, and on foot there is always one to hand.
+      const ride = cp.ride;
+      let car: Vehicle | null = null;
+      if (ride) {
+        const at = this.clearSpot(ride.x, ride.z, 3.5);
+        car = w.spawnVehicle(ride.variant, at.x, at.z, ride.yaw, 'parked');
+      }
+      if (car) pc.enter(car);
+      else {
+        const at = this.clearSpot(cp.px, cp.pz);
+        pc.teleport(at.x, at.z);
+        pc.facing = pc.prevFacing = cp.facing;
+        if (!this.carNear(at.x, at.z, RETRY_CAR_RADIUS)) {
+          const spot = this.clearSpot(at.x + Math.cos(cp.facing) * 4, at.z - Math.sin(cp.facing) * 4, 3.5);
+          w.spawnVehicle(w.content.vehicles.player, spot.x, spot.z, cp.facing, 'parked');
+        }
+      }
     }
     // A retry is a fresh go: patrols already on top of the restart point are sent away
     // (they come back from a distance if HEAT is still up), so a retry cannot start in a death loop.
@@ -566,6 +587,38 @@ export class WorldMissionHost implements MissionHost {
     w.heat.clear();
     if (cp.heat > 0) w.heat.setLevel(cp.heat, cp.px, cp.pz);
     w.trace = cp.trace;
+  }
+
+  /** Nearest spot to (x, z) not inside a building and clear of every car, so a retry never starts under one. */
+  private clearSpot(x: number, z: number, size = 0.6): { x: number; z: number } {
+    const w = this.world;
+    const clear = (px: number, pz: number): boolean => {
+      if (w.insideBuilding(px, pz, size)) return false;
+      for (const v of w.vehicles) {
+        if (v.active && Math.hypot(v.x - px, v.z - pz) < v.params.length / 2 + 2 + size) return false;
+      }
+      return true;
+    };
+    if (clear(x, z)) return { x, z };
+    for (let r = 3; r <= 15; r += 3) {
+      for (let k = 0; k < 12; k++) {
+        const a = (k / 12) * Math.PI * 2;
+        const px = x + Math.cos(a) * r;
+        const pz = z + Math.sin(a) * r;
+        if (clear(px, pz)) return { x: px, z: pz };
+      }
+    }
+    return { x, z };
+  }
+
+  /** Is there a car the player could just get into within r of (x, z)? */
+  private carNear(x: number, z: number, r: number): boolean {
+    for (const v of this.world.vehicles) {
+      if (!v.active || v.destroyed || v.locked || v.hackable) continue;
+      if (v.role !== 'parked' && v.role !== 'traffic') continue;
+      if (Math.hypot(v.x - x, v.z - z) < r) return true;
+    }
+    return false;
   }
 
   /** Speed of the player's car (for bots and UI). */

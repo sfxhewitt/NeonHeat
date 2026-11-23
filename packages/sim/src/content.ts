@@ -103,6 +103,13 @@ export const VehiclesSchema = z
         minBumpSpeed: z.number().nonnegative(),
       })
       .default({ speedLoss: 0.07, minBumpSpeed: 2.5 }),
+    /** Direction steering (touch): stick dead zone, and the brake applied when the stick is let go. */
+    direction: z
+      .object({
+        deadzone: z.number().min(0).max(0.5),
+        releaseBrake: z.number().min(0).max(1),
+      })
+      .default({ deadzone: 0.15, releaseBrake: 0.45 }),
     /** Paint palettes by vehicle class, used when a variant has no paints of its own. */
     paints: z.record(z.string(), z.array(Hex)).default({}),
   })
@@ -186,6 +193,8 @@ export const PedsConfigSchema = z.object({
     hitDamagePerMs: z.number().nonnegative(),
     /** Seconds after stepping out of a car during which that car cannot run you over. */
     bailOutGraceSec: z.number().nonnegative().default(1.5),
+    /** After a car hits the player on foot, further contact does no harm for this long. */
+    hitCooldownSec: z.number().nonnegative().default(0.8),
     respawnSec: z.number().nonnegative(),
   }),
 });

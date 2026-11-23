@@ -175,6 +175,16 @@ export class CombatSystem {
     this.world.events.push({ type: 'weaponSwitched', weapon: this.weaponId });
   }
 
+  /** Hand the last (strongest) owned drive-by weapon with ammo, if there is one. */
+  private selectDriveBy(): void {
+    for (let i = this.order.length - 1; i >= 0; i--) {
+      if (this.usable(i) && this.config.weapons[this.order[i]!]!.driveBy) {
+        this.select(i);
+        return;
+      }
+    }
+  }
+
   /** Cycle to the next owned weapon that can fire. */
   nextWeapon(): void {
     const n = this.order.length;
@@ -206,6 +216,8 @@ export class CombatSystem {
   driveStep(intents: Intents, v: Vehicle, dt: number): void {
     this.tickTimers(dt);
     if (intents.nextWeapon) this.nextWeapon();
+    // In a car the gun comes out by itself: fists or a bat in hand switch to the best drive-by weapon owned.
+    if (!this.weapon.driveBy) this.selectDriveBy();
     const wp = this.weapon;
     this.aimKind = null;
     this.aimId = -1;

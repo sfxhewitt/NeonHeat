@@ -224,11 +224,35 @@ describe('weapons', () => {
 
   it('melee weapons cannot be fired from a car', async () => {
     const w = await arena();
+    w.combat.resetLoadout({ fists: 0, bat: 0 });
     const car = w.spawnVehicle('kestrel', 0, 0, 0, 'parked')!;
     w.playerCtl.enter(car);
-    hold(w, 'bat');
     const ev = events(w, 1, intents({ fire: true }));
     expect(ev.some((e) => e.type === 'melee' || e.type === 'shot')).toBe(false);
+  });
+
+  it('getting in a car with fists in hand brings the pistol out for SHOOT', async () => {
+    const w = await arena();
+    hold(w, 'bat');
+    const car = w.spawnVehicle('kestrel', 0, 0, 0, 'parked')!;
+    w.playerCtl.enter(car);
+    const cop = parkedCop(w, 10, 0);
+    const ev = events(w, 1, intents({ fire: true }));
+    expect(w.combat.weaponId).toBe('pistol');
+    expect(ev.some((e) => e.type === 'melee')).toBe(false);
+    expect(cop.hp).toBeLessThan(cop.params.maxHealth);
+  });
+
+  it('a single-step tap of FIRE still throws a punch that lands on someone close', async () => {
+    const w = await arena();
+    hold(w, 'fists');
+    const p = standingPed(w, 1.9, 0); // just beyond the old 1.7 m reach
+    const hp = p.hp;
+    const ev = events(w, 0.4, intents(), undefined);
+    expect(ev.some((e) => e.type === 'melee')).toBe(false);
+    w.step(intents({ fire: true }));
+    expect(w.events.some((e) => e.type === 'melee' && e.hit)).toBe(true);
+    expect(p.hp).toBeLessThan(hp);
   });
 });
 

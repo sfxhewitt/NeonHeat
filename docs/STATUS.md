@@ -19,11 +19,20 @@ The owner asked for a full game overnight. The design is in docs/DESIGN.md. Deci
 - **Pursuit crews ram like police.** Mission `squad` cars get the same capped, rate-limited ram damage as patrol cars (heat.json `ramDamage`), so a chase cannot write off a delivery in two hits.
 - **Touch stick has no idle timeout.** A thumb held perfectly still sends no touch events; the stick and pedals stay live until the finger lifts (the old 4 s timeout made the car stop mid-drive on phones).
 - **Mission retries** clear officers near the checkpoint and give back the weapons and ammo you had there.
+- **Auto-aim** includes hostile mission actors and vehicles a job wants wrecked (`Vehicle.aimTarget`, set through `MissionHost.markAimTarget`).
+- **Gunfights.** Hurting an armed, aggro mission heavy (or a crew member) is a police matter only if police see it (`gangs.reportable`).
+- **Bail-out grace.** The car you just left cannot run you over for `peds.player.bailOutGraceSec` (1.5 s).
+- **Pursuit speed.** heat.json `levels[].pursuitSpeed`: 0.8 / 0.86 / 0.93 / 1.0 / 1.05 of top speed for HEAT 1-5.
+- **Touch taps (owner's phone feedback, 23 Nov 06:15).** FIRE, GAS and other held buttons latch a press until the next sim step, so a quick tap whose down and up land between two steps still fires (iOS often delivers a tap that way; before, single taps of FIRE did nothing). The same for a short mouse click.
+- **Punches read.** Fists reach 2.1 m in a 130° cone (weapons.json); the player steps into each swing and throws the arm out (alternating on a combo), and a miss leaves a small puff and a haptic tick.
+- **Simpler car controls (direction scheme, the default).** The car screen is the stick, EXIT and SHOOT. No DRIFT pedal (the stick drifts hairpins itself) and no weapon switch: getting in with fists or a bat brings out the best drive-by gun owned. Letting go of the stick pulls the car up (`vehicles.json direction.releaseBrake`, never into reverse). The classic scheme keeps GAS, BRAKE, ◀ ▶ and DRIFT. Saved button layouts reset once (layout key v2) so everyone gets the new defaults.
+- **Retries hand back your car.** A checkpoint taken in your own (non-mission) car respawns that car with you in it; on foot, a parked car appears beside you if none is within 25 m. Mission spawns take `hull` (fraction of full health); Bad Reviews' vans use 0.5.
+- **Drivers stop for you on foot** from far enough ahead to brake at their speed, and never edge out past an obstacle with you beside the car; a car can only hurt you on foot once per `peds.player.hitCooldownSec`.
 - **Bot soak.** `ALL_MISSIONS=1 npx vitest run tests/unit/all-missions.test.ts` (or a comma list of ids) has the bot play every mission from the giver.
 
 ### Next
 
-Economy, living city and side activities are merged. Next: bot soak failures (mostly arrests and combat-heavy jobs), then real-phone feel.
+Merged and live via PR #4 and #5 (23 Nov, 05:34 and 06:05 UK). Bot soak: 18 of 26 on the latest run, 20 finished at least once. Not yet finished by the bot: Severance and Paper Trail (tails; drivers held up behind parked cars at corners), Salt and Iron (convoy), Blue Screen, Bad Reviews (three 200 hp vans with a 48-round pistol), Lattice Fall. Next: those, then real-phone feel.
 
 ## Economy: shops, resprays, safehouses, cyberware, exports (23 Nov 2026)
 

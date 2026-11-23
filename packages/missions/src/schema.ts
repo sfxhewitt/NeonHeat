@@ -230,6 +230,8 @@ export const SpawnDefSchema = z.object({
   hackable: z.boolean().default(false),
   /** What it is for, for the UI's marker colour: a target, a car to escort, a hostile, a racer, a courier. */
   role: z.enum(['parked', 'target', 'escort', 'hostile', 'racer', 'courier']).default('parked'),
+  /** Fraction of the variant's full health it starts with (a beaten-up van goes down quicker). */
+  hull: z.number().min(0.1).max(1).default(1),
 });
 export type SpawnDef = z.infer<typeof SpawnDefSchema>;
 

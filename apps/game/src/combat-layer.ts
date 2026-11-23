@@ -65,6 +65,10 @@ export class CombatLayer {
           d.particles.burstSparks(e.hx, e.hz, e.combo >= 2 ? 6 : 3, 1);
           d.rig.addShake(e.combo >= 2 ? 0.35 : 0.18);
           d.vibrate(e.combo >= 2 ? 25 : 12);
+        } else {
+          // A swing at thin air still shows: a faint dust puff where the fist lands, and a tick.
+          d.particles.swish(e.hx, e.hz);
+          d.vibrate(6);
         }
         return true;
       case 'playerWasted':

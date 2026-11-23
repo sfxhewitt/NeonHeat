@@ -125,6 +125,8 @@ export class PlayerController {
   /** The car last stepped out of, and when (it cannot run the player over straight away). */
   private exitedId = -1;
   private exitedAt = -1e9;
+  /** When a car last knocked the player down (see hitCooldownSec). */
+  private lastRunOver = -1e9;
 
   exit(): void {
     const w = this.world;
@@ -328,6 +330,8 @@ export class PlayerController {
     });
     const v = hitBy as Vehicle | null;
     if (!v) return;
+    // One hit per knock: the contact lasts several steps, and each used to hurt again.
+    if (w.time - this.lastRunOver < cfg.hitCooldownSec) return;
     // Bailing out of a moving car: it rolls on past you, it does not run you over.
     if (v.id === this.exitedId && w.time - this.exitedAt < cfg.bailOutGraceSec) return;
     const rel = Math.hypot(v.setVx - this.vx, v.setVz - this.vz);
@@ -336,6 +340,7 @@ export class PlayerController {
     const mul = v.role === 'police' ? w.content.heat.footHitMul : 1;
     const dmg = (rel - cfg.hitMinSpeed) * cfg.hitDamagePerMs * mul;
     this.hurt(dmg, v.id);
+    this.lastRunOver = w.time;
     this.body.setLinvel({ x: v.setVx * 0.8, y: 0, z: v.setVz * 0.8 }, true);
   }
 

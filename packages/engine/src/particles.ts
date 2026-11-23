@@ -202,6 +202,11 @@ export class Particles {
     for (let i = 0; i < 6; i++) this.smoke.spawn(x + (this.rand() - 0.5) * 2, 1, z + (this.rand() - 0.5) * 2, (this.rand() - 0.5), 1.5 + this.rand() * 1.5, (this.rand() - 0.5), 2.2, 1.2, -0.4, 0xb8c0cc);
   }
 
+  /** A punch or swing that hits nothing: a small pale puff at fist height. */
+  swish(x: number, z: number): void {
+    for (let i = 0; i < 2; i++) this.smoke.spawn(x + (this.rand() - 0.5) * 0.3, 1.1, z + (this.rand() - 0.5) * 0.3, (this.rand() - 0.5) * 0.6, 0.4, (this.rand() - 0.5) * 0.6, 0.35, 0.45, 0.6, 0xdfe6f2);
+  }
+
   muzzle(x: number, y: number, z: number, dx: number, dz: number): void {
     for (let i = 0; i < 4; i++) {
       this.sparks.spawn(x, y, z, dx * (10 + this.rand() * 10), 0.5, dz * (10 + this.rand() * 10), 0.08, 0.35, 0, 0xfff2a0);
