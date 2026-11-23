@@ -221,8 +221,8 @@ export class CrowdSystem {
       best = d;
       pick = id;
       // People queue side by side along the kerb, not on one spot.
-      const jitter = ((p.id % 3) - 1) * 0.7;
-      const back = (p.id % 2) * 0.5;
+      const jitter = ((p.id % 5) - 2) * 0.4;
+      const back = (Math.floor(p.id / 5) % 3) * 0.45;
       const kx = (s0x - s1x) / (2 * half);
       const kz = (s0z - s1z) / (2 * half);
       sx = s0x + dx * jitter + kx * back;

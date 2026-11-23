@@ -515,7 +515,7 @@ export class ServicesSystem {
       return;
     }
     if (u.state === 'onScene') {
-      driveTowards(v, v.x, v.z, 0, v.controls);
+      hold(v);
       u.scene += dt;
       this.stepCrew(u, v, c, dt);
     }
@@ -548,7 +548,7 @@ export class ServicesSystem {
     const atEnd = u.idx === last && Math.hypot(u.xs[last]! - v.x, u.zs[last]! - v.z) < 2.5;
     if (atEnd && Math.abs(forwardSpeed(v)) < 1.2) return true;
     if (atEnd) {
-      driveTowards(v, v.x, v.z, 0, v.controls);
+      hold(v);
       return false;
     }
     if (handleStuck(v, dt, 2, 1)) return false;
@@ -595,6 +595,7 @@ export class ServicesSystem {
     const doorZ = v.z - fz * back;
     let working = 0;
     let aboard = 0;
+    let out = 0;
     for (let i = 0; i < u.crewN; i++) {
       const p = w.peds.peds[u.crew[i]!];
       if (!p || !p.active || p.owner !== 'service' || p.state === 'down') {
@@ -609,6 +610,7 @@ export class ServicesSystem {
       if (!needed && u.phase[i]! < BACK) u.phase[i] = BACK;
       const side = i % 2 === 0 ? 1 : -1;
       if (u.phase[i] === OUT || u.phase[i] === WORK) {
+        out++;
         let tx: number;
         let tz: number;
         if (u.kind === 'ambulance') {
@@ -626,7 +628,19 @@ export class ServicesSystem {
           tx = c.x + Math.sin(base) * cfg.hoseRange;
           tz = c.z + Math.cos(base) * cfg.hoseRange;
         }
-        const d = steerPed(p, tx, tz, cfg.walkSpeed, 0.35);
+        // Walk round the vehicle, not into it: step out to the side the job is on first.
+        const d = Math.hypot(tx - p.x, tz - p.z);
+        const lat = (p.x - v.x) * fz - (p.z - v.z) * fx;
+        const along = (p.x - v.x) * fx + (p.z - v.z) * fz;
+        const tLat = (tx - v.x) * fz - (tz - v.z) * fx;
+        const tAlong = (tx - v.x) * fx + (tz - v.z) * fz;
+        const halfW = v.params.width / 2 + 0.7;
+        const halfL = v.params.length / 2;
+        const blocked = Math.abs(lat) < halfW && Math.abs(tLat) >= Math.abs(lat) - 0.2 && tAlong > -halfL && along < tAlong;
+        if (blocked && d > 0.6) {
+          const sLat = (tLat >= 0 ? 1 : -1) * (halfW + 0.3);
+          steerPed(p, v.x + fz * sLat + fx * along, v.z - fx * sLat + fz * along, cfg.walkSpeed, 0.1);
+        } else steerPed(p, tx, tz, cfg.walkSpeed, 0.35);
         if (d < 0.6 || (u.scene > 14 && d < 3)) {
           u.phase[i] = WORK;
           stopPed(p);
@@ -646,7 +660,8 @@ export class ServicesSystem {
       } else aboard++;
     }
     if (needed && working > 0) {
-      if (u.kind === 'ambulance') {
+      // Paramedics work as a pair (one alone, if the other cannot get there).
+      if (u.kind === 'ambulance' && (working >= out || u.scene > 20)) {
         u.work += dt;
         if (u.work >= cfg.reviveSec) {
           const p = w.peds.peds[c.target]!;
@@ -654,7 +669,7 @@ export class ServicesSystem {
           w.events.push({ type: 'pedRevived', pedId: p.id, x: p.x, z: p.z });
           this.nextJob(u, v, c);
         }
-      } else {
+      } else if (u.kind !== 'ambulance') {
         const b = Math.max(0, this.burn[c.target]! - cfg.hoseRate * working * dt);
         this.burn[c.target] = b;
         if (b <= 0) {
@@ -780,4 +795,14 @@ export function stopPed(p: Ped): void {
 function right(dx: number, dz: number): [number, number] {
   const len = Math.hypot(dx, dz) || 1;
   return [-dz / len, dx / len];
+}
+
+/** Stand on the brakes, wheels straight (parked at a scene). */
+function hold(v: Vehicle): void {
+  const c = v.controls;
+  c.steer = 0;
+  c.throttle = 0;
+  // The foot brake only while rolling forwards (below that it would reverse); the handbrake holds it.
+  c.brake = forwardSpeed(v) > 0.5 ? 1 : 0;
+  c.handbrake = true;
 }
