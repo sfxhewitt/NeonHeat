@@ -13,3 +13,4 @@ export * from './traffic';
 export * from './police';
 export * from './peds';
 export * from './player';
+export * from './props';

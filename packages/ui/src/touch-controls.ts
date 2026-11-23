@@ -1,3 +1,4 @@
+import { appPoint, appSize } from './screen';
 import type { DriveScheme } from '@neonheat/sim';
 import type { ControlMode } from './input';
 
@@ -75,7 +76,10 @@ export class TouchControls {
     this.stickBase = div('nh-touch__stick');
     this.stickKnob = div('nh-touch__knob');
     this.stickBase.appendChild(this.stickKnob);
-    this.root.append(this.stickZone, this.stickBase);
+    // A faint resting ring shows where the thumb goes before the first touch.
+    const rest = div('nh-touch__rest');
+    rest.appendChild(div('nh-touch__rest-knob'));
+    this.root.append(this.stickZone, rest, this.stickBase);
     parent.appendChild(this.root);
     try {
       this.layout = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}') as typeof this.layout;
@@ -98,15 +102,18 @@ export class TouchControls {
       this.markTouch(e);
       this.stickId = e.pointerId;
       this.stickZone.setPointerCapture(e.pointerId);
-      this.stickOrigin = { x: e.clientX, y: e.clientY };
-      this.stickBase.style.left = `${e.clientX}px`;
-      this.stickBase.style.top = `${e.clientY}px`;
+      const p = appPoint(e.clientX, e.clientY);
+      this.stickOrigin = { x: p.x, y: p.y };
+      this.stickBase.style.left = `${p.x}px`;
+      this.stickBase.style.top = `${p.y}px`;
       this.stickBase.classList.add('is-active');
-      this.moveStick(e.clientX, e.clientY);
+      this.root.classList.add('is-sticking');
+      this.moveStick(p.x, p.y);
     });
     this.stickZone.addEventListener('pointermove', (e) => {
       if (e.pointerId !== this.stickId) return;
-      this.moveStick(e.clientX, e.clientY);
+      const p = appPoint(e.clientX, e.clientY);
+      this.moveStick(p.x, p.y);
     });
     const end = (e: PointerEvent): void => {
       if (e.pointerId !== this.stickId) return;
@@ -114,6 +121,7 @@ export class TouchControls {
       this.stick = { x: 0, y: 0 };
       this.stickKnob.style.transform = 'translate(-50%, -50%)';
       this.stickBase.classList.remove('is-active');
+      this.root.classList.remove('is-sticking');
     };
     this.stickZone.addEventListener('pointerup', end);
     this.stickZone.addEventListener('pointercancel', end);
@@ -152,7 +160,8 @@ export class TouchControls {
       el.setPointerCapture(e.pointerId);
       if (this.editing) {
         const pos = this.layout[def.id] ?? { x: def.x, y: def.y };
-        drag = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: pos.x, oy: pos.y };
+        const p = appPoint(e.clientX, e.clientY);
+        drag = { id: e.pointerId, sx: p.x, sy: p.y, ox: pos.x, oy: pos.y };
         return;
       }
       this.markTouch(e);
@@ -162,11 +171,13 @@ export class TouchControls {
     });
     el.addEventListener('pointermove', (e) => {
       if (!drag || drag.id !== e.pointerId) return;
-      const w = window.innerWidth / 100;
-      const h = window.innerHeight / 100;
+      const size = appSize();
+      const w = size.width / 100;
+      const h = size.height / 100;
+      const p = appPoint(e.clientX, e.clientY);
       const dirX = def.side === 'right' ? -1 : 1;
-      const x = clamp(drag.ox + ((e.clientX - drag.sx) / w) * dirX, 0, 90);
-      const y = clamp(drag.oy - (e.clientY - drag.sy) / h, 0, 85);
+      const x = clamp(drag.ox + ((p.x - drag.sx) / w) * dirX, 0, 90);
+      const y = clamp(drag.oy - (p.y - drag.sy) / h, 0, 85);
       this.layout[def.id] = { x, y };
       this.place(el, def);
     });
@@ -189,8 +200,8 @@ export class TouchControls {
   private place(el: HTMLElement, def: ButtonDef): void {
     const pos = this.layout[def.id] ?? { x: def.x, y: def.y };
     el.style.left = el.style.right = '';
-    el.style[def.side] = `calc(${pos.x}vw + var(--nh-safe-${def.side === 'left' ? 'l' : 'r'}))`;
-    el.style.bottom = `calc(${pos.y}vh + var(--nh-safe-b))`;
+    el.style[def.side] = `calc(${pos.x / 100} * var(--app-w) + var(--nh-safe-${def.side === 'left' ? 'l' : 'r'}))`;
+    el.style.bottom = `calc(${pos.y / 100} * var(--app-h) + var(--nh-safe-b))`;
   }
 
   resetLayout(): void {

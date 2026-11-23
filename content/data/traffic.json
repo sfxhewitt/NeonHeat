@@ -9,7 +9,7 @@
   "lookAheadBase": 7,
   "lookAheadPerSpeed": 0.5,
   "detectRange": 26,
-  "laneHalfWidth": 2.6,
+  "laneHalfWidth": 1.3,
   "respawnMinDist": 70,
   "stuckSec": 3,
   "abandonedDespawnSec": 20,

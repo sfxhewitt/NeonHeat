@@ -215,7 +215,8 @@ describe('mission-lint', () => {
     const bad = structuredClone(hotChrome) as Mission;
     bad.objectives[0] = { ...bad.objectives[0]!, onStart: [{ do: 'dialogue', line: 'nope' }] } as Mission['objectives'][number];
     (bad.objectives[2] as { target: string }).target = 'marker:missing';
-    bad.giver.pos = [-14, 0, -12]; // inside the centre tower
+    const tower = loadContent().map.buildings[0]!;
+    bad.giver.pos = [tower.x, 0, tower.z]; // inside a building
     const msgs = lintMission(bad, ctx).map((i) => i.message);
     expect(msgs.some((m) => /dialogue/.test(m))).toBe(true);
     expect(msgs.some((m) => /unknown marker/.test(m))).toBe(true);
@@ -224,6 +225,42 @@ describe('mission-lint', () => {
 });
 
 describe('MissionDirector in the world', () => {
+  it('a target shunted during the hack goes back to its spot on retry', async () => {
+    const content = loadContent();
+    content.traffic.count = 0;
+    content.peds.count = 0;
+    const w = await makeWorld(1, content);
+    const d = new MissionDirector(w, mc.missions, mc.squads, mc.dialogue);
+    const step = (i = intents()) => {
+      w.step(i);
+      d.tick(1 / 60);
+    };
+    const g = hotChrome.giver.pos;
+    w.playerCtl.teleport(g[0], g[2] + 1);
+    step();
+    step(intents({ interact: true }));
+    const lot = w.content.map.markers['kurogane_lot']!.pos;
+    w.playerCtl.teleport(lot[0], lot[2]);
+    step();
+    const car = w.vehicles[d.runner!.view.vehicleId]!;
+    const spawn = w.content.map.spawns['prototype_car']!;
+    // A police car shoves the locked target 6 m before the hack finishes.
+    w.teleportVehicle(car, spawn.pos[0] + 6, spawn.pos[2] - 3, spawn.yaw + 0.6);
+    w.playerCtl.teleport(car.x + 2.6, car.z);
+    step();
+    step(intents({ interact: true }));
+    while (d.hack && d.hack.phase === 'show') step();
+    for (const n of d.hack!.sequence) d.hackTap(n);
+    step();
+    expect(d.runner?.objective?.id).toBe('deliver');
+    w.damageVehicle(car, 1e6);
+    step();
+    d.retry();
+    step();
+    const restored = w.vehicles[d.runner!.view.vehicleId]!;
+    expect(Math.hypot(restored.x - spawn.pos[0], restored.z - spawn.pos[2])).toBeLessThan(0.5);
+  });
+
   it('answering the payphone starts the job; a failed job retries from its checkpoint', async () => {
     const content = loadContent();
     content.traffic.count = 0;

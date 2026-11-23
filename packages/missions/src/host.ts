@@ -9,6 +9,8 @@ interface VehicleSnap {
   z: number;
   yaw: number;
   hp: number;
+  /** Never driven yet: the car is put back on its spawn, not wherever it was shoved. */
+  atSpawn: boolean;
 }
 
 interface Checkpoint {
@@ -26,6 +28,8 @@ export class WorldMissionHost implements MissionHost {
   /** spawn ref -> vehicle id for mission vehicles. */
   readonly spawned = new Map<string, number>();
   readonly squadVehicles: number[] = [];
+  /** Spawn refs of mission vehicles the player has driven this run. */
+  private readonly driven = new Set<string>();
   /** Dialogue lines played, in order (for tests and the log). */
   readonly dialogueLog: string[] = [];
   onDialogue: ((speaker: string, text: string, lineId: string) => void) | null = null;
@@ -71,6 +75,12 @@ export class WorldMissionHost implements MissionHost {
       this.world.despawnVehicle(v);
       this.spawned.delete(ref);
     }
+    this.driven.clear();
+  }
+
+  /** The director reports each car the player gets into. */
+  noteEntered(vehicleId: number): void {
+    for (const [ref, id] of this.spawned) if (id === vehicleId) this.driven.add(ref);
   }
 
   resolve(ref: string): { x: number; z: number } | null {
@@ -153,7 +163,11 @@ export class WorldMissionHost implements MissionHost {
       const v = w.vehicles[id]!;
       if (!v.active) continue;
       if (w.player.vehicle === v) drivingRef = ref;
-      vehicles.push({ ref, variant: v.variantId, x: v.x, z: v.z, yaw: v.yaw, hp: v.hp });
+      // A car the player has not driven yet (a target still parked at its spot) goes back to that spot,
+      // so a police car shunting it into a corner during the hack cannot make every retry start wedged.
+      const atSpawn = !this.driven.has(ref) && drivingRef !== ref && ref.startsWith('spawn:');
+      const s = atSpawn ? this.spawnDef(ref) : null;
+      vehicles.push({ ref, variant: v.variantId, x: s ? s.pos[0] : v.x, z: s ? s.pos[2] : v.z, yaw: s ? s.yaw : v.yaw, hp: v.hp, atSpawn });
     }
     return { px: w.player.x, pz: w.player.z, facing: w.playerCtl.facing, drivingRef, vehicles, heat: w.heat.level, trace: w.trace };
   }
@@ -180,6 +194,7 @@ export class WorldMissionHost implements MissionHost {
       // A retry hands back a sound car: a checkpoint taken on a damaged car could never be passed.
       v.hp = v.params.maxHealth;
       v.role = 'parked';
+      if (snap.atSpawn) this.driven.delete(snap.ref);
     }
     pc.hp = pc.maxHp;
     const driving = cp.drivingRef ? this.vehicle(cp.drivingRef) : null;

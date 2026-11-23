@@ -1,9 +1,10 @@
 {
   "tiers": {
-    "low": { "maxPixelRatio": 1, "bloom": false, "rain": false, "rainStreaks": 0, "rainSplashes": 0, "peds": 10, "traffic": 8, "police": 4, "dynamicResolution": true },
-    "mid": { "maxPixelRatio": 1.5, "bloom": true, "rain": true, "rainStreaks": 900, "rainSplashes": 60, "peds": 15, "traffic": 10, "police": 8, "dynamicResolution": true },
-    "high": { "maxPixelRatio": 2, "bloom": true, "rain": true, "rainStreaks": 1800, "rainSplashes": 120, "peds": 15, "traffic": 10, "police": 8, "dynamicResolution": true }
+    "low": { "maxPixelRatio": 1, "bloom": false, "rain": false, "rainStreaks": 0, "rainSplashes": 0, "peds": 10, "traffic": 8, "police": 4, "dynamicResolution": true, "lighting": { "size": 0, "extent": 180, "shadowSteps": 0 }, "ssr": false, "bloomThreshold": 9 },
+    "mid": { "maxPixelRatio": 1.5, "bloom": true, "rain": true, "rainStreaks": 900, "rainSplashes": 60, "peds": 15, "traffic": 10, "police": 8, "dynamicResolution": true, "lighting": { "size": 128, "extent": 180, "shadowSteps": 0 }, "ssr": false, "bloomThreshold": 1.4 },
+    "high": { "maxPixelRatio": 2, "bloom": true, "rain": true, "rainStreaks": 1800, "rainSplashes": 120, "peds": 20, "traffic": 12, "police": 8, "dynamicResolution": true, "lighting": { "size": 256, "extent": 190, "shadowSteps": 8 }, "ssr": false, "bloomThreshold": 1.2 },
+    "ultra": { "maxPixelRatio": 3, "bloom": true, "rain": true, "rainStreaks": 4000, "rainSplashes": 260, "peds": 40, "traffic": 18, "police": 10, "dynamicResolution": true, "lighting": { "size": 512, "extent": 200, "shadowSteps": 16 }, "ssr": true, "bloomThreshold": 1.1 }
   },
-  "benchmark": { "seconds": 1.5, "highMs": 18, "midMs": 26 },
+  "benchmark": { "seconds": 2, "ultraMs": 18.5, "highMs": 28, "midMs": 40 },
   "dynamicResolution": { "targetMs": 16.7, "min": 0.6, "step": 0.1 }
 }

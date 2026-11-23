@@ -11,6 +11,9 @@ export interface Sign {
   h: number;
   d: number;
   colour: number;
+  /** Outward facade normal (ground plane). */
+  nx: number;
+  nz: number;
 }
 
 /**
@@ -22,8 +25,8 @@ export function layoutSigns(map: MapContent, seed = 7): Sign[] {
   const signs: Sign[] = [];
   map.buildings.forEach((b, i) => {
     const colour = NeonColours[i % NeonColours.length]!;
-    // Roof edge strip on the south face (the one the camera sees).
-    signs.push({ x: b.x, y: b.h + 0.15, z: b.z + b.d / 2 - 0.2, w: b.w * 0.96, h: 0.3, d: 0.3, colour });
+    // Roof edge strip on the south face (the one the camera sees), on some buildings only.
+    if (rng.chance(0.35)) signs.push({ x: b.x, y: b.h + 0.15, z: b.z + b.d / 2 - 0.2, w: b.w * 0.96, h: 0.3, d: 0.3, colour, nx: 0, nz: 1 });
     // One or two vertical signs on faces.
     const n = rng.int(1, 2);
     for (let k = 0; k < n; k++) {
@@ -34,11 +37,11 @@ export function layoutSigns(map: MapContent, seed = 7): Sign[] {
       if (face === 0 || face === 1) {
         const z = face === 0 ? b.z + b.d / 2 + 0.15 : b.z - b.d / 2 - 0.15;
         const x = b.x + rng.range(-b.w / 2 + 1.5, b.w / 2 - 1.5);
-        signs.push({ x, y, z, w: rng.chance(0.5) ? 1 : rng.range(3, 6), h: rng.chance(0.5) ? hgt : 0.9, d: 0.3, colour: c });
+        signs.push({ x, y, z, w: rng.chance(0.5) ? 1 : rng.range(3, 6), h: rng.chance(0.5) ? hgt : 0.9, d: 0.3, colour: c, nx: 0, nz: face === 0 ? 1 : -1 });
       } else {
         const x = face === 2 ? b.x + b.w / 2 + 0.15 : b.x - b.w / 2 - 0.15;
         const z = b.z + rng.range(-b.d / 2 + 1.5, b.d / 2 - 1.5);
-        signs.push({ x, y, z, w: 0.3, h: hgt, d: rng.range(1, 4), colour: c });
+        signs.push({ x, y, z, w: 0.3, h: hgt, d: rng.range(1, 4), colour: c, nx: face === 2 ? 1 : -1, nz: 0 });
       }
     }
   });

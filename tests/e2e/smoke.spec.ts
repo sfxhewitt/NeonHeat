@@ -12,6 +12,15 @@ function collectErrors(page: Page): string[] {
   return errors;
 }
 
+/**
+ * Wait for this much game time. Slow software rendering (hosted CI) caps the sim's catch-up steps,
+ * so wall-clock waits would test less driving than the script describes.
+ */
+async function simFor(page: Page, seconds: number): Promise<void> {
+  const t0 = await page.evaluate(() => window.__neon!.game.world.time);
+  await page.waitForFunction((end) => window.__neon!.game.world.time >= end, t0 + seconds, { timeout: seconds * 1000 * 12 + 5000, polling: 50 });
+}
+
 async function boot(page: Page): Promise<void> {
   await page.goto('/?autostart=1');
   await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
@@ -53,12 +62,13 @@ test('drives for 10 seconds via injected intents within the frame budget', async
   await page.evaluate(() => window.__neon!.game.frameTimes.splice(0));
   for (const [ms, intents] of script) {
     await page.evaluate((i) => window.__neon!.setIntents(i), intents);
-    await page.waitForTimeout(ms);
+    await simFor(page, ms / 1000);
   }
   const result = await page.evaluate(() => {
     const v = window.__neon!.game.world.player.vehicle!;
-    return { x: v.x, z: v.z, stats: window.__neon!.stats() };
+    return { x: v.x, z: v.z, tier: window.__neon!.game.tier, stats: window.__neon!.stats() };
   });
+  console.info(`smoke drive: ${result.tier} tier, avg frame ${result.stats.avgFrameMs.toFixed(1)} ms, ${result.stats.drawCalls} draw calls`);
   expect(Math.hypot(result.x - start.x, result.z - start.z)).toBeGreaterThan(20);
   expect(result.stats.avgFrameMs).toBeLessThan(FRAME_BUDGET_MS);
   expect(errors).toEqual([]);
@@ -68,11 +78,11 @@ test('on foot: walk, roll and fire without errors', async ({ page }) => {
   const errors = collectErrors(page);
   await boot(page);
   await page.evaluate(() => window.__neon!.setIntents({ moveX: 1 }));
-  await page.waitForTimeout(800);
+  await simFor(page, 0.8);
   await page.evaluate(() => window.__neon!.setIntents({ moveX: -1, dodge: true }));
-  await page.waitForTimeout(500);
+  await simFor(page, 0.5);
   await page.evaluate(() => window.__neon!.setIntents({ fire: true }));
-  await page.waitForTimeout(1200);
+  await simFor(page, 1.2);
   const heat = await page.evaluate(() => window.__neon!.game.world.heat.level);
   expect(heat).toBeGreaterThanOrEqual(1);
   await expect(page.locator('.nh-heat .chev.on').first()).toBeAttached();

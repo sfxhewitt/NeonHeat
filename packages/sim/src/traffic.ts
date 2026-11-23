@@ -63,7 +63,8 @@ export class TrafficSystem {
     const p = this.tmp;
     L.pointAt(s, p);
     if (checkPlayer && Math.hypot(p.x - w.player.x, p.z - w.player.z) < this.config.respawnMinDist) return null;
-    for (const v of w.vehicles) if (v.active && Math.hypot(v.x - p.x, v.z - p.z) < 9) return null;
+    // Keep clear of moving cars; cars parked in the kerb lane only block the exact spot.
+    for (const v of w.vehicles) if (v.active && Math.hypot(v.x - p.x, v.z - p.z) < (v.role === 'parked' ? 2.4 : 9)) return null;
     const ahead = { x: 0, z: 0 };
     L.pointAt(s + 2, ahead);
     const yaw = Math.atan2(ahead.x - p.x, ahead.z - p.z);

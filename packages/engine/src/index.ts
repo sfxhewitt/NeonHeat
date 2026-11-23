@@ -15,3 +15,7 @@ export * from './shadows';
 export * from './postfx';
 export * from './quality';
 export * from './markers-view';
+export * from './lightfield';
+export * from './scene-lights';
+export * from './props-view';
+export * from './skidmarks';

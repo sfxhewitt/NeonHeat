@@ -1,33 +1,53 @@
 import { tierFromFrameTimes, type TierName } from '@neonheat/engine';
 import type { Game } from './game';
 
-const KEY = 'neonheat.benchmark.v1';
+const KEY = 'neonheat.benchmark.v3';
 
 export function storedBenchmarkTier(): TierName | null {
   try {
     const v = localStorage.getItem(KEY);
-    return v === 'low' || v === 'mid' || v === 'high' ? v : null;
+    return v === 'low' || v === 'mid' || v === 'high' || v === 'ultra' ? v : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Short first-boot benchmark: render the populated block at the high tier for a
- * moment and pick a tier from the median frame time. Stored, so it runs once.
+ * Short first-boot benchmark: render the populated block at the top (ultra)
+ * tier for a moment and pick a tier from the median frame time. Stored, so it runs once.
  */
 export async function runBenchmark(game: Game): Promise<TierName> {
-  game.applyQuality('high');
+  game.applyQuality('ultra');
+  game.holdResolution = true;
   const cfg = game.content.quality.benchmark;
-  const start = game.frameTimes.length;
-  await new Promise((r) => setTimeout(r, cfg.seconds * 1000));
-  // Skip the first frames (shader compilation).
-  const samples = game.frameTimes.slice(start + 10);
-  const tier = tierFromFrameTimes(samples, cfg);
-  try {
-    localStorage.setItem(KEY, tier);
-  } catch {
-    /* storage unavailable: benchmark again next boot */
+  game.benchTimes.length = 0;
+  const start = 0;
+  // Shader compilation can take seconds on first boot, so wait for real samples rather than a fixed
+  // window: skip the first frames, then collect at least 40 (or give up after three windows).
+  const skip = 10;
+  const t0 = performance.now();
+  const samples = (): number[] => game.benchTimes.slice(start + skip);
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 100));
+    const elapsed = (performance.now() - t0) / 1000;
+    const n = samples().length;
+    if ((elapsed >= cfg.seconds && n >= 40) || elapsed >= cfg.seconds * 3) break;
+  }
+  game.holdResolution = false;
+  let got = samples();
+  // A very slow device may not even get past the warm-up frames: judge it on everything it did
+  // render, and if it could not finish a single frame in that time it belongs on the lowest tier.
+  if (got.length < 5) got = game.benchTimes.slice(start);
+  // Judge on the mean (wall time per frame), not the median: a browser can hand out runs of short
+  // frame intervals while GPU work queues up behind them, which a median would believe.
+  const mean = got.reduce((a, b) => a + b, 0) / Math.max(1, got.length);
+  const tier = got.length === 0 ? 'low' : tierFromFrameTimes([mean], cfg);
+  if (got.length >= 5) {
+    try {
+      localStorage.setItem(KEY, tier);
+    } catch {
+      /* storage unavailable: benchmark again next boot */
+    }
   }
   return tier;
 }

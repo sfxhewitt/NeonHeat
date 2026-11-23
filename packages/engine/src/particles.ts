@@ -35,17 +35,22 @@ class ParticleLayer {
   private next = 0;
   private readonly o = new Object3D();
   private readonly c = new Color();
+  private readonly fade: boolean;
 
   constructor(
     scene: Scene,
     capacity: number,
-    additive: boolean,
+    mode: 'additive' | 'smoke' | 'solid',
     private readonly grow: number,
   ) {
     const geo = new BoxGeometry(1, 1, 1);
-    const mat = additive
-      ? new MeshBasicMaterial({ blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false })
-      : new MeshLambertMaterial({ transparent: true, opacity: 0.85, depthWrite: false });
+    const mat =
+      mode === 'additive'
+        ? new MeshBasicMaterial({ blending: AdditiveBlending, transparent: true, depthWrite: false, toneMapped: false })
+        : mode === 'smoke'
+          ? new MeshLambertMaterial({ transparent: true, opacity: 0.85, depthWrite: false })
+          : new MeshLambertMaterial({ flatShading: true });
+    this.fade = mode !== 'solid';
     this.mesh = new InstancedMesh(geo, mat, capacity);
     this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
     this.mesh.frustumCulled = false;
@@ -97,12 +102,14 @@ class ParticleLayer {
         p.vz *= 0.6;
       }
       const t = p.life / p.maxLife;
-      const s = p.size * (this.grow > 0 ? 1 + (1 - t) * this.grow : t);
+      const s = p.size * (this.grow > 0 ? 1 + (1 - t) * this.grow : this.fade ? t : Math.min(1, t * 4));
       o.position.set(p.x, p.y, p.z);
+      if (!this.fade) o.rotation.set(p.vx * 0.3 + t * 9, p.vz * 0.3 + t * 7, 0);
       o.scale.set(s, s, s);
       o.updateMatrix();
       this.mesh.setMatrixAt(n, o.matrix);
-      this.mesh.setColorAt(n, c.setRGB(p.r * t, p.g * t, p.b * t));
+      if (this.fade) this.mesh.setColorAt(n, c.setRGB(p.r * t, p.g * t, p.b * t));
+      else this.mesh.setColorAt(n, c.setRGB(p.r, p.g, p.b));
       n++;
     }
     this.mesh.count = n;
@@ -115,12 +122,16 @@ class ParticleLayer {
 export class Particles {
   readonly sparks: ParticleLayer;
   readonly smoke: ParticleLayer;
+  /** Chunks of smashed street furniture (solid, lit). */
+  readonly debris: ParticleLayer;
   /** Deterministic-enough jitter source for visuals only. */
   private seed = 1;
 
   constructor(scene: Scene, capacity = 256) {
-    this.sparks = new ParticleLayer(scene, capacity, true, 0);
-    this.smoke = new ParticleLayer(scene, capacity / 2, false, 2.5);
+    this.sparks = new ParticleLayer(scene, capacity, 'additive', 0);
+    this.smoke = new ParticleLayer(scene, capacity / 2, 'smoke', 2.5);
+    this.debris = new ParticleLayer(scene, 160, 'solid', 0);
+    this.debris.mesh.name = 'debris';
     this.sparks.mesh.name = 'sparks';
     this.sparks.mesh.layers.enable(BLOOM_LAYER);
     this.smoke.mesh.name = 'smoke';
@@ -150,8 +161,35 @@ export class Particles {
     }
   }
 
+  /** Smashed furniture: chunks thrown along the car's path, plus a spray for hydrants. */
+  burstDebris(x: number, z: number, vx: number, vz: number, colour: number, count: number, spray = false): void {
+    for (let i = 0; i < count; i++) {
+      const k = 0.35 + this.rand() * 0.7;
+      this.debris.spawn(
+        x + (this.rand() - 0.5) * 0.6,
+        0.4 + this.rand() * 0.6,
+        z + (this.rand() - 0.5) * 0.6,
+        vx * k + (this.rand() - 0.5) * 5,
+        3 + this.rand() * 5,
+        vz * k + (this.rand() - 0.5) * 5,
+        1.4 + this.rand() * 1.2,
+        0.12 + this.rand() * 0.22,
+        18,
+        colour,
+      );
+    }
+    if (spray) {
+      for (let i = 0; i < 40; i++) {
+        const a = this.rand() * Math.PI * 2;
+        const sp = this.rand() * 1.6;
+        this.sparks.spawn(x, 0.6, z, Math.cos(a) * sp, 7 + this.rand() * 5, Math.sin(a) * sp, 0.9 + this.rand() * 0.6, 0.14, 14, 0x9fd8ff);
+      }
+    }
+  }
+
   update(dt: number): void {
     this.sparks.update(dt);
+    this.debris.update(dt);
     this.smoke.update(dt);
   }
 }

@@ -6,7 +6,7 @@ import { installTestHooks } from './test-hooks';
 import { runBenchmark, storedBenchmarkTier } from './quality';
 
 function isTier(v: string | null): v is TierName {
-  return v === 'low' || v === 'mid' || v === 'high';
+  return v === 'low' || v === 'mid' || v === 'high' || v === 'ultra';
 }
 
 export async function boot(): Promise<void> {

@@ -121,7 +121,8 @@ export class MissionDirector {
   tick(dt: number): void {
     const w = this.world;
     for (const e of w.events) {
-      if (e.type === 'interact' && e.id.startsWith('giver:') && !this.active) {
+      if (e.type === 'enteredVehicle') this.host.noteEntered(e.vehicleId);
+      else if (e.type === 'interact' && e.id.startsWith('giver:') && !this.active) {
         this.start(e.id.slice('giver:'.length));
       } else if (e.type === 'hackRequested' && !this.hack && this.runner?.state === 'running') {
         const o = this.runner.objective;

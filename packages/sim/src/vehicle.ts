@@ -73,7 +73,13 @@ export function stepArcade(s: ArcadeState, p: VehicleParams, c: DriveControls, d
   else if (s.drifting && slip < p.driftExitSlip) s.drifting = false;
   else if (!s.drifting && slip > p.driftEnterSlip) s.drifting = true;
   const grip = c.handbrake ? p.grip * p.handbrakeGripMul : s.drifting ? p.driftGrip : p.grip;
-  vl *= Math.exp(-grip * dt);
+  // Tyres can only pull the car sideways so hard: a fast, sharp turn slides
+  // (and past driftEnterSlip becomes a drift) instead of snapping round on rails.
+  const wanted = vl - vl * Math.exp(-grip * dt);
+  const cap = p.latGripMax * (s.drifting ? 0.6 : 1) * dt;
+  vl -= clamp(wanted, -cap, cap);
+  // Sliding scrubs speed: the more sideways, the more it bleeds.
+  if (slip > 1) vf -= Math.sign(vf) * Math.min(Math.abs(vf), slip * 0.35 * dt);
 
   // Steering: rate scales down with speed and fades in from standstill.
   const speed = Math.abs(vf);
@@ -85,6 +91,12 @@ export function stepArcade(s: ArcadeState, p: VehicleParams, c: DriveControls, d
   let target = -steer * rate * fadeIn * dir;
   if (c.handbrake) target *= p.handbrakeSteerBoost;
   if (s.drifting) target *= p.driftSteerMul;
+  // With the tyres gripping, the nose can only swing as fast as grip can bend the car's path
+  // (plus a little slip). The handbrake or a drift lifts the limit.
+  if (!c.handbrake && !s.drifting && speed > 4) {
+    const maxYaw = (p.latGripMax * 1.5) / speed;
+    target = clamp(target, -maxYaw, maxYaw);
+  }
   if (Math.abs(steer) < 0.05 && !s.drifting) {
     // Auto-straighten: kill residual yaw quickly when not steering.
     s.yawRate *= Math.exp(-p.autoStraighten * dt);
@@ -130,9 +142,17 @@ export function directionToControls(
     out.brake = mag;
     out.steer = clamp(diff * gain, -1, 1);
   } else {
+    const ad = Math.abs(diff);
     out.steer = -clamp(diff * gain, -1, 1);
-    out.throttle = mag * (1 - 0.45 * clamp(Math.abs(diff) / Math.PI, 0, 1));
+    out.throttle = mag * (1 - 0.45 * clamp(ad / Math.PI, 0, 1));
     out.brake = 0;
+    // Touch assists: lift and brake into a sharp change of direction at speed,
+    // and flick the handbrake for a hairpin so the car drifts round instead of ploughing on.
+    if (ad > 1.0 && vf > 14) {
+      out.throttle = 0;
+      out.brake = clamp((ad - 1.0) * 0.8, 0, 0.7) * mag;
+    }
+    if (ad > 1.9 && vf > 12) out.handbrake = true;
   }
   return out;
 }
