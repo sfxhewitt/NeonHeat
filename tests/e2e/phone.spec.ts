@@ -24,6 +24,12 @@ async function toScreen(page: Page, x: number, y: number): Promise<Pt> {
   );
 }
 
+/** Wait until the game has simulated `seconds` (slow CI renders fewer frames per wall second). */
+async function simFor(page: Page, seconds: number): Promise<void> {
+  const t0 = await page.evaluate(() => window.__neon!.game.world.time as number);
+  await page.waitForFunction((t) => (window.__neon!.game.world.time as number) >= t, t0 + seconds, { timeout: 60_000 });
+}
+
 async function appSize(page: Page): Promise<{ w: number; h: number }> {
   return page.evaluate(() => {
     const r = document.getElementById('app')!;
@@ -100,7 +106,7 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await finger.press(sx, sy);
   await finger.move(sx, sy - 30);
   await finger.move(sx, sy - 70);
-  await page.waitForTimeout(1200);
+  await simFor(page, 1.2);
   await finger.release();
   let p1 = await player(page);
   expect(p1.z - p0.z, 'stick up walks north').toBeLessThan(-2.5);
@@ -108,7 +114,7 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   p0 = p1;
   await finger.press(sx, sy);
   await finger.move(sx + 70, sy);
-  await page.waitForTimeout(1000);
+  await simFor(page, 1);
   await finger.release();
   p1 = await player(page);
   expect(p1.x - p0.x, 'stick right walks east').toBeGreaterThan(2);
@@ -129,7 +135,7 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   const yaw = await page.evaluate(() => window.__neon!.game.world.player.vehicle!.yaw as number);
   await finger.press(sx, sy);
   await finger.move(sx + Math.sin(yaw) * 70, sy + Math.cos(yaw) * 70);
-  await page.waitForTimeout(2500);
+  await simFor(page, 2.5);
   p1 = await player(page);
   await finger.release();
   expect(p1.speed, 'car is moving').toBeGreaterThan(5);
