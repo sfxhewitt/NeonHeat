@@ -22,3 +22,4 @@ export * from './skidmarks';
 export * from './combat-view';
 export * from './car-models';
 export * from './signals-view';
+export * from './activities-view';
