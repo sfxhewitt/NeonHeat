@@ -417,6 +417,13 @@ export class MissionBot {
     const g = this.world.roads;
     if (this.waypoint < 0 || Math.hypot(g.nodes[this.waypoint]!.x - x, g.nodes[this.waypoint]!.z - z) > 450) {
       this.waypoint = nearestMain(g, x, z).id;
+      // A junction just passed is not worth turning round for: head on to the one after it.
+      const v = this.world.player.vehicle;
+      const n0 = g.nodes[this.waypoint]!;
+      if (v && Math.hypot(n0.x - x, n0.z - z) < 25 && (n0.x - x) * Math.sin(v.yaw) + (n0.z - z) * Math.cos(v.yaw) < 0) {
+        const n1 = g.nodes[g.nextHop(n0.id, nearestMain(g, tx, tz).id)]!;
+        if ((n1.x - x) * Math.sin(v.yaw) + (n1.z - z) * Math.cos(v.yaw) > 0) this.waypoint = n1.id;
+      }
     }
     const wp = g.nodes[this.waypoint]!;
     if (Math.hypot(wp.x - x, wp.z - z) < arrive) this.waypoint = g.nextHop(wp.id, nearestMain(g, tx, tz).id);

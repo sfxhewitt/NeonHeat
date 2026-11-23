@@ -141,6 +141,12 @@
               "racer",
               "courier"
             ]
+          },
+          "hull": {
+            "default": 1,
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 1
           }
         },
         "required": [

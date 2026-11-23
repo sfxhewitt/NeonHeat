@@ -31,6 +31,8 @@ export interface ResolvedSpawn {
   yaw: number | null;
   locked: boolean;
   hackable: boolean;
+  /** Fraction of full health it starts with. */
+  hull: number;
   /** From the mission's own spawns (true) or the map (false). */
   mission: boolean;
 }
@@ -48,12 +50,13 @@ export function resolveSpawnDef(map: MapContent, mission: Mission | null, ref: s
       yaw: def.yaw ?? null,
       locked: def.locked,
       hackable: def.hackable,
+      hull: def.hull,
       mission: true,
     };
   }
   const s = map.spawns[id];
   if (!s) return null;
-  return { variant: s.variant, x: s.pos[0], z: s.pos[2], yaw: s.yaw, locked: s.locked, hackable: false, mission: false };
+  return { variant: s.variant, x: s.pos[0], z: s.pos[2], yaw: s.yaw, locked: s.locked, hackable: false, hull: 1, mission: false };
 }
 
 export function resolveActorDef(map: MapContent, mission: Mission | null, ref: string): (ActorDef & Pos) | null {

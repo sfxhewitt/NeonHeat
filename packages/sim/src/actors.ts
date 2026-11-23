@@ -784,9 +784,28 @@ export class ActorSystem {
     if (d.polite) {
       const gap = w.gapAhead(v, cfg.detectRange, cfg.laneHalfWidth);
       if (gap < Infinity) speed = Math.min(speed, Math.max(0, (gap - cfg.minGap) / cfg.timeHeadway));
+      // Stop for the player on foot in the road ahead, or close beside the front of the car
+      // (a car pulling out swings its nose sideways, so a straight-ahead check is not enough).
+      let playerClose = false;
+      if (!w.player.vehicle) {
+        const fx = Math.sin(v.yaw);
+        const fz = Math.cos(v.yaw);
+        const px = w.player.x - v.x;
+        const pz = w.player.z - v.z;
+        const ahead = px * fx + pz * fz;
+        const side = Math.abs(px * fz - pz * fx);
+        // Look far enough ahead to stop from the speed we are doing (about 6 m/s² of braking).
+        const fwd = Math.max(0, v.vx * fx + v.vz * fz);
+        const inLane = ahead > 0 && ahead < v.params.length / 2 + 6 + (fwd * fwd) / 12 && side < v.params.width / 2 + 1;
+        const besideNose = ahead > -v.params.length / 4 && ahead < v.params.length / 2 + 3 && side < v.params.width / 2 + 3;
+        if (inLane || besideNose) speed = 0;
+        playerClose = Math.hypot(px, pz) < v.params.length / 2 + 5;
+      }
       // Held up and stopped (a parked car, a wreck, a jam): after a while edge past it, steering for the lane.
       const held = speed < 1;
       d.blockedSec = held ? d.blockedSec + Math.max(1, Math.round(60 / cfg.aiHz)) / 60 : 0;
+      // Never edge out past an obstacle with the player standing beside the car.
+      if (playerClose) d.blockedSec = 0;
       if (d.blockedSec > cfg.creepAfterSec) {
         // Pull out towards the road centre (we drive on the right, so the centre is to our left).
         const fx = Math.sin(v.yaw);

@@ -9,9 +9,9 @@
   "prerequisites": { "missions": ["velvet_02_encore"] },
   "budgetMinutes": 6,
   "spawns": {
-    "van_glass": { "variant": "brick", "at": "marker:glass_lot_3", "locked": true, "role": "target" },
-    "van_lantern": { "variant": "brick", "at": "marker:lantern_lot_3", "locked": true, "role": "target" },
-    "van_undercroft": { "variant": "brick", "at": "marker:undercroft_lot_1", "locked": true, "role": "target" }
+    "van_glass": { "variant": "brick", "at": "marker:glass_lot_3", "locked": true, "role": "target", "hull": 0.5 },
+    "van_lantern": { "variant": "brick", "at": "marker:lantern_lot_3", "locked": true, "role": "target", "hull": 0.5 },
+    "van_undercroft": { "variant": "brick", "at": "marker:undercroft_lot_1", "locked": true, "role": "target", "hull": 0.5 }
   },
   "objectives": [
     {

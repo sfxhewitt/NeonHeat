@@ -202,7 +202,7 @@ export class GameFlow {
 
   /** First steps for a new player, once per save. */
   welcome(): void {
-    this.hintOnce('welcome', 'Drag on the left of the screen to move. Find a glowing payphone to take a job.', 'stick', 9);
+    this.hintOnce('welcome', 'Drag on the left of the screen to move. Tap FIRE to shoot or punch. Find a glowing payphone to take a job.', 'stick', 9);
   }
 
   private hintOnce(id: string, text: string, control?: string, seconds = 7): void {
@@ -282,7 +282,8 @@ export class GameFlow {
         this.seenVehicles.add(e.vehicleId);
         st.carsStolen++;
       }
-      this.hintOnce('drive', 'Push the stick the way you want to go. Hold DRIFT to slide round corners.', 'handbrake', 7);
+      if (g.input.touchScheme === 'classic') this.hintOnce('drive', 'Hold GAS to go, ◀ ▶ to steer. Hold DRIFT to slide round corners.', 'gas', 7);
+      else this.hintOnce('drive', 'Drag on the left the way you want to go. Let go to stop.', 'stick', 7);
     } else if (e.type === 'vehicleDestroyed') {
       if (e.vehicleId === w.player.vehicle?.id) st.carsWrecked++;
     } else if (e.type === 'shot') {

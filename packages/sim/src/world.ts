@@ -439,7 +439,7 @@ export class World {
       v.prevYaw = v.yaw;
       const c = v.controls;
       if (v === player && !v.destroyed) {
-        if (intents.scheme === 'direction') directionToControls(v, intents.moveX, intents.moveY, c);
+        if (intents.scheme === 'direction') directionToControls(v, intents.moveX, intents.moveY, c, this.content.vehicles.direction.deadzone, this.content.vehicles.direction.releaseBrake);
         else {
           c.steer = intents.steer;
           c.throttle = intents.throttle;

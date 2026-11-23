@@ -124,13 +124,16 @@ export function directionToControls(
   moveY: number,
   out: DriveControls,
   deadzone = 0.15,
+  releaseBrake = 0.45,
 ): DriveControls {
   const mag = Math.min(1, Math.hypot(moveX, moveY));
   out.handbrake = false;
   if (mag < deadzone) {
+    // Let go and the car pulls up (gently, never into reverse): no pedals to learn.
+    const vf0 = forwardSpeed(s);
     out.steer = 0;
     out.throttle = 0;
-    out.brake = 0;
+    out.brake = vf0 > 1 ? releaseBrake : 0;
     return out;
   }
   const desiredYaw = Math.atan2(moveX, -moveY);

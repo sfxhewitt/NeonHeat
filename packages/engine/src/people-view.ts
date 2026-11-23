@@ -373,7 +373,12 @@ export class PeopleView {
       this.legs.setColorAt(i * 2 + s, this.c.setHex(trousers));
 
       o.position.set(side * 0.29, SHOULDER_Y, 0);
-      if (pose === 'hands') o.rotation.set(-Math.PI + 0.15, 0, side * -0.25);
+      if (this.punch > 0 && side === this.punchSide) {
+        // Jab: arm straight out in front, the shoulder driving forward with it.
+        o.position.z += this.punch * 0.22;
+        o.position.x -= side * this.punch * 0.08;
+        o.rotation.set(-Math.PI / 2 + 0.05, 0, side * 0.12 * this.punch);
+      } else if (pose === 'hands') o.rotation.set(-Math.PI + 0.15, 0, side * -0.25);
       else if (pose === 'wave' && side === 1) o.rotation.set(-Math.PI + 0.2, 0, -0.35 + Math.sin(rig.phase * 3) * 0.45);
       else if (aiming && side === -1) o.rotation.set(-Math.PI / 2 + 0.08, 0, 0);
       else if (pose === 'cower') o.rotation.set(-2.4, 0, side * 0.3);
@@ -392,6 +397,9 @@ export class PeopleView {
   }
 
   private map: MapContent | null = null;
+  /** Player melee swing, 0..1..0 over the swing, and which arm throws it. */
+  private punch = 0;
+  private punchSide = -1;
 
   /** Show one gear piece at `frame` (a world matrix), tinted `colour`. */
   private addGear(kind: GearKind, frame: Matrix4, colour: number | Color): void {
@@ -520,7 +528,14 @@ export class PeopleView {
       const rollT = rolling ? 1 - pc.dodgeTime / world.content.peds.player.dodgeSec : 0;
       const aiming = combat.aimKind !== null || combat.sinceFired < 0.35;
       const pose = pc.dead ? 'down' : pc.busted ? 'hands' : rolling ? 'roll' : 'stand';
-      this.person(x, z, facing, rolling || pc.busted ? 0 : speed, this.rigs[0]!, dt, pose, rollT, aiming && !pc.incapacitated, this.jc.setHex(0xfafaff), 0x1a1a2c, 0xd9a47a);
+      // A swing reads at a glance: the punching (or bat) arm snaps out and back, alternating on a combo.
+      const swingSec = 0.22;
+      this.punch = combat.weapon.kind === 'melee' && combat.sinceFired < swingSec && !pc.incapacitated ? Math.sin((combat.sinceFired / swingSec) * Math.PI) : 0;
+      this.punchSide = combat.comboIndex % 2 === 0 ? -1 : 1;
+      // The whole body steps into the swing, so it reads from the top-down camera.
+      const lunge = this.punch * 0.28;
+      this.person(x + Math.sin(facing) * lunge, z + Math.cos(facing) * lunge, facing, rolling || pc.busted ? 0 : speed, this.rigs[0]!, dt, pose, rollT, aiming && !pc.incapacitated && this.punch === 0, this.jc.setHex(0xfafaff), 0x1a1a2c, 0xd9a47a);
+      this.punch = 0;
       // Visor across the face, pistol in the right hand.
       o.position.set(0, NECK_Y + 0.24, 0.14);
       o.rotation.set(0, 0, 0);

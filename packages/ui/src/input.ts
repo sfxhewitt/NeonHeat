@@ -19,6 +19,7 @@ export class InputManager {
   private padActivityWas = false;
   private padWeaponWas = false;
   private mouseFire = false;
+  private mouseClick = false;
   private padInteractWas = false;
   private padDodgeWas = false;
   private mode: ControlMode = 'driving';
@@ -39,7 +40,7 @@ export class InputManager {
     window.addEventListener('blur', () => this.keys.clear());
     const canvas = document.getElementById('game');
     canvas?.addEventListener('mousedown', (e) => {
-      if (e.button === 0) this.mouseFire = true;
+      if (e.button === 0) this.mouseFire = this.mouseClick = true;
     });
     window.addEventListener('mouseup', () => (this.mouseFire = false));
   }
@@ -76,7 +77,9 @@ export class InputManager {
     e.throttle = up ? 1 : 0;
     e.brake = down ? 1 : 0;
     e.handbrake = k.has('Space');
-    e.fire = k.has('KeyJ') || k.has('ControlLeft') || this.mouseFire;
+    // A click shorter than one sim step still fires once.
+    e.fire = k.has('KeyJ') || k.has('ControlLeft') || this.mouseFire || this.mouseClick;
+    this.mouseClick = false;
     e.scheme = 'classic';
     let interact = this.interactLatch;
     let dodge = this.dodgeLatch;

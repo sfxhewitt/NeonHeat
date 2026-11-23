@@ -126,6 +126,19 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   p1 = await player(page);
   expect(p1.x - p0.x, 'stick right walks east').toBeGreaterThan(2);
 
+  // --- A quick tap of FIRE fires once (iOS can deliver a tap's down and up between two frames).
+  const fire = page.locator('.nh-btn--fire');
+  const ammo = () => page.evaluate(() => window.__neon!.game.world.combat.currentAmmo as number);
+  const a0 = await ammo();
+  await fire.tap();
+  await expect.poll(ammo, { message: 'a tap of FIRE shoots' }).toBeLessThan(a0);
+  // Fists: a tap throws a punch (the swing shows even when it hits nobody).
+  await page.locator('.nh-btn--weapon').tap();
+  await expect.poll(() => page.evaluate(() => window.__neon!.game.world.combat.weaponId)).toBe('fists');
+  await page.waitForTimeout(300);
+  await fire.tap();
+  await expect.poll(() => page.evaluate(() => window.__neon!.game.world.combat.sinceFired < 1)).toBe(true);
+
   // --- Get into the parked starter car with the context button.
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
@@ -135,6 +148,11 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect(context).toHaveText('ENTER');
   await context.tap();
   await expect.poll(async () => (await player(page)).driving).toBe(true);
+
+  // The car screen is just the stick, EXIT and SHOOT (the pistol comes out by itself).
+  await expect(page.locator('.nh-btn--handbrake')).toBeHidden();
+  await expect(page.locator('.nh-btn--weapon')).toBeHidden();
+  await expect(page.locator('.nh-btn--driveby')).toBeVisible();
 
   // --- Drive: direction steering, push the stick the way you want to go.
   // Push the way the car faces (parked cars in the city face any direction), so the test drives rather than turns.

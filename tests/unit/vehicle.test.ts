@@ -84,6 +84,17 @@ describe('arcade vehicle', () => {
     expect(car.z).toBeLessThan(EW.z);
   });
 
+  it('direction steering: letting go of the stick pulls the car up, and never into reverse', async () => {
+    const { world, car } = await onOpenRoad();
+    run(world, 2.5, intents({ scheme: 'direction', moveX: 1 }));
+    expect(forwardSpeed(car)).toBeGreaterThan(12);
+    run(world, 4, intents({ scheme: 'direction' }));
+    expect(Math.abs(forwardSpeed(car))).toBeLessThan(1.2);
+    const x = car.x;
+    run(world, 2, intents({ scheme: 'direction' }));
+    expect(car.x).toBeGreaterThanOrEqual(x - 0.05);
+  });
+
   it('cannot snap round faster than its tyres allow at speed (weight)', async () => {
     const { world, car } = await onOpenRoad();
     run(world, 2.5, intents({ throttle: 1 }));
