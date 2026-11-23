@@ -79,6 +79,8 @@ export const JumpsConfigSchema = z.object({
   /** Clear road before the kicker (m), and clear ground (no buildings or water) beyond the lip. */
   runUp: z.number().positive(),
   landingRun: z.number().positive(),
+  /** No part of a ramp (run-up to landing) within this many metres of a player spawn. */
+  spawnClear: z.number().nonnegative(),
   /** Unique jump target: this fraction of the distance a car at targetSpeed would fly. */
   targetSpeed: z.number().positive(),
   targetFraction: z.number().min(0.2).max(1.5),

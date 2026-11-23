@@ -62,6 +62,13 @@ describe('activity placement', () => {
         const lat = dx * Math.cos(r.yaw) - dz * Math.sin(r.yaw);
         expect(along > -20 && along < rampLength(r) + 4 && Math.abs(lat) < r.width / 2 + 2, `parked car on ${r.id}`).toBe(false);
       }
+      // Nowhere near a player spawn: a fresh start never drives straight onto a kicker.
+      for (const s of Object.values(c.map.spawns)) {
+        for (let k = -a.config.jumps.runUp; k <= rampLength(r) + a.config.jumps.landingRun; k += 4) {
+          const d = Math.hypot(r.x + Math.sin(r.yaw) * k - s.pos[0], r.z + Math.cos(r.yaw) * k - s.pos[2]);
+          expect(d, `${r.id} near a spawn`).toBeGreaterThanOrEqual(a.config.jumps.spawnClear);
+        }
+      }
     }
     // Shards: never in a building, the river or a traffic lane; spread over every district and kind of spot.
     for (const s of a.sites.shards) {
@@ -466,6 +473,20 @@ describe('taxi and courier fares', () => {
     drive(w, 'saloon', start[0], start[2], 0);
     w.step(intents());
     expect(w.activities.prompt).toBeNull();
+  });
+
+  it('puts fares on clear kerbs, never under a tree or on top of street furniture', async () => {
+    const w = await makeWorld();
+    const props = w.props.props.filter((p) => !p.broken);
+    const start = w.content.map.markers['player_start']!.pos;
+    for (let i = 0; i < 40; i++) {
+      const s = w.activities.fares.findStop(start[0], start[2], 50, 600);
+      expect(s).not.toBeNull();
+      for (const p of props) {
+        const r = p.kind === 'tree' ? 3.5 : 1.6;
+        expect(Math.abs(p.x - s!.x) < r && Math.abs(p.z - s!.z) < r).toBe(false);
+      }
+    }
   });
 });
 

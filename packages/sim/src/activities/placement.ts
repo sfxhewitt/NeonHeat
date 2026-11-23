@@ -199,6 +199,7 @@ function placeRamps(map: GeneratedMap, cfg: ActivitiesConfig, g: CityGrid, rng: 
   }
   const byDistrict = new Map<string, Cand[]>();
   const roadAt = (x: number, z: number): boolean => (g.at(x, z) & Cell.road) !== 0;
+  const spawns = Object.values(map.spawns).map((s) => ({ x: s.pos[0], z: s.pos[2] }));
   const solidAt = (x: number, z: number): boolean => (g.at(x, z) & (Cell.building | Cell.water)) !== 0;
   for (const s of map.roads.segments) {
     if (s.kind === 'bridge') continue;
@@ -232,6 +233,13 @@ function placeRamps(map: GeneratedMap, cfg: ActivitiesConfig, g: CityGrid, rng: 
         // A clear flight: nothing solid over the landing run.
         for (let k = len; k <= len + J.landingRun && ok; k += 2) {
           for (const l of [-R.width / 2 - 1, 0, R.width / 2 + 1]) if (solidAt(cx + fx * k + rx * l, cz + fz * k + rz * l)) ok = false;
+        }
+        if (!ok) continue;
+        // Keep the whole run (run-up to landing) away from player spawns, so nobody launches by accident.
+        for (const sp of spawns) {
+          for (let k = -J.runUp; k <= len + J.landingRun && ok; k += 4) {
+            if (Math.hypot(cx + fx * k - sp.x, cz + fz * k - sp.z) < J.spawnClear) ok = false;
+          }
         }
         if (!ok) continue;
         const di = districtAt(map, cx, cz);

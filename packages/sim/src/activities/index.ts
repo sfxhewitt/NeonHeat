@@ -164,6 +164,7 @@ const FALLBACK: ActivitiesConfig = {
     perDistrict: {},
     runUp: 40,
     landingRun: 60,
+    spawnClear: 0,
     targetSpeed: 30,
     targetFraction: 1,
   },

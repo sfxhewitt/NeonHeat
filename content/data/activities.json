@@ -27,6 +27,7 @@
     "perDistrict": { "lantern": 2, "ashgrove": 3, "glass": 3, "undercroft": 2, "saltworks": 2 },
     "runUp": 40,
     "landingRun": 60,
+    "spawnClear": 50,
     "targetSpeed": 30,
     "targetFraction": 0.85
   },

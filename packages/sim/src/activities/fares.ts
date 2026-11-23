@@ -127,10 +127,20 @@ export class FareSystem {
       const lane = e.width / 2 - 2.2;
       const px = e.alongX ? cx : cx + side * off;
       const pz = e.alongX ? cz + side * off : cz;
-      if (!onPavement(map, px, pz) || w.insideBuilding(px, pz, 1.2)) continue;
+      if (!onPavement(map, px, pz) || w.insideBuilding(px, pz, 1.2) || this.cluttered(px, pz)) continue;
       return { x: px, z: pz, laneX: e.alongX ? cx : cx + side * lane, laneZ: e.alongX ? cz + side * lane : cz };
     }
     return null;
+  }
+
+  /** Street furniture at the spot, or a tree overhead that would hide the fare from the camera. */
+  private cluttered(x: number, z: number): boolean {
+    for (const p of this.world.props.props) {
+      if (p.broken) continue;
+      const r = p.kind === 'tree' ? 3.5 : 1.6;
+      if (Math.abs(p.x - x) < r && Math.abs(p.z - z) < r) return true;
+    }
+    return false;
   }
 
   private routeLength(a: FareStop, b: FareStop): number {
