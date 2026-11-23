@@ -57,7 +57,10 @@ export async function boot(): Promise<void> {
   const choice = await game.flow.title(() => status);
   await benchmark;
   game.setPaused(false);
-  if (choice === 'new') game.flow.welcome();
+  if (choice === 'new') {
+    game.economy.applySave(game.saves.current);
+    game.flow.welcome();
+  }
   window.__neon!.ready = true;
 }
 

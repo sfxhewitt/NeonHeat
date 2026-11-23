@@ -59,7 +59,16 @@ export const CitySpecSchema = z.object({
     )
     .min(1),
   /** Landmark markers: which district and what kind of spot. */
-  landmarks: z.record(z.string(), z.object({ district: z.string(), spot: z.enum(['door', 'lot', 'park', 'road', 'bridge', 'promenade', 'edge']), index: z.number().int().optional() })),
+  landmarks: z.record(
+    z.string(),
+    z.object({
+      district: z.string(),
+      spot: z.enum(['door', 'lot', 'park', 'road', 'bridge', 'promenade', 'edge']),
+      index: z.number().int().optional(),
+      /** A drive-in workshop (respray, chop shop) behind the marker, its door facing the nearest road: width along the front, depth, height. */
+      garage: z.object({ w: z.number().positive(), d: z.number().positive(), h: z.number().positive() }).optional(),
+    }),
+  ),
   /** Pickups placed per district: kind -> count. */
   pickups: z.record(z.string(), z.number().int().nonnegative()),
   parkedVariants: z.array(z.string()).min(1),
@@ -631,6 +640,74 @@ function rightHandFacing(nx: number, nz: number, dirX: number, dirZ: number): bo
   return rx * -nx + rz * -nz > 0;
 }
 
+/** Gap between a drive-in marker and its workshop door (the car stops on the pad in front of it). */
+const GARAGE_FRONT_GAP = 5.5;
+
+/**
+ * Workshops for landmarks with a `garage`: a building behind the marker with
+ * its front facing the nearest road, so a car drives across the yard onto the
+ * pad at its door. No RNG is drawn, so the rest of the city is unchanged.
+ */
+function placeGarages(spec: CitySpec, map: GeneratedMap): void {
+  const segs = map.roads.segments.filter((q) => q.kind !== 'alley');
+  /** Distance along an axis ray from (x, z) to the nearest road rectangle, or Infinity. */
+  const rayToRoad = (x: number, z: number, dx: number, dz: number): number => {
+    let best = Infinity;
+    for (const q of segs) {
+      const hw = q.width / 2;
+      const x0 = Math.min(q.x0, q.x1) - hw;
+      const x1 = Math.max(q.x0, q.x1) + hw;
+      const z0 = Math.min(q.z0, q.z1) - hw;
+      const z1 = Math.max(q.z0, q.z1) + hw;
+      if (dx !== 0) {
+        if (z < z0 || z > z1) continue;
+        const d = dx > 0 ? x0 - x : x - x1;
+        if (d >= 0 && d < best) best = d;
+      } else {
+        if (x < x0 || x > x1) continue;
+        const d = dz > 0 ? z0 - z : z - z1;
+        if (d >= 0 && d < best) best = d;
+      }
+    }
+    return best;
+  };
+  const dirs: [number, number][] = [
+    [0, 1],
+    [1, 0],
+    [0, -1],
+    [-1, 0],
+  ];
+  for (const [id, lm] of Object.entries(spec.landmarks)) {
+    const g = lm.garage;
+    const m = map.markers[id];
+    if (!g || !m) continue;
+    const [x, , z] = m.pos;
+    let face: [number, number] = [0, 1];
+    let near = Infinity;
+    for (const d of dirs) {
+      const r = rayToRoad(x, z, d[0], d[1]);
+      if (r < near) {
+        near = r;
+        face = d;
+      }
+    }
+    // The workshop stands on the far side of the pad from the road, clear of any road behind it.
+    const room = rayToRoad(x, z, -face[0], -face[1]) - GARAGE_FRONT_GAP - 3;
+    const depth = Math.min(g.d, room);
+    if (depth < 5) continue;
+    const off = GARAGE_FRONT_GAP + depth / 2;
+    const bx = r2(x - face[0] * off);
+    const bz = r2(z - face[1] * off);
+    const alongX = face[0] === 0;
+    const b: Building = { x: bx, z: bz, w: alongX ? g.w : depth, d: alongX ? depth : g.w, h: g.h };
+    if (map.buildings.some((o) => Math.abs(o.x - b.x) < (o.w + b.w) / 2 + 1 && Math.abs(o.z - b.z) < (o.d + b.d) / 2 + 1)) continue;
+    map.buildings.push(b);
+    const clear = (px: number, pz: number, margin: number): boolean => Math.abs(px - b.x) > b.w / 2 + margin || Math.abs(pz - b.z) > b.d / 2 + margin;
+    map.props = map.props.filter((p) => clear(p.x, p.z, 1.5));
+    map.parking = map.parking.filter((p) => clear(p.x, p.z, 3.5));
+  }
+}
+
 function placeMarkers(rng: Rng, spec: CitySpec, map: GeneratedMap): void {
   const m = map.markers;
   const segs = map.roads.segments;
@@ -775,6 +852,7 @@ function placeMarkers(rng: Rng, spec: CitySpec, map: GeneratedMap): void {
   // The prototype the Glasshounds want lifted waits, locked, in a Glass Quarter car park.
   const lot = m['glass_lot_2'];
   if (lot) map.spawns['prototype_car'] = { variant: 'prototype', pos: [lot.pos[0], 0, lot.pos[2]], yaw: 0, locked: true };
+  placeGarages(spec, map);
   // Keep furniture off every marker so spawned cars and people have room.
   map.props = map.props.filter((p) => {
     for (const k of Object.values(m)) if (Math.hypot(p.x - k.pos[0], p.z - k.pos[2]) < 3.5) return false;

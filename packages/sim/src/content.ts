@@ -5,6 +5,7 @@ import { TrafficConfigSchema, type TrafficConfig } from './traffic';
 import { PickupsConfigSchema, type PickupsConfig } from './pickups';
 import { SurvivalConfigSchema, type SurvivalConfig } from './survival';
 import { CitySpecSchema, generateCity, type GeneratedMap } from './citygen';
+import { EconomyConfigSchema, type EconomyConfig } from './economy';
 
 /** Zod schemas for every piece of content the simulation consumes. */
 
@@ -261,6 +262,7 @@ export interface SimContent {
   pickups: PickupsConfig;
   survival: SurvivalConfig;
   weather: WeatherConfig;
+  economy: EconomyConfig;
 }
 
 export interface RawSimContent {
@@ -275,6 +277,8 @@ export interface RawSimContent {
   survival: unknown;
   /** Optional: defaults apply when absent. */
   weather?: unknown;
+  /** Optional: defaults apply when absent. */
+  economy?: unknown;
 }
 
 /** Validate raw JSON content. Throws a readable error on the first invalid file. */
@@ -300,8 +304,17 @@ export function parseSimContent(raw: RawSimContent): SimContent {
   const pickups = parse('pickups', PickupsConfigSchema, raw.pickups);
   const survival = parse('survival', SurvivalConfigSchema, raw.survival);
   const weather = parse('weather', WeatherConfigSchema, raw.weather ?? {});
+  const economy = parse('economy', EconomyConfigSchema, raw.economy ?? {});
   checkCombatRefs(vehicles, heat, weapons, pickups);
-  return { vehicles, map, heat, traffic, peds, weapons, props, pickups, survival, weather };
+  checkEconomyRefs(economy, weapons);
+  return { vehicles, map, heat, traffic, peds, weapons, props, pickups, survival, weather, economy };
+}
+
+/** Shop prices must name real weapons. */
+function checkEconomyRefs(economy: EconomyConfig, weapons: WeaponsConfig): void {
+  for (const id of [...Object.keys(economy.arms.weapons), ...Object.keys(economy.arms.ammo)]) {
+    if (!(id in weapons.weapons)) throw new Error(`Economy prices unknown weapon "${id}"`);
+  }
 }
 
 /** Cross-file references of the combat layer: police variants, pickup weapons. */

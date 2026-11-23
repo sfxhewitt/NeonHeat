@@ -269,6 +269,8 @@ export class MissionDirector {
     const w = this.world;
     const r = this.runner;
     const running = r?.state === 'running';
+    // While a job runs, resprays go on the crew's tab and the chop shops stop buying (economy.ts).
+    w.economy.jobActive = this.active;
     for (const e of w.events) {
       if (e.type === 'enteredVehicle') {
         this.host.noteEntered(e.vehicleId);

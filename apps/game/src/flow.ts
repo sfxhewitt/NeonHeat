@@ -111,6 +111,24 @@ export class GameFlow {
     this.routeTarget = null;
   }
 
+  /** The map's geometry (landmark labels can be renamed in place; the maps redraw them). */
+  get mapGeometry(): MapGeometry | null {
+    return this.geometry;
+  }
+
+  /** Hold the game paused behind a panel (the shop); call the returned function to let go. */
+  hold(): () => void {
+    this.blockingCards++;
+    this.game.setPaused(true);
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      this.blockingCards--;
+      this.resumeIfClear();
+    };
+  }
+
   /** True while the pause menu or a blocking card holds the game. */
   get blocking(): boolean {
     return this.menu.isOpen || this.blockingCards > 0;
@@ -395,6 +413,7 @@ export class GameFlow {
         ...d.givers.map((gv) => ({ title: gv.title, crew: gv.crew, done: false })),
         ...d.missions.filter((m) => save.completedMissions.includes(m.id)).map((m) => ({ title: m.title, crew: m.faction, done: true })),
       ],
+      ...g.economy?.exportsView(),
     };
   }
 
@@ -414,6 +433,8 @@ export class GameFlow {
       { label: 'Highest HEAT', value: `${st.highestHeat} / 5` },
       { label: 'Flatlined', value: n(st.flatlined) },
       { label: 'Booked', value: n(st.booked) },
+      { label: 'Credits spent', value: `${n(st.creditsSpent)} cr` },
+      { label: 'Exports delivered', value: n(st.exportsDelivered) },
     ];
   }
 }

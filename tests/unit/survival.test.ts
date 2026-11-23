@@ -48,6 +48,8 @@ describe('armour', () => {
 describe('FLATLINED', () => {
   it('loses a share of credits and the weapons, then respawns at the nearest clinic with HEAT cleared', async () => {
     const w = await quietWorld(2);
+    // No owned safehouse nearer than the clinic (the start safehouse would win: economy.test.ts).
+    w.content.economy.safehouses.respawn = false;
     const pc = w.playerCtl;
     w.score.credits = 1000;
     w.combat.give('smg', 100);

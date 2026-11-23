@@ -154,6 +154,10 @@ export interface JobsView {
   respect: Record<string, number>;
   /** Jobs waiting at payphones. */
   available: { title: string; crew: string; done: boolean }[];
+  /** The chop shops' export list: cars wanted now, with the best price (full condition). */
+  exports?: { name: string; detail: string; price: number }[];
+  /** One line under the export list (where to deliver, what condition). */
+  exportNote?: string;
 }
 
 export interface PauseMenuHooks {
@@ -322,6 +326,14 @@ export class PauseMenu {
         html += `<div class="nh-jobs__item ${j.done ? 'is-done' : ''}">${crewSvg(c, 16)}<span>${escapeHtml(j.title)}</span><small>${j.done ? 'Done' : c.name}</small></div>`;
       }
       html += '</div>';
+    }
+    if (v.exports?.length) {
+      html += '<h3>Export list</h3><div class="nh-jobs__list nh-jobs__exports">';
+      for (const x of v.exports) {
+        html += `<div class="nh-jobs__item"><svg class="nh-lm-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M3 13l2-5h14l2 5v5h-2.5a2 2 0 0 1-4 0h-5a2 2 0 0 1-4 0H3zM6.5 9.5L5.6 12h12.8l-.9-2.5z" fill="#b98cff"/></svg><span>${escapeHtml(x.name)}</span><small>${escapeHtml(x.detail)} · up to ${x.price.toLocaleString('en-GB')} cr</small></div>`;
+      }
+      html += '</div>';
+      if (v.exportNote) html += `<p class="nh-jobs__note">${escapeHtml(v.exportNote)}</p>`;
     }
     el.innerHTML = html;
     el.querySelector('[data-act="restart"]')?.addEventListener('click', () => {

@@ -128,7 +128,8 @@ export function geometryFromCityMap(map: CityMapLike): MapGeometry {
   for (const [id, m] of Object.entries(map.markers)) {
     const x = Number(m.pos[0]);
     const z = Number(m.pos[2]);
-    const hit = MARKER_KINDS.find(([re]) => re.test(id));
+    // Pickup markers (pickup_shotgun_...) are not shops, whatever their names contain.
+    const hit = id.startsWith('pickup_') ? undefined : MARKER_KINDS.find(([re]) => re.test(id));
     if (hit) landmarks.push({ id, label: hit[2], kind: hit[1], x, z });
     else if (CITY_LANDMARKS[id]) landmarks.push({ id, label: CITY_LANDMARKS[id], kind: 'landmark', x, z });
   }

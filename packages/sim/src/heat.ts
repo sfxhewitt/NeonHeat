@@ -206,6 +206,8 @@ export class Heat {
   lastKnownZ = 0;
   private civHits: number[] = [];
   private pedHits: number[] = [];
+  /** Multiplies every point gained (Ghost cyberware slows HEAT build-up). */
+  gainMul = 1;
 
   constructor(public config: HeatConfig) {}
 
@@ -229,7 +231,7 @@ export class Heat {
   /** A witnessed crime: full points, and the police know where you are. */
   addPoints(n: number, x: number, z: number): void {
     if (n <= 0) return;
-    this.points += n;
+    this.points += n * this.gainMul;
     this.lastKnownX = x;
     this.lastKnownZ = z;
     this.unseenTime = 0;
@@ -242,6 +244,7 @@ export class Heat {
    */
   addUnwitnessed(n: number, x: number, z: number): void {
     if (n <= 0) return;
+    n *= this.gainMul;
     const capLevel = Math.min(this.config.maxLevel, this.config.witness.unwitnessedMaxLevel);
     const next = this.config.thresholds[capLevel + 1];
     const cap = capLevel >= this.config.maxLevel || next === undefined ? Infinity : next - 0.001;

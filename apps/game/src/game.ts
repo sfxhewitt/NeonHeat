@@ -46,6 +46,7 @@ import { GameFlow } from './flow';
 import { setupTuning } from './tuning';
 import { CombatLayer } from './combat-layer';
 import { SoundBridge } from './sound';
+import { EconomyLayer } from './economy-layer';
 
 export interface GameStats {
   fps: number;
@@ -81,6 +82,8 @@ export class Game {
   private skids!: SkidMarks;
   private sceneLights!: SceneLights;
   private combat!: CombatLayer;
+  /** Shops, resprays, safehouses, cyberware, exports (apps/game/src/economy-layer.ts). */
+  economy!: EconomyLayer;
   private signs!: { stream: (x: number, z: number) => void };
   private signals!: SignalsView;
   private readonly hemi = new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8);
@@ -170,6 +173,8 @@ export class Game {
     const save = this.saves.current;
     this.director.setProgress({ completed: save.completedMissions, respect: save.respect });
     this.world.score.credits = this.saves.current.credits;
+    this.economy.applySave(save);
+    this.saves.beforeSave = (s) => this.economy.capture(s);
   }
 
   private setupMissions(bot: boolean): void {
@@ -235,7 +240,7 @@ export class Game {
     this.rig.snap({ x: p.x, z: p.z, vx: 0, vz: 0, speedT: 0, onFoot: !p.vehicle });
   }
 
-  private autosave(why: string): void {
+  autosave(why: string): void {
     this.freeRoamSaveTimer = 0;
     this.saves.save().catch((err: unknown) => console.warn(`Autosave (${why}) failed`, err));
   }
@@ -248,13 +253,16 @@ export class Game {
     this.key.position.set(-40, 100, 30);
     s.add(this.key);
     const map = this.content.sim.map;
-    const signs = layoutSigns(map);
+    this.economy = new EconomyLayer(this, s);
+    const signs = this.economy.view.clearSigns(layoutSigns(map));
+    // Shop fronts light the street and show in the wet road like the other signs.
+    const litSigns = [...signs, ...this.economy.view.lights()];
     this.lightField = new LightField(map);
-    this.roadMat = createWetRoadMaterial(map, buildReflectionTexture(map, signs), buildNoiseTexture(), this.lightField.uniforms);
+    this.roadMat = createWetRoadMaterial(map, buildReflectionTexture(map, litSigns), buildNoiseTexture(), this.lightField.uniforms);
     this.city = buildCity(s, map, this.roadMat);
     this.propsView = new PropsView(s, this.world.props.props);
     this.signals = new SignalsView(s, this.world.roads, this.world.content.traffic.lights);
-    this.sceneLights = new SceneLights(this.lightField, this.city.lamps, signs, this.propsView.lights());
+    this.sceneLights = new SceneLights(this.lightField, this.city.lamps, litSigns, this.propsView.lights());
     this.signs = buildSignage(s, signs);
     this.shadows = new BlobShadows(s);
     this.vehiclesView = new VehiclesView(s, this.content.sim.vehicles.variants);
@@ -285,6 +293,7 @@ export class Game {
       this.vehiclesView.wheels,
       ...this.people.meshes,
       ...this.propsView.meshes,
+      this.economy.view.structure,
     );
     // Everything solid receives the real-time light field; paint and glass also pick up a wet sheen.
     const lf = this.lightField;
@@ -302,7 +311,7 @@ export class Game {
         }
     };
     lit(0.55, ...this.vehiclesView.bodies);
-    lit(0.12, this.city.buildings, this.city.pavements, this.city.ground);
+    lit(0.12, this.city.buildings, this.city.pavements, this.city.ground, this.economy.view.structure);
     lit(0.7, this.city.water);
     lit(0, this.city.roofProps, this.city.lampPosts, this.vehiclesView.wheels, ...this.people.meshes, ...this.propsView.meshes, this.particles.debris.mesh);
   }
@@ -401,7 +410,8 @@ export class Game {
       this.hitStop -= dt;
       alpha = 1;
     } else if (!this.paused) {
-      alpha = this.loop.advance(dt, () => this.simStep());
+      // Reflex cyberware slows the whole clock for a moment after a dodge.
+      alpha = this.loop.advance(dt * this.economy.timeScale, () => this.simStep());
     }
     const pc = this.world.playerCtl;
     this.input.setMode(this.flow.blocking ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
@@ -547,6 +557,7 @@ export class Game {
 
   private onSimEvent(e: SimEvent): void {
     this.sound.audio.onEvent(e);
+    if (this.economy.onEvent(e)) return;
     if (this.combat.onEvent(e)) return;
     const feel = this.content.feel;
     if (e.type === 'impact') {
@@ -632,6 +643,7 @@ export class Game {
     this.hud.tick(performance.now());
     this.people.update(w, alpha, dt, w.time);
     this.combat.update(alpha, dt);
+    this.economy.update();
     const pv = w.player.vehicle;
     if (pv) {
       const x = pv.prevX + (pv.x - pv.prevX) * alpha;

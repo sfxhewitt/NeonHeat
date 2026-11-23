@@ -15,3 +15,4 @@ export * from './minimap';
 export * from './combat-hud';
 export * from './radio-ui';
 export * from './full-map';
+export * from './shop';

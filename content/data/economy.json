@@ -1,0 +1,82 @@
+{
+  "padRadius": 2.2,
+  "carPad": { "radius": 5, "maxSpeed": 3 },
+  "brands": {
+    "clinic": { "name": "MERCY LINE", "tagline": "Clinic and cyberware", "colour": "#ff5c7c" },
+    "precinct": { "name": "CITY WATCH", "tagline": "Precinct", "colour": "#4d8bff" },
+    "safehouse": { "name": "HIDEOUT", "tagline": "Safehouse", "colour": "#d7ff2b" },
+    "respray": { "name": "FRESH COAT", "tagline": "Respray while you wait", "colour": "#21f0ff" },
+    "arms": { "name": "LOUD GOODS", "tagline": "Arms and armour", "colour": "#ff9a3c" },
+    "chopshop": { "name": "CHOP CHOP", "tagline": "Export yard", "colour": "#b98cff" }
+  },
+  "respray": { "price": 150 },
+  "arms": {
+    "weapons": {
+      "bat": { "price": 150, "ammo": 0 },
+      "pistol": { "price": 350, "ammo": 48 },
+      "smg": { "price": 1200, "ammo": 120 },
+      "shotgun": { "price": 1500, "ammo": 16 },
+      "rifle": { "price": 2600, "ammo": 12 },
+      "arc": { "price": 3800, "ammo": 12 },
+      "launcher": { "price": 6000, "ammo": 6 }
+    },
+    "ammo": {
+      "pistol": { "price": 60, "rounds": 36 },
+      "smg": { "price": 120, "rounds": 90 },
+      "shotgun": { "price": 120, "rounds": 12 },
+      "rifle": { "price": 200, "rounds": 10 },
+      "arc": { "price": 300, "rounds": 8 },
+      "launcher": { "price": 450, "rounds": 4 }
+    },
+    "armour": { "price": 250, "amount": 50 },
+    "rebuyFraction": 0.5
+  },
+  "clinic": { "healPrice": 100 },
+  "safehouses": {
+    "prices": { "safehouse_1": 0, "safehouse_2": 6000, "safehouse_3": 9000 },
+    "startOwned": ["safehouse_1"],
+    "respawn": true
+  },
+  "cyberware": {
+    "reflex": {
+      "name": "Reflex booster",
+      "blurb": "Time slows for a moment when you dodge, and you cannot be hurt mid-roll.",
+      "price": 5000,
+      "slowSec": 0.7,
+      "timeScale": 0.4,
+      "iframeSec": 0.6
+    },
+    "plating": {
+      "name": "Subdermal plating",
+      "blurb": "Carry 50 more armour.",
+      "price": 4000,
+      "armourBonus": 50
+    },
+    "ghost": {
+      "name": "Ghost weave",
+      "blurb": "HEAT builds 35% slower.",
+      "price": 7500,
+      "heatMul": 0.65
+    }
+  },
+  "exports": {
+    "listSize": 4,
+    "minCondition": 0.5,
+    "conditionFloor": 0.6,
+    "excludeClasses": ["bus", "emergency", "police"],
+    "classPrice": {
+      "compact": 600,
+      "saloon": 800,
+      "estate": 850,
+      "taxi": 700,
+      "suv": 1200,
+      "sports": 1800,
+      "super": 3500,
+      "muscle": 1500,
+      "van": 900,
+      "pickup": 1000,
+      "truck": 1400,
+      "bike": 750
+    }
+  }
+}

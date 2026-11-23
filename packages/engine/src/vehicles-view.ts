@@ -66,6 +66,8 @@ export class VehiclesView {
   private readonly slotVariant: string[] = new Array<string>(CAP).fill('');
   private readonly slotActive = new Uint8Array(CAP);
   private readonly slotGen = new Uint32Array(CAP);
+  /** Paint seed last applied per slot (a respray changes the sim's seed). */
+  private readonly slotSeed = new Int32Array(CAP);
   private readonly slotPaint: Color[] = [];
   private readonly slotJacket = new Uint32Array(CAP);
   private readonly lean = new Float32Array(CAP);
@@ -172,6 +174,7 @@ export class VehiclesView {
         continue;
       }
       if (!this.slotActive[slot] || this.slotVariant[slot] !== v.variantId) this.respawn(world, v, entry);
+      else if (this.slotSeed[slot] !== v.paintSeed) this.repaint(world, v);
       const p = v.params;
       const L = entry.layout;
       const x = lerp(v.prevX, v.x, alpha);
@@ -260,6 +263,12 @@ export class VehiclesView {
     if (this.beams.instanceColor) this.beams.instanceColor.needsUpdate = true;
   }
 
+  /** Paint from the sim's per-car seed (stable across a save, changed by a respray). */
+  private repaint(world: World, v: Vehicle): void {
+    this.slotSeed[v.id] = v.paintSeed;
+    this.slotPaint[v.id]!.set(paintFor(world.content.vehicles, v.variantId, v.paintSeed));
+  }
+
   /** A new vehicle in a slot: swap the batch geometry and roll its paint and rider. */
   private respawn(world: World, v: Vehicle, entry: ModelEntry): void {
     const slot = v.id;
@@ -267,7 +276,7 @@ export class VehiclesView {
     this.slotVariant[slot] = v.variantId;
     const gen = ++this.slotGen[slot]!;
     const seed = slot * 7919 + gen * 104729;
-    this.slotPaint[slot]!.set(paintFor(world.content.vehicles, v.variantId, seed));
+    this.repaint(world, v);
     this.slotJacket[slot] = JACKETS[(seed >>> 3) % JACKETS.length]!;
     this.lean[slot] = 0;
     this.batch.setGeometryIdAt(slot, entry.geo);

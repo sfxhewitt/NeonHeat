@@ -5,7 +5,7 @@
  */
 
 /** Original weapon silhouettes (24x24 viewBox), paired with a colour per weapon. */
-const ICONS: Record<string, { path: string; colour: string }> = {
+export const WEAPON_ICONS: Record<string, { path: string; colour: string }> = {
   fists: { path: 'M6 10h11a2 2 0 0 1 2 2v3a4 4 0 0 1-4 4H9a3 3 0 0 1-3-3zM6 10V7h3v3M9 10V6h3v4M12 10V6h3v4M15 10V7h3v4', colour: '#f2f2ff' },
   bat: { path: 'M4 20l2 0 12-13a2.5 2.5 0 0 0-3.5-3.5L2 16v2z', colour: '#ff2bd6' },
   pistol: { path: 'M3 8h15v4H11l-1 6H6l1-6H3z', colour: '#f2f2ff' },
@@ -100,7 +100,7 @@ export class CombatHud {
     }
     if (s.weapon !== l.weapon) {
       l.weapon = s.weapon;
-      const icon = ICONS[s.weapon] ?? ICONS.pistol!;
+      const icon = WEAPON_ICONS[s.weapon] ?? WEAPON_ICONS.pistol!;
       this.weaponIcon.setAttribute('d', icon.path);
       this.weaponIcon.setAttribute('fill', icon.colour);
       this.weaponName.textContent = s.weaponName.toUpperCase();

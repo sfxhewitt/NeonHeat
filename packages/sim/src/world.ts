@@ -21,6 +21,7 @@ import { OfficerSystem } from './officers';
 import { PickupSystem } from './pickups';
 import { ScoreSystem } from './score';
 import { SurvivalSystem } from './survival';
+import { EconomySystem } from './economy';
 
 /** `mission`: driven by a mission actor (see actors.ts); traffic and police leave it alone. */
 export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad' | 'mission';
@@ -58,6 +59,8 @@ export interface Vehicle extends ArcadeState {
   /** Front and rear axles up on the pavement (the renderer lifts and pitches the body). */
   kerbFront: boolean;
   kerbRear: boolean;
+  /** Seed for this car's paint (`paintFor`); a respray changes it. */
+  paintSeed: number;
   ai: AiState;
 }
 
@@ -118,8 +121,12 @@ export class World {
   readonly pickups: PickupSystem;
   readonly score: ScoreSystem;
   readonly survival: SurvivalSystem;
+  /** Shops, resprays, safehouses, cyberware and the export list. */
+  readonly economy: EconomySystem;
   private readonly owners = new Map<number, ColliderOwner>();
   private readonly ctl = emptyControls();
+  /** Counts spawns, so each new car rolls its own paint without drawing from the RNG. */
+  private spawnSerial = 0;
 
   constructor(options: WorldOptions) {
     this.seed = options.seed;
@@ -145,6 +152,7 @@ export class World {
     this.officers = new OfficerSystem(this, this.content.heat.officers);
     this.combat = new CombatSystem(this, this.content.weapons);
     this.pickups = new PickupSystem(this, this.content.pickups);
+    this.economy = new EconomySystem(this, this.content.economy);
     this.spawnInitial();
     this.syncPlayer();
     this.traffic.populate();
@@ -334,6 +342,7 @@ export class World {
     if (!v) return null;
     const { R, physics } = this;
     resetVehicle(v, variantId, params, role, x, z, yaw);
+    v.paintSeed = (v.id * 7919 + ++this.spawnSerial * 104729) | 0;
     const body = physics.createRigidBody(
       R.RigidBodyDesc.dynamic()
         .setTranslation(x, 0, z)
@@ -443,6 +452,7 @@ export class World {
     this.pickups.step(SIM_DT);
     this.police.postStep(SIM_DT);
     this.survival.step(SIM_DT);
+    this.economy.step(SIM_DT);
     this.score.step(SIM_DT);
     if (this.trace > 0) this.trace = Math.max(0, this.trace - this.content.heat.traceDecayPerSec * SIM_DT);
     this.handlePlayerWreck();
@@ -611,6 +621,7 @@ function makeVehicle(id: number, params: VehicleParams): Vehicle {
     sinceImpact: 10,
     kerbFront: false,
     kerbRear: false,
+    paintSeed: 0,
     ai: makeAiState(),
   };
 }

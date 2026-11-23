@@ -93,7 +93,10 @@ export interface RoadblockEvent {
 
 export interface ResprayEvent {
   type: 'respray';
-  result: ResprayResult;
+  /** broke: could not pay (the shop's verdict; the police verdicts are the others). */
+  result: ResprayResult | 'broke';
+  /** Credits charged (or asked for, when broke). */
+  price?: number;
 }
 
 export type ResprayResult = 'cleared' | 'clean' | 'seen' | 'tooHot';
