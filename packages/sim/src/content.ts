@@ -5,6 +5,7 @@ import { TrafficConfigSchema, type TrafficConfig } from './traffic';
 import { PickupsConfigSchema, type PickupsConfig } from './pickups';
 import { SurvivalConfigSchema, type SurvivalConfig } from './survival';
 import { CitySpecSchema, generateCity, type GeneratedMap } from './citygen';
+import { LifeConfigSchema, SimCrewsSchema, type LifeConfig, type SimCrews } from './life-config';
 
 /** Zod schemas for every piece of content the simulation consumes. */
 
@@ -166,6 +167,8 @@ export const PedsConfigSchema = z.object({
   colours: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(1),
   /** Pedestrian hit points (weapons and fists wear them down). */
   hp: z.number().positive().default(100),
+  /** Size of the ped pool: ambient people plus gang members, crews and crowds. */
+  pool: z.number().int().positive().default(110),
   player: z.object({
     radius: z.number().positive(),
     mass: z.number().positive(),
@@ -261,6 +264,10 @@ export interface SimContent {
   pickups: PickupsConfig;
   survival: SurvivalConfig;
   weather: WeatherConfig;
+  /** Living city: emergency services, street crews, crowds (life.json). */
+  life: LifeConfig;
+  /** Crew names, colours and home districts (crews.json). */
+  crews: SimCrews;
 }
 
 export interface RawSimContent {
@@ -275,6 +282,8 @@ export interface RawSimContent {
   survival: unknown;
   /** Optional: defaults apply when absent. */
   weather?: unknown;
+  life?: unknown;
+  crews?: unknown;
 }
 
 /** Validate raw JSON content. Throws a readable error on the first invalid file. */
@@ -301,7 +310,10 @@ export function parseSimContent(raw: RawSimContent): SimContent {
   const survival = parse('survival', SurvivalConfigSchema, raw.survival);
   const weather = parse('weather', WeatherConfigSchema, raw.weather ?? {});
   checkCombatRefs(vehicles, heat, weapons, pickups);
-  return { vehicles, map, heat, traffic, peds, weapons, props, pickups, survival, weather };
+  const life = parse('life', LifeConfigSchema, raw.life ?? {});
+  const crews = parse('crews', SimCrewsSchema, raw.crews ?? {});
+  checkLifeRefs(life, crews, vehicles, map);
+  return { vehicles, map, heat, traffic, peds, weapons, props, pickups, survival, weather, life, crews };
 }
 
 /** Cross-file references of the combat layer: police variants, pickup weapons. */
@@ -312,4 +324,16 @@ function checkCombatRefs(vehicles: VehiclesContent, heat: HeatConfig, weapons: W
     if (k.weapon && !(k.weapon in weapons.weapons)) throw new Error(`Pickup "${id}" gives unknown weapon "${k.weapon}"`);
   }
   for (const k of pickups.auto.kinds) if (!(k in pickups.kinds)) throw new Error(`Auto pickup uses unknown kind "${k}"`);
+}
+
+/** Living-city references: responder and crew car variants, crews and their home districts. */
+function checkLifeRefs(life: LifeConfig, crews: SimCrews, vehicles: VehiclesContent, map: MapContent): void {
+  for (const v of [life.services.ambulance, life.services.fireTender]) if (!(v in vehicles.variants)) throw new Error(`Services use unknown variant "${v}"`);
+  for (const [id, c] of Object.entries(life.gangs.crews)) {
+    const crew = crews[id];
+    if (!crew) throw new Error(`Gang config names unknown crew "${id}"`);
+    if (!map.districts.some((d) => d.id === crew.district)) throw new Error(`Crew "${id}" lives in unknown district "${crew.district}"`);
+    for (const v of c.cars) if (!(v in vehicles.variants)) throw new Error(`Crew "${id}" drives unknown variant "${v}"`);
+  }
+  for (const pair of life.gangs.rivals) for (const id of pair) if (!(id in life.gangs.crews)) throw new Error(`Rivalry names unknown crew "${id}"`);
 }

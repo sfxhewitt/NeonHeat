@@ -21,9 +21,15 @@ import { OfficerSystem } from './officers';
 import { PickupSystem } from './pickups';
 import { ScoreSystem } from './score';
 import { SurvivalSystem } from './survival';
+import { ServicesSystem } from './services';
+import { GangSystem } from './gangs';
+import { CrowdSystem } from './crowds';
 
-/** `mission`: driven by a mission actor (see actors.ts); traffic and police leave it alone. */
-export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad' | 'mission';
+/**
+ * `mission`: driven by a mission actor (see actors.ts); traffic and police leave it alone.
+ * `service`: an ambulance or fire tender on a call (see services.ts).
+ */
+export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad' | 'mission' | 'service';
 
 export interface Vehicle extends ArcadeState {
   id: number;
@@ -58,6 +64,10 @@ export interface Vehicle extends ArcadeState {
   /** Front and rear axles up on the pavement (the renderer lifts and pitches the body). */
   kerbFront: boolean;
   kerbRear: boolean;
+  /** Beacons flashing (emergency vehicles on a call; police show theirs whenever they are out). */
+  beacons: boolean;
+  /** Siren sounding: traffic ahead pulls over. */
+  siren: boolean;
   ai: AiState;
 }
 
@@ -118,6 +128,10 @@ export class World {
   readonly pickups: PickupSystem;
   readonly score: ScoreSystem;
   readonly survival: SurvivalSystem;
+  /** Living city: ambulances and fire tenders, street crews, crowds. */
+  readonly services: ServicesSystem;
+  readonly gangs: GangSystem;
+  readonly crowds: CrowdSystem;
   private readonly owners = new Map<number, ColliderOwner>();
   private readonly ctl = emptyControls();
 
@@ -136,6 +150,9 @@ export class World {
     this.police = new PoliceSystem(this, this.content.heat);
     this.peds = new PedSystem(this, this.content.peds);
     this.actors = new ActorSystem(this);
+    this.services = new ServicesSystem(this);
+    this.gangs = new GangSystem(this);
+    this.crowds = new CrowdSystem(this);
     this.buildStatics();
     this.props = new PropSystem(this, this.content.props);
     const start = this.content.map.markers['player_start']?.pos ?? [0, 0, 0];
@@ -384,6 +401,9 @@ export class World {
     this.combat.preStep(SIM_DT);
     // After combat, so mission actors hear and take this step's player shots.
     this.actors.step(SIM_DT);
+    this.services.step(SIM_DT);
+    this.gangs.step(SIM_DT);
+    this.crowds.step(SIM_DT);
     for (const v of this.vehicles) {
       if (!v.active) continue;
       v.prevX = v.x;
@@ -434,6 +454,8 @@ export class World {
     }
     this.peds.postStep();
     this.actors.postStep();
+    this.services.postStep();
+    this.crowds.postStep();
     this.playerCtl.postStep();
     this.officers.postStep();
     this.combat.postStep();
@@ -609,6 +631,8 @@ function makeVehicle(id: number, params: VehicleParams): Vehicle {
     sinceImpact: 10,
     kerbFront: false,
     kerbRear: false,
+    beacons: false,
+    siren: false,
     ai: makeAiState(),
   };
 }
@@ -633,6 +657,7 @@ function resetVehicle(v: Vehicle, variantId: string, params: VehicleParams, role
   v.setVx = v.setVz = 0;
   v.sinceImpact = 10;
   v.kerbFront = v.kerbRear = false;
+  v.beacons = v.siren = false;
   const c = v.controls;
   c.steer = c.throttle = c.brake = 0;
   c.handbrake = false;

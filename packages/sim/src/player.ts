@@ -98,7 +98,7 @@ export class PlayerController {
   /** Put the player in a vehicle (ejecting any AI driver). */
   enter(v: Vehicle): void {
     const w = this.world;
-    if (v.role === 'traffic' || v.role === 'police' || v.role === 'squad') {
+    if (v.role === 'traffic' || v.role === 'police' || v.role === 'squad' || v.role === 'service') {
       // Carjacking: the driver is thrown out and runs.
       const side = this.sidePoint(v, 1);
       const ped = w.peds.spawnPedAt(side.x, side.z);

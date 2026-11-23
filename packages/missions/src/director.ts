@@ -124,6 +124,7 @@ export class MissionDirector {
   /** Load progress from a save. Payphones update at once. */
   setProgress(p: MissionProgress): void {
     this.progress = { completed: [...p.completed], respect: { ...p.respect } };
+    this.world.gangs.setAllRespect(this.progress.respect);
     this.placeGivers();
   }
 
@@ -211,6 +212,8 @@ export class MissionDirector {
     this.completed.push(result);
     if (!this.progress.completed.includes(mission.id)) this.progress.completed.push(mission.id);
     for (const [crew, v] of Object.entries(rw.rep)) this.progress.respect[crew] = (this.progress.respect[crew] ?? 0) + v;
+    // Street crews react to the new standing straight away.
+    this.world.gangs.setAllRespect(this.progress.respect);
     this.host.releaseAll();
     this.host.setMission(null);
     this.placeGivers();

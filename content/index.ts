@@ -17,6 +17,7 @@ import audio from './data/audio.json' with { type: 'json' };
 import weather from './data/weather.json' with { type: 'json' };
 import crews from './data/crews.json' with { type: 'json' };
 import actors from './data/actors.json' with { type: 'json' };
+import life from './data/life.json' with { type: 'json' };
 
 import story01 from './missions/story_01_first_call.json' with { type: 'json' };
 import story02 from './missions/story_02_cold_boot.json' with { type: 'json' };
@@ -45,7 +46,7 @@ import saints02 from './missions/nullsaints_02_ghost_signal.json' with { type: '
 import saints03 from './missions/nullsaints_03_root_access.json' with { type: 'json' };
 import saints04 from './missions/nullsaints_04_blue_screen.json' with { type: 'json' };
 
-export const rawContent = { vehicles, camera, map, heat, traffic, feel, peds, weapons, quality, squads, dialogue, props, pickups, survival, audio, weather, crews, actors };
+export const rawContent = { vehicles, camera, map, heat, traffic, feel, peds, weapons, quality, squads, dialogue, props, pickups, survival, audio, weather, crews, actors, life };
 
 /** Every mission file, keyed by file name. One JSON file per mission. */
 export const rawMissions: Record<string, unknown> = {

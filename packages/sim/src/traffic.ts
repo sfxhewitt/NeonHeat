@@ -33,6 +33,8 @@ export const TrafficConfigSchema = z.object({
   aiHz: z.number().positive(),
   /** Traffic lights at junctions: seconds of green and amber per axis, and all-red between. */
   lights: z.object({ green: z.number().positive(), amber: z.number().nonnegative(), allRed: z.number().nonnegative() }).default({ green: 9, amber: 2.5, allRed: 1.5 }),
+  /** At a red light the front bumper stops this far short of the junction box (behind the zebra crossing). */
+  stopLine: z.number().nonnegative().default(4.6),
   /** Parked cars are streamed in within this distance of the player, out beyond parkedOutDist. */
   parkedInDist: z.number().positive().default(120),
   parkedOutDist: z.number().positive().default(170),
@@ -266,7 +268,10 @@ export class TrafficSystem {
     const len = Math.max(0.01, Math.hypot(B.x - A.x, B.z - A.z));
     const dx = (B.x - A.x) / len;
     const dz = (B.z - A.z) / len;
-    const off = (e?.width ?? 13) / 4;
+    // A siren coming up behind: move over to the kerb and slow right down.
+    const pull = w.services.pullOver(v);
+    const shift = pull ? w.services.config.pullOver.shift : 0;
+    const off = (e?.width ?? 13) / 4 + shift;
     const vf = Math.max(0, forwardSpeed(v));
     const look = cfg.lookAheadBase + vf * cfg.lookAheadPerSpeed;
     // Distance left to the junction centre, and the half-width of the junction box there.
@@ -277,14 +282,15 @@ export class TrafficSystem {
     // Choose where to go after B.
     if (a.navNext < 0) {
       const options = B.links.filter((l) => l !== A.id && g.edgeBetween(B.id, l)?.kind !== 'alley');
-      a.navNext = options.length ? w.rng.pick(options) : A.id;
+      const turf = w.gangs.chooseTurn(v, options);
+      a.navNext = turf >= 0 ? turf : options.length ? w.rng.pick(options) : A.id;
     }
     const N = g.nodes[a.navNext]!;
     const nlen = Math.max(0.01, Math.hypot(N.x - B.x, N.z - B.z));
     const ndx = (N.x - B.x) / nlen;
     const ndz = (N.z - B.z) / nlen;
     const ne = g.edgeBetween(B.id, N.id);
-    const noff = (ne?.width ?? 13) / 4;
+    const noff = (ne?.width ?? 13) / 4 + shift;
     const turning = Math.abs(ndx * dx + ndz * dz) < 0.7;
     const uturn = ndx * dx + ndz * dz < -0.7;
     let speed = a.cruise > 0 ? a.cruise : cfg.cruiseSpeed;
@@ -320,7 +326,7 @@ export class TrafficSystem {
     // Lights: stop at the line unless already committed.
     if (B.junction && toB > box) {
       const light = trafficLight(B, e?.alongX ?? true, w.time, cfg.lights);
-      const toLine = toB - box - 1.5;
+      const toLine = toB - box - cfg.stopLine - v.params.length / 2 + 1;
       if (light === 'red' || (light === 'amber' && toLine > vf * 0.9)) {
         if (toLine < 40) speed = Math.min(speed, Math.max(0, toLine - 1) / 1.6);
       }
@@ -328,6 +334,7 @@ export class TrafficSystem {
     // Car-following: nearest obstacle ahead in our lane.
     const gap = w.gapAhead(v, cfg.detectRange, cfg.laneHalfWidth);
     if (gap < Infinity) speed = Math.min(speed, Math.max(0, (gap - cfg.minGap) / cfg.timeHeadway));
+    if (pull) speed = Math.min(speed, w.services.config.pullOver.speed);
     a.targetSpeed = speed;
   }
 }
