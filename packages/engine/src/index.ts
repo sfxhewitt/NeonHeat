@@ -20,3 +20,4 @@ export * from './scene-lights';
 export * from './props-view';
 export * from './skidmarks';
 export * from './car-models';
+export * from './signals-view';

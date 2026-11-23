@@ -14,6 +14,7 @@ import {
   PeopleView,
   PostFx,
   PropsView,
+  SignalsView,
   Rain,
   SceneLights,
   SkidMarks,
@@ -81,6 +82,7 @@ export class Game {
   private skids!: SkidMarks;
   private sceneLights!: SceneLights;
   private signs!: { stream: (x: number, z: number) => void };
+  private signals!: SignalsView;
   private perfEl: HTMLElement | null = null;
   private minimap!: Minimap;
   private readonly mapDots: MinimapDot[] = [];
@@ -258,6 +260,7 @@ export class Game {
     this.roadMat = createWetRoadMaterial(map, buildReflectionTexture(map, signs), buildNoiseTexture(), this.lightField.uniforms);
     this.city = buildCity(s, map, this.roadMat);
     this.propsView = new PropsView(s, this.world.props.props);
+    this.signals = new SignalsView(s, this.world.roads, this.world.content.traffic.lights);
     this.sceneLights = new SceneLights(this.lightField, this.city.lamps, signs, this.propsView.lights());
     this.signs = buildSignage(s, signs);
     this.shadows = new BlobShadows(s);
@@ -659,6 +662,7 @@ export class Game {
     this.city.stream(focus.x, focus.z - 20);
     this.propsView.stream(focus.x, focus.z - 15);
     this.signs.stream(focus.x, focus.z - 20);
+    this.signals.update(focus.x, focus.z - 15, w.time);
     waterTime.value = w.time;
     this.propsView.update();
     this.syncBrokenLights();
