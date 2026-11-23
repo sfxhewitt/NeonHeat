@@ -17,7 +17,7 @@ import {
 } from '@neonheat/sim';
 import { rawContent } from '@neonheat/content';
 import { MODEL_IDS, buildCarModel, modelFor } from '@neonheat/engine';
-import { intents, loadContent, makeWorld, run } from './helpers';
+import { EW, intents, loadContent, makeWorld, movePlayer, run } from './helpers';
 
 const content = loadContent();
 const variants = content.vehicles.variants;
@@ -168,15 +168,20 @@ describe('collisions by mass', () => {
     c.map.props = [];
     c.traffic.count = 0;
     c.peds.count = 0;
+    c.traffic.parkedMax = 0;
     const world = await makeWorld(3, c);
+    // A straight stretch of the long east-west avenue.
+    const X = -140;
+    const Z = EW.z;
+    movePlayer(world, X, Z);
     for (const v of world.vehicles) if (v.active) world.despawnVehicle(v);
-    const target = world.spawnVehicle(victim, 0, 0, 0, 'parked')!;
+    const target = world.spawnVehicle(victim, X, Z, 0, 'parked')!;
     const len = c.vehicles.variants[attacker]!.length;
-    const car = world.spawnVehicle(attacker, -len / 2 - 25, 0, Math.PI / 2, 'player')!;
+    const car = world.spawnVehicle(attacker, X - len / 2 - 25, Z, Math.PI / 2, 'player')!;
     world.playerCtl.enter(car);
     const gap = c.vehicles.variants[victim]!.length / 2 + len / 2 + 1;
-    run(world, 4, () => intents({ throttle: coast && car.x > -gap ? 0 : 1 }));
-    return { moved: Math.hypot(target.x, target.z), target, car };
+    run(world, 4, () => intents({ throttle: coast && car.x > X - gap ? 0 : 1 }));
+    return { moved: Math.hypot(target.x - X, target.z - Z), target, car };
   }
 
   it('a lorry shoves a hatchback down the road', async () => {

@@ -53,6 +53,8 @@ export const CitySpecSchema = z.object({
         props: z.number().nonnegative(),
         /** Parked cars per 100 m of kerb (streets only). */
         parked: z.number().nonnegative(),
+        /** Vehicle district hint (vehicles.json `districts`) that traffic favours here. */
+        trafficHint: z.string().default(''),
       }),
     )
     .min(1),
@@ -116,7 +118,7 @@ export interface GeneratedMap {
   traffic: { loops: { id: string; points: [number, number][] }[] };
   blocks: CityBlock[];
   water: { x: number; z: number; w: number; d: number }[];
-  districts: { id: string; name: string; colour: string; style: string; rects: [number, number, number, number][] }[];
+  districts: { id: string; name: string; colour: string; style: string; trafficHint: string; rects: [number, number, number, number][] }[];
   parking: { x: number; z: number; yaw: number; variant: string }[];
 }
 
@@ -146,6 +148,14 @@ interface Line {
   b: number;
   width: number;
   kind: RoadKind;
+}
+
+/** Index of the district containing (x, z), or -1 (rivers, ring roads). */
+export function districtAt(map: { districts: { rects: [number, number, number, number][] }[] }, x: number, z: number): number {
+  for (let i = 0; i < map.districts.length; i++) {
+    for (const r of map.districts[i]!.rects) if (x >= r[0] && x <= r[2] && z >= r[1] && z <= r[3]) return i;
+  }
+  return -1;
 }
 
 export function generateCity(spec: CitySpec): GeneratedMap {
@@ -315,7 +325,7 @@ export function generateCity(spec: CitySpec): GeneratedMap {
     traffic: { loops: [] },
     blocks,
     water,
-    districts: spec.districts.map((d) => ({ id: d.id, name: d.name, colour: d.colour, style: d.style, rects: d.rects as [number, number, number, number][] })),
+    districts: spec.districts.map((d) => ({ id: d.id, name: d.name, colour: d.colour, style: d.style, trafficHint: d.trafficHint, rects: d.rects as [number, number, number, number][] })),
     parking: [],
   };
   furnish(rng, spec, map);

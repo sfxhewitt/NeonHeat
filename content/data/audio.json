@@ -49,7 +49,24 @@
       "brick": "van",
       "interceptor": "police",
       "enforcer": "muscle",
-      "prototype": "sports"
+      "prototype": "sports",
+      "hatch": "coupe",
+      "saloon": "coupe",
+      "taxi": "coupe",
+      "estate": "coupe",
+      "bastion": "van",
+      "razorback": "sports",
+      "nightjar": "sports",
+      "mule": "muscle",
+      "stacker": "van",
+      "leviathan": "van",
+      "loopline": "van",
+      "lifeline": "van",
+      "ember": "van",
+      "patrolvan": "police",
+      "warden": "police",
+      "sparrow": "motorbike",
+      "shrike": "motorbike"
     },
     "classes": {
       "coupe": {
