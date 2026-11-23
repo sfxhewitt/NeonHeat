@@ -291,7 +291,7 @@ export class CombatSystem {
     }
     for (const v of w.vehicles) {
       if (!v.active || v.destroyed || v === exclude || v === w.player.vehicle) continue;
-      if (v.role !== 'police' && v.role !== 'squad') continue;
+      if (v.role !== 'police' && v.role !== 'squad' && !v.aimTarget) continue;
       consider('vehicle', v.id, v.x, v.z, 0);
     }
     return found ? out : null;

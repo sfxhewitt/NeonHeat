@@ -107,7 +107,12 @@ export class MissionBot {
     const o = r.objective!;
     const base: Plan = { x: v.targetX, z: v.targetZ, need: 'either', car: -1, arrive: 0, stopAt: 0.8 };
     // Drive carefully when the car has to arrive in one piece.
-    this.cruiseSpeed = o.type === 'deliverVehicle' && o.minHealth > 0 ? 16 : 22;
+    // ...unless someone is chasing: then outrunning them saves more paint than braking for corners.
+    let chased = false;
+    for (const c of w.vehicles) {
+      if (c.active && !c.destroyed && (c.role === 'squad' || c.role === 'police') && Math.hypot(c.x - px, c.z - pz) < 45) chased = true;
+    }
+    this.cruiseSpeed = o.type === 'deliverVehicle' && o.minHealth > 0 && !chased ? 16 : chased ? 26 : 22;
     switch (o.type) {
       case 'reach':
         if (o.vehicle === 'none') return { ...base, need: 'foot' };

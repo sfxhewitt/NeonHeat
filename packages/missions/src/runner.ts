@@ -23,6 +23,8 @@ export interface MissionHost {
   resolve(ref: string): Pos | null;
   /** Vehicle id for a `spawn:` reference, spawning it if needed; -1 once it is gone for good. */
   ensureVehicle(ref: string): number;
+  /** Let auto-aim lock on to this mission vehicle (a target to wreck). */
+  markAimTarget?(ref: string): void;
   vehicleHealth(ref: string): number;
   vehicleDestroyed(ref: string): boolean;
   /** Variant id of a vehicle by id ('' if none). */
@@ -685,6 +687,7 @@ export class MissionRunner {
           if (h.vehicleDestroyed(t)) continue;
           const tp = h.resolve(t);
           this.mark(tp);
+          h.markAimTarget?.(t);
           if (this.dist(p, tp) < this.dist(p, best)) best = tp;
           if (v.vehicleId < 0) v.vehicleId = h.ensureVehicle(t);
         }
@@ -734,6 +737,7 @@ export class MissionRunner {
       }
       case 'chase':
         v.vehicleId = h.ensureVehicle(o.target);
+        h.markAimTarget?.(o.target);
         text = o.catch === 'wreck' ? 'Wreck the car' : 'Run them off the road';
         v.meter = h.vehicleHealth(o.target);
         if (s.t1 > 0) v.warning = 'They are getting away';

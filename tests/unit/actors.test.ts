@@ -58,6 +58,23 @@ describe('mission actors (people)', () => {
     w.dispose();
   });
 
+  it('a car you bail out of at speed rolls on without running you over', async () => {
+    const w = await quietWorld();
+    const m = w.content.map.markers['glass_door_1']!.pos;
+    movePlayer(w, m[0] + 60, m[2] + 60);
+    const car = w.spawnVehicle('kestrel', w.player.x, w.player.z, 0, 'parked')!;
+    w.playerCtl.enter(car);
+    run(w, 3, intents({ throttle: 1, scheme: 'classic' }));
+    w.playerCtl.exit();
+    // Swing the car into the player as it rolls on.
+    car.vx = Math.cos(car.yaw) * 8 + Math.sin(car.yaw) * 10;
+    car.vz = -Math.sin(car.yaw) * 8 + Math.cos(car.yaw) * 10;
+    car.body?.setLinvel({ x: car.vx, y: 0, z: car.vz }, true);
+    run(w, 1, intents());
+    expect(w.playerCtl.hp).toBe(w.playerCtl.maxHp);
+    w.dispose();
+  });
+
   it('tough actors get back up until their hit points run out; clear() removes the living', async () => {
     const w = await quietWorld();
     const m = w.content.map.markers['lantern_door_2']!.pos;

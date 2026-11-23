@@ -122,6 +122,10 @@ export class PlayerController {
   }
 
   /** Leave the current vehicle on the driver's side (or the other side if blocked). */
+  /** The car last stepped out of, and when (it cannot run the player over straight away). */
+  private exitedId = -1;
+  private exitedAt = -1e9;
+
   exit(): void {
     const w = this.world;
     const v = w.player.vehicle;
@@ -131,6 +135,8 @@ export class PlayerController {
     if (w.insideBuilding(p.x, p.z, 0.6)) p = { x: v.x - Math.sin(v.yaw) * (v.params.length / 2 + 1), z: v.z - Math.cos(v.yaw) * (v.params.length / 2 + 1) };
     w.setPlayerVehicle(null);
     v.role = 'parked';
+    this.exitedId = v.id;
+    this.exitedAt = w.time;
     this.mode = 'foot';
     this.teleport(p.x, p.z);
     this.facing = this.prevFacing = v.yaw;
@@ -322,6 +328,8 @@ export class PlayerController {
     });
     const v = hitBy as Vehicle | null;
     if (!v) return;
+    // Bailing out of a moving car: it rolls on past you, it does not run you over.
+    if (v.id === this.exitedId && w.time - this.exitedAt < cfg.bailOutGraceSec) return;
     const rel = Math.hypot(v.setVx - this.vx, v.setVz - this.vz);
     if (rel < cfg.hitMinSpeed) return;
     // Police drivers brake for you: a clip from a patrol car hurts far less than being run down.
