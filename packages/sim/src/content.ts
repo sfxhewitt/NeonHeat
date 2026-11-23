@@ -184,6 +184,8 @@ export const PedsConfigSchema = z.object({
     exitMaxSpeed: z.number().positive(),
     hitMinSpeed: z.number().nonnegative(),
     hitDamagePerMs: z.number().nonnegative(),
+    /** Seconds after stepping out of a car during which that car cannot run you over. */
+    bailOutGraceSec: z.number().nonnegative().default(1.5),
     respawnSec: z.number().nonnegative(),
   }),
 });

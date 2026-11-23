@@ -187,6 +187,11 @@ export class WorldMissionHost implements MissionHost {
     return v ? this.world.vehicleHealth(v) : 1;
   }
 
+  markAimTarget(ref: string): void {
+    const id = this.spawned.get(ref);
+    if (id !== undefined) this.world.vehicles[id]!.aimTarget = true;
+  }
+
   vehicleDestroyed(ref: string): boolean {
     if (this.gone.has(ref)) return true;
     const id = this.spawned.get(ref);

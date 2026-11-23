@@ -33,6 +33,48 @@ describe('mission actors (people)', () => {
     w.dispose();
   });
 
+  it('auto-aim locks on to an armed heavy, and shooting back at one is not a crime when no police see it', async () => {
+    const w = await quietWorld();
+    const m = w.content.map.markers['glass_door_1']!.pos;
+    w.playerCtl.teleport(m[0] + 10, m[2]);
+    const a = w.actors.spawnActor({ x: m[0], z: m[2], faction: 'kurogane', hostile: true, behaviour: 'guard', hp: 50 })!;
+    run(w, 3, intents());
+    expect(a.aggro).toBe(true);
+    // Facing roughly its way (inside the lock cone, not dead on): auto-aim picks it.
+    const ang = Math.atan2(a.x - w.playerCtl.x, a.z - w.playerCtl.z);
+    const t = w.combat.findHostile(w.playerCtl.x, w.playerCtl.z, ang + 0.3, 30, 60, null);
+    expect(t?.kind).toBe('ped');
+    expect(t?.id).toBe(a.pedId);
+    w.heat.setLevel(0, w.player.x, w.player.z);
+    for (let i = 0; i < 120; i++) {
+      w.playerCtl.facing = ang + 0.3;
+      w.step(intents({ fire: i % 20 === 0 }));
+    }
+    expect(a.hp).toBeLessThan(50);
+    // Witness reports land a few seconds later.
+    run(w, 8, intents());
+    expect(w.heat.level).toBe(0);
+    expect(w.heat.points).toBe(0);
+    w.dispose();
+  });
+
+  it('a car you bail out of at speed rolls on without running you over', async () => {
+    const w = await quietWorld();
+    const m = w.content.map.markers['glass_door_1']!.pos;
+    movePlayer(w, m[0] + 60, m[2] + 60);
+    const car = w.spawnVehicle('kestrel', w.player.x, w.player.z, 0, 'parked')!;
+    w.playerCtl.enter(car);
+    run(w, 3, intents({ throttle: 1, scheme: 'classic' }));
+    w.playerCtl.exit();
+    // Swing the car into the player as it rolls on.
+    car.vx = Math.cos(car.yaw) * 8 + Math.sin(car.yaw) * 10;
+    car.vz = -Math.sin(car.yaw) * 8 + Math.cos(car.yaw) * 10;
+    car.body?.setLinvel({ x: car.vx, y: 0, z: car.vz }, true);
+    run(w, 1, intents());
+    expect(w.playerCtl.hp).toBe(w.playerCtl.maxHp);
+    w.dispose();
+  });
+
   it('tough actors get back up until their hit points run out; clear() removes the living', async () => {
     const w = await quietWorld();
     const m = w.content.map.markers['lantern_door_2']!.pos;

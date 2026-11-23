@@ -19,6 +19,8 @@ interface Plan {
   shoot?: boolean;
   /** Driving: keep this far behind the goal (tailing). */
   follow?: number;
+  /** Tail: back away when nearer than this. */
+  backOff?: number;
 }
 
 /**
@@ -105,7 +107,12 @@ export class MissionBot {
     const o = r.objective!;
     const base: Plan = { x: v.targetX, z: v.targetZ, need: 'either', car: -1, arrive: 0, stopAt: 0.8 };
     // Drive carefully when the car has to arrive in one piece.
-    this.cruiseSpeed = o.type === 'deliverVehicle' && o.minHealth > 0 ? 16 : 22;
+    // ...unless someone is chasing: then outrunning them saves more paint than braking for corners.
+    let chased = false;
+    for (const c of w.vehicles) {
+      if (c.active && !c.destroyed && (c.role === 'squad' || c.role === 'police') && Math.hypot(c.x - px, c.z - pz) < 45) chased = true;
+    }
+    this.cruiseSpeed = o.type === 'deliverVehicle' && o.minHealth > 0 && !chased ? 16 : chased ? 26 : 22;
     switch (o.type) {
       case 'reach':
         if (o.vehicle === 'none') return { ...base, need: 'foot' };
@@ -131,9 +138,15 @@ export class MissionBot {
       case 'eliminate':
         return { ...base, need: 'foot', stopAt: 9, shoot: true };
       case 'protect':
-        return o.durationSec !== undefined ? { ...base, need: 'either', stopAt: 4 } : { ...base, need: 'car', follow: 18 };
+        if (o.durationSec !== undefined) {
+          // Guarding someone: on foot beside them, shooting whoever comes for them.
+          const h = w.actors.nearestHostile(v.targetX, v.targetZ, 34);
+          if (h && h.aggro) return { ...base, x: h.x, z: h.z, need: 'foot', stopAt: 9, shoot: true };
+          return { ...base, need: 'foot', stopAt: 4 };
+        }
+        return { ...base, need: 'car', follow: 18 };
       case 'tail':
-        return { ...base, need: 'car', follow: (o.minRange + o.maxRange) / 2 };
+        return { ...base, need: 'car', follow: (o.minRange + o.maxRange) / 2, backOff: o.minRange + 4 };
       case 'escape': {
         const g = this.escapePoint(px, pz);
         return { ...base, x: g.x, z: g.z, need: 'car', arrive: 18 };
@@ -290,6 +303,22 @@ export class MissionBot {
     const want = p.follow!;
     // Close the gap at speed when far, ease off when near.
     const arrive = dist > want + 15 ? 26 : dist > want ? 14 : dist > want * 0.7 ? 6 : 0;
+    // Far too close ("Too close!"): back away from them, as a player would.
+    if (p.backOff !== undefined && dist < p.backOff) {
+      const dx = p.x - v.x;
+      const dz = p.z - v.z;
+      const ahead = dx * Math.sin(v.yaw) + dz * Math.cos(v.yaw);
+      out.scheme = 'classic';
+      if (ahead >= 0) {
+        out.brake = 1;
+        out.throttle = 0;
+      } else {
+        out.throttle = 1;
+        out.brake = 0;
+      }
+      out.steer = 0;
+      return;
+    }
     if (arrive === 0) {
       this.stop(out);
       return;
