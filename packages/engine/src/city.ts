@@ -19,7 +19,7 @@ import {
   Vector3,
 } from 'three';
 import type { Matrix4 } from 'three';
-import { RoadGraph, layoutLamps as layoutLampSpots, type MapContent } from '@neonheat/sim';
+import { RoadGraph, layoutLamps as layoutLampSpots, lotRows, type MapContent } from '@neonheat/sim';
 import { Palette } from './palette';
 import { BLOOM_LAYER } from './layers';
 import { MeshBuilder } from './mesh-kit';
@@ -307,7 +307,7 @@ export function buildPavementGeometry(map: MapContent): BufferGeometry {
     if (k.kind === 'lot') {
       // Parking bay lines.
       for (let x = k.x0 + 4; x < k.x1 - 4; x += 3.4) {
-        for (const z of [k.z0 + 8, k.z1 - 8]) if (z > k.z0 + 5 && z < k.z1 - 5) b.box(x - 1.7, KERB + 0.012, z, 0.12, 0.01, 5, 0x55557a);
+        for (const [z] of lotRows(k)) b.box(x - 1.7, KERB + 0.012, z, 0.12, 0.01, 5, 0x55557a);
       }
     }
     // Kerb stones: a pale lip on each edge.

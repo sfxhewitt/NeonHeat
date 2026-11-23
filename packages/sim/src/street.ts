@@ -1,4 +1,5 @@
 import type { MapContent } from './content';
+import { lotRows } from './citygen';
 
 /** A street lamp: where its post stands and which way its arm points (towards the road). */
 export interface LampSpot {
@@ -140,6 +141,35 @@ export function layoutLamps(map: MapContent): LampSpot[] {
       }
     }
   });
+  // Floodlights down the middle aisle of car parks, and path lights round the edges of parks.
+  for (const b of map.blocks ?? []) {
+    if (b.kind !== 'lot' && b.kind !== 'park') continue;
+    const w = b.x1 - b.x0;
+    const d = b.z1 - b.z0;
+    if (w < 20 || d < 20) continue;
+    const spots: [number, number][] = [];
+    if (b.kind === 'lot') {
+      // In every other aisle between the parking rows.
+      const n = Math.max(1, Math.round(w / 26));
+      const rows = lotRows(b);
+      for (let r = 0; r + 1 < rows.length; r += 2) {
+        const z = (rows[r]![0] + rows[r + 1]![0]) / 2;
+        for (let i = 0; i < n; i++) spots.push([b.x0 + (w * (i + 0.5)) / n, z]);
+      }
+      if (rows.length < 2) spots.push([(b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2]);
+    } else {
+      const inset = 1.6;
+      const n = Math.max(1, Math.round(w / 24));
+      for (let i = 0; i < n; i++) {
+        const x = b.x0 + (w * (i + 0.5)) / n;
+        spots.push([x, b.z0 + inset], [x, b.z1 - inset]);
+      }
+    }
+    for (const [x, z] of spots) {
+      if (grid.at(x, z) & (Cell.road | Cell.water | Cell.building)) continue;
+      out.push({ x, z, yaw: b.kind === 'park' ? (z < (b.z0 + b.z1) / 2 ? 0 : Math.PI) : 0, cold: b.kind === 'lot' });
+    }
+  }
   return out;
 }
 

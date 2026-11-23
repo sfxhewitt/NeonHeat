@@ -158,6 +158,17 @@ export function districtAt(map: { districts: { rects: [number, number, number, n
   return -1;
 }
 
+/** Parking rows in a car park: every 14 m from 8 m in, facing alternately, with aisles between. */
+export function lotRows(b: { z0: number; z1: number }): [number, number][] {
+  const a = b.z0 + 8;
+  const z1 = b.z1 - 8;
+  if (z1 - a < 6) return [[a, 0]];
+  const n = Math.max(1, Math.round((z1 - a) / 14));
+  const rows: [number, number][] = [];
+  for (let i = 0; i <= n; i++) rows.push([a + ((z1 - a) * i) / n, i === n ? Math.PI : i % 2 === 0 ? 0 : Math.PI]);
+  return rows;
+}
+
 export function generateCity(spec: CitySpec): GeneratedMap {
   const rng = new Rng(spec.seed);
   const H = spec.half;
@@ -497,6 +508,8 @@ class BuildingIndex {
 
 function furnish(rng: Rng, spec: CitySpec, map: GeneratedMap): void {
   const segs = map.roads.segments;
+  /** Inner car-park rows: their own stream, so they never shift the rest of the city. */
+  const lotRng = new Rng(spec.seed ^ 0x2f6b);
   const idx = new BuildingIndex(map.buildings);
   const props = map.props;
   const taken: { x: number; z: number; r: number }[] = [];
@@ -539,10 +552,15 @@ function furnish(rng: Rng, spec: CitySpec, map: GeneratedMap): void {
     }
     if (b.kind === 'lot') {
       // Bollards round the edge and parked cars in rows.
+      // The outer rows draw from the city RNG exactly as they always have (so the rest of the
+      // city keeps its layout and the missions their spots); the inner rows use their own.
       for (let x = b.x0 + 4; x < b.x1 - 4; x += 3.4) {
         for (const z of [b.z0 + 8, b.z1 - 8]) {
           if (z < b.z0 + 6 || z > b.z1 - 6) continue;
           if (rng.next() < 0.22 && map.parking.length < 3000) map.parking.push({ x: r2(x), z: r2(z), yaw: z < (b.z0 + b.z1) / 2 ? 0 : Math.PI, variant: rng.pick(spec.parkedVariants) });
+        }
+        for (const [z, yaw] of lotRows(b).slice(1, -1)) {
+          if (lotRng.next() < 0.35 && map.parking.length < 3000) map.parking.push({ x: r2(x), z: r2(z), yaw, variant: lotRng.pick(spec.parkedVariants) });
         }
       }
       if (style === 'docks' || style === 'industrial') {

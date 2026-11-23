@@ -14,5 +14,6 @@
   "stuckSec": 3,
   "abandonedDespawnSec": 20,
   "maxWrecks": 3,
-  "aiHz": 15
+  "aiHz": 15,
+  "parkedMax": 40
 }
