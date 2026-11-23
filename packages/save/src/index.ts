@@ -3,18 +3,41 @@ import { z } from 'zod';
 /** Current save format. Bump and add a migration whenever the shape changes. */
 export const SAVE_VERSION = 1;
 
+/**
+ * Lifetime stats for the pause menu. Fields added after the first v1 saves
+ * default to 0, so older v1 saves still parse without a version bump.
+ */
+export const StatsSchema = z.object({
+  missionsPassed: z.number().int().nonnegative(),
+  playSeconds: z.number().nonnegative(),
+  distanceDriven: z.number().nonnegative().default(0),
+  distanceWalked: z.number().nonnegative().default(0),
+  carsStolen: z.number().int().nonnegative().default(0),
+  carsWrecked: z.number().int().nonnegative().default(0),
+  shotsFired: z.number().int().nonnegative().default(0),
+  flatlined: z.number().int().nonnegative().default(0),
+  booked: z.number().int().nonnegative().default(0),
+  highestHeat: z.number().int().nonnegative().default(0),
+  creditsEarned: z.number().int().nonnegative().default(0),
+});
+export type SaveStats = z.infer<typeof StatsSchema>;
+
+export function newStats(): SaveStats {
+  return StatsSchema.parse({ missionsPassed: 0, playSeconds: 0 });
+}
+
 export const SaveV1Schema = z.object({
   version: z.literal(1),
   credits: z.number().int().nonnegative(),
   rep: z.record(z.string(), z.number()),
   completedMissions: z.array(z.string()),
-  stats: z.object({ missionsPassed: z.number().int().nonnegative(), playSeconds: z.number().nonnegative() }),
+  stats: StatsSchema,
   savedAt: z.string(),
 });
 export type SaveData = z.infer<typeof SaveV1Schema>;
 
 export function newSave(): SaveData {
-  return { version: 1, credits: 0, rep: {}, completedMissions: [], stats: { missionsPassed: 0, playSeconds: 0 }, savedAt: new Date(0).toISOString() };
+  return { version: 1, credits: 0, rep: {}, completedMissions: [], stats: newStats(), savedAt: new Date(0).toISOString() };
 }
 
 type Migration = (old: Record<string, unknown>) => Record<string, unknown>;
@@ -62,7 +85,7 @@ export function applyMissionResult(save: SaveData, missionId: string, rewards: M
     credits: save.credits + rewards.credits,
     rep,
     completedMissions: save.completedMissions.includes(missionId) ? save.completedMissions : [...save.completedMissions, missionId],
-    stats: { ...save.stats, missionsPassed: save.stats.missionsPassed + 1 },
+    stats: { ...save.stats, missionsPassed: save.stats.missionsPassed + 1, creditsEarned: save.stats.creditsEarned + rewards.credits },
   };
 }
 

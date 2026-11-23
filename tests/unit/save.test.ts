@@ -34,6 +34,25 @@ describe('save', () => {
     expect(s.completedMissions).toEqual(['old_job']);
   });
 
+  it('reads an early v1 save without the newer stats fields, defaulting them to zero', () => {
+    const s = migrate({
+      version: 1,
+      credits: 10,
+      rep: {},
+      completedMissions: [],
+      stats: { missionsPassed: 1, playSeconds: 30 },
+      savedAt: '2026-01-01T00:00:00.000Z',
+    });
+    expect(s.stats).toMatchObject({ missionsPassed: 1, playSeconds: 30, distanceDriven: 0, carsStolen: 0, flatlined: 0, highestHeat: 0 });
+  });
+
+  it('counts credits earned from jobs', () => {
+    let s = newSave();
+    s = applyMissionResult(s, 'm1', { credits: 1500, rep: {} });
+    s = applyMissionResult(s, 'm2', { credits: 500, rep: {} });
+    expect(s.stats.creditsEarned).toBe(2000);
+  });
+
   it('rejects saves from a newer build and falls back to a fresh save', async () => {
     expect(() => migrate({ version: 99 })).toThrow(/newer/);
     const storage = new MemoryStorage();
