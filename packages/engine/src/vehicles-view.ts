@@ -356,7 +356,7 @@ export function applyPaintMask(mat: Material): void {
         #ifdef USE_BATCHING_COLOR
           nhTint = getBatchingColor( getIndirectIndex( gl_DrawID ) );
         #endif
-        if (nhTint.r + nhTint.g + nhTint.b < 0.0005) vColor *= 0.07;
+        if (nhTint.r + nhTint.g + nhTint.b < 0.0005) vColor *= 0.15;
         else vColor *= mix(vec3(1.0), nhTint, paintMask);
       #endif`,
     );
