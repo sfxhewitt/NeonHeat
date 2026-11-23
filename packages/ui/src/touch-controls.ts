@@ -71,7 +71,6 @@ export class TouchControls {
   private readonly taps = new Set<ButtonId>();
   private readonly els = new Map<ButtonId, HTMLElement>();
   private layout: Partial<Record<ButtonId, { x: number; y: number }>> = {};
-  private lastTouch = -1e9;
   editing = false;
 
   constructor(parent: HTMLElement, scheme: DriveScheme) {
@@ -136,7 +135,6 @@ export class TouchControls {
 
   private markTouch(e: PointerEvent): void {
     if (e.pointerType !== 'mouse') {
-      this.lastTouch = performance.now();
       this.root.classList.add('is-touch');
     }
   }
@@ -270,7 +268,8 @@ export class TouchControls {
     const tap = (id: ButtonId): boolean => this.taps.delete(id);
     const classic = this.mode === 'driving' && this.scheme === 'classic';
     return {
-      active: performance.now() - this.lastTouch < 4000 && (this.stickId !== null || this.held.size > 0),
+      // A thumb held still sends no events, so a held stick or button stays live however long it is held.
+      active: this.stickId !== null || this.held.size > 0,
       scheme: this.scheme,
       moveX: classic ? 0 : this.stick.x,
       moveY: classic ? 0 : this.stick.y,

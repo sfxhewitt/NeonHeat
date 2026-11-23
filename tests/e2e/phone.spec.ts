@@ -110,11 +110,13 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await finger.move(sx, sy - 70);
   // The stick has taken the push before any walking is measured.
   await page.waitForFunction(() => (window.__neon!.game.input as unknown as { touch: { stick: { y: number } } }).touch.stick.y > 0.5, null, { timeout: 10_000 });
+  // A thumb held perfectly still sends no events: the stick must stay live (it once timed out after 4 s).
+  await page.waitForTimeout(4500);
   p0 = await player(page);
   await simFor(page, 1.2);
   await finger.release();
   let p1 = await player(page);
-  expect(p1.z - p0.z, 'stick up walks north').toBeLessThan(-2.5);
+  expect(p1.z - p0.z, 'stick up walks north, even after holding still').toBeLessThan(-2.5);
   expect(Math.abs(p1.x - p0.x)).toBeLessThan(Math.abs(p1.z - p0.z));
   p0 = p1;
   await finger.press(sx, sy);
