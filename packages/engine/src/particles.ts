@@ -155,6 +155,19 @@ export class Particles {
     this.smoke.spawn(x + (this.rand() - 0.5), 1.2, z + (this.rand() - 0.5), (this.rand() - 0.5) * 1.5, 2 + this.rand() * 2, (this.rand() - 0.5) * 1.5, 1.4, 0.9, -0.5, dark ? 0x1a1a22 : 0x55556a);
   }
 
+  /** A blast: a ball of fire that rises and fades, flying sparks, then dark smoke. */
+  explosion(x: number, z: number, radius: number): void {
+    const fire = [0xffe08a, 0xffa040, 0xff5a2a, 0xffffff];
+    const sp = 2 + radius * 0.6;
+    for (let i = 0; i < 36; i++) {
+      const a = this.rand() * Math.PI * 2;
+      const r = this.rand();
+      this.sparks.spawn(x, 0.6 + this.rand(), z, Math.cos(a) * sp * r, 1.5 + this.rand() * 4, Math.sin(a) * sp * r, 0.35 + this.rand() * 0.35, 0.9 + this.rand() * 0.9, -2, fire[i % fire.length]!);
+    }
+    this.burstSparks(x, z, 26, radius * 2.5);
+    for (let i = 0; i < 6; i++) this.puffSmoke(x + (this.rand() - 0.5) * radius * 0.5, z + (this.rand() - 0.5) * radius * 0.5, true);
+  }
+
   muzzle(x: number, y: number, z: number, dx: number, dz: number): void {
     for (let i = 0; i < 4; i++) {
       this.sparks.spawn(x, y, z, dx * (10 + this.rand() * 10), 0.5, dz * (10 + this.rand() * 10), 0.08, 0.35, 0, 0xfff2a0);

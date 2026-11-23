@@ -207,10 +207,11 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   // The job-done card: title, pay, Continue.
   await expect(page.locator('.nh-done h2')).toHaveText('Hot Chrome', { timeout: 10_000 });
   await expect(page.locator('.nh-done [data-pay]')).toHaveText('+1,500', { timeout: 5000 });
-  expect(await page.evaluate(() => window.__neon!.mission().credits)).toBe(1500);
+  // The job pays 1,500 cr; street score banked on the way can add a little.
+  expect(await page.evaluate(() => window.__neon!.mission().credits)).toBeGreaterThanOrEqual(1500);
   await page.locator('.nh-done [data-act="continue"]').tap();
   await expect(page.locator('.nh-done')).toHaveCount(0);
-  await expect(page.locator('.nh-credits__num')).toHaveText('1,500', { timeout: 5000 });
+  await expect(page.locator('.nh-credits__num')).toHaveText(/^1,[5-9]\d\d$/, { timeout: 5000 });
 
   // The pause menu opens and closes with a tap.
   await page.locator('.nh-menu-btn').first().tap();

@@ -16,6 +16,11 @@ import { PropSystem } from './props';
 import { Cell, cityGrid, kerbAngle, onPavement } from './street';
 import { PlayerController, type Interactable } from './player';
 import { ActorSystem } from './actors';
+import { CombatSystem } from './combat';
+import { OfficerSystem } from './officers';
+import { PickupSystem } from './pickups';
+import { ScoreSystem } from './score';
+import { SurvivalSystem } from './survival';
 
 /** `mission`: driven by a mission actor (see actors.ts); traffic and police leave it alone. */
 export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad' | 'mission';
@@ -107,6 +112,12 @@ export class World {
   readonly playerCtl: PlayerController;
   /** Mission-placed things the context button can use. */
   readonly interactables: Interactable[] = [];
+  /** Combat layer: weapons and damage, police on foot, pickups, street score, FLATLINED/BOOKED. */
+  readonly combat: CombatSystem;
+  readonly officers: OfficerSystem;
+  readonly pickups: PickupSystem;
+  readonly score: ScoreSystem;
+  readonly survival: SurvivalSystem;
   private readonly owners = new Map<number, ColliderOwner>();
   private readonly ctl = emptyControls();
 
@@ -129,6 +140,11 @@ export class World {
     this.props = new PropSystem(this, this.content.props);
     const start = this.content.map.markers['player_start']?.pos ?? [0, 0, 0];
     this.playerCtl = new PlayerController(this, start[0], start[2]);
+    this.score = new ScoreSystem(this);
+    this.survival = new SurvivalSystem(this, this.content.survival);
+    this.officers = new OfficerSystem(this, this.content.heat.officers);
+    this.combat = new CombatSystem(this, this.content.weapons);
+    this.pickups = new PickupSystem(this, this.content.pickups);
     this.spawnInitial();
     this.syncPlayer();
     this.traffic.populate();
@@ -364,6 +380,9 @@ export class World {
     this.traffic.step(SIM_DT);
     this.police.step(SIM_DT);
     this.peds.step(SIM_DT);
+    this.officers.step(SIM_DT);
+    this.combat.preStep(SIM_DT);
+    // After combat, so mission actors hear and take this step's player shots.
     this.actors.step(SIM_DT);
     for (const v of this.vehicles) {
       if (!v.active) continue;
@@ -416,8 +435,13 @@ export class World {
     this.peds.postStep();
     this.actors.postStep();
     this.playerCtl.postStep();
+    this.officers.postStep();
+    this.combat.postStep();
     this.syncPlayer();
+    this.pickups.step(SIM_DT);
     this.police.postStep(SIM_DT);
+    this.survival.step(SIM_DT);
+    this.score.step(SIM_DT);
     if (this.trace > 0) this.trace = Math.max(0, this.trace - this.content.heat.traceDecayPerSec * SIM_DT);
     this.handlePlayerWreck();
     this.tick++;
@@ -474,8 +498,8 @@ export class World {
       other ??= this.owners.get(c.handle);
     });
     if (!other) return;
-    if (other.kind === 'ped' || other.kind === 'player') return; // people are handled by their own systems
-    if (dv > dmg.impactThreshold) this.damageVehicle(v, ((dv - dmg.impactThreshold) * dmg.damagePerMs) / v.params.armour);
+    if (other.kind === 'ped' || other.kind === 'player' || other.kind === 'officer') return; // people are handled by their own systems
+    if (dv > dmg.impactThreshold) this.damageVehicle(v, this.police.scaleImpactDamage(v, other, ((dv - dmg.impactThreshold) * dmg.damagePerMs) / v.params.armour));
     if (v.sinceImpact < 0.12) return; // debounce continuous scraping
     v.sinceImpact = 0;
     if (dv > this.content.peds.crashAlertStrength) this.peds.alarm(v.x, v.z, this.content.peds.crashAlertRadius);
@@ -513,8 +537,8 @@ export class World {
     const theirs = -(o.setVx * dx + o.setVz * dz) / len;
     const rammed = mine > 3 && mine > theirs;
     if (!rammed) return;
-    if (o.role === 'police' && strength > heat.config.ramMinStrength) heat.addPoints(heat.config.points.ramPolice, pv.x, pv.z);
-    else if (o.role === 'traffic' || o.role === 'parked') heat.civCarHit(this.time, pv.x, pv.z);
+    if (o.role === 'police' && strength > heat.config.ramMinStrength) this.police.crime('ramPolice', pv.x, pv.z);
+    else if ((o.role === 'traffic' || o.role === 'parked') && heat.civCarHit(this.time)) this.police.crime('hitCivCar', pv.x, pv.z);
   }
 
   /** A wrecked player car throws the player out after a short pause. */
@@ -542,7 +566,8 @@ export class World {
     }
     parts.push(this.trace, this.heat.level, this.heat.points, this.police.drone.x, this.police.drone.z);
     const pc = this.playerCtl;
-    parts.push(pc.x, pc.z, pc.hp, pc.facing);
+    parts.push(pc.x, pc.z, pc.hp, pc.armour, pc.facing, this.combat.current, this.score.pending);
+    for (const o of this.officers.officers) if (o.active) parts.push(o.id, o.x, o.z, o.hp);
     for (const p of this.peds.peds) if (p.active) parts.push(p.id, p.x, p.z);
     return parts.join(',');
   }

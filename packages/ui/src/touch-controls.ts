@@ -14,12 +14,13 @@ export interface TouchState {
   fire: boolean;
   interact: boolean;
   dodge: boolean;
+  nextWeapon: boolean;
 }
 
 const LAYOUT_KEY = 'neonheat.touchLayout.v1';
 const STICK_RADIUS = 64;
 
-type ButtonId = 'handbrake' | 'fire' | 'dodge' | 'context' | 'left' | 'right' | 'gas' | 'brake';
+type ButtonId = 'handbrake' | 'fire' | 'dodge' | 'context' | 'left' | 'right' | 'gas' | 'brake' | 'weapon' | 'driveby';
 
 interface ButtonDef {
   id: ButtonId;
@@ -44,6 +45,8 @@ const BUTTONS: ButtonDef[] = [
   { id: 'fire', label: 'FIRE', side: 'right', x: 4, y: 8, size: 92, modes: ['foot'] },
   { id: 'dodge', label: 'ROLL', side: 'right', x: 18, y: 6, size: 64, modes: ['foot'], tap: true },
   { id: 'context', label: '', side: 'right', x: 6, y: 40, size: 76, modes: ['driving', 'foot'], tap: true },
+  { id: 'weapon', label: 'WPN', side: 'right', x: 4, y: 58, size: 56, modes: ['driving', 'foot'], tap: true },
+  { id: 'driveby', label: 'SHOOT', side: 'right', x: 30, y: 8, size: 64, modes: ['driving'] },
 ];
 
 /**
@@ -55,6 +58,9 @@ export class TouchControls {
   scheme: DriveScheme;
   private mode: ControlMode = 'driving';
   private context: string | null = null;
+  /** Weapon in hand (short name) and whether it can be fired from a car. */
+  private weaponLabel = '';
+  private driveBy = false;
   private readonly stickZone: HTMLElement;
   private readonly stickBase: HTMLElement;
   private readonly stickKnob: HTMLElement;
@@ -232,6 +238,14 @@ export class TouchControls {
     this.refresh();
   }
 
+  /** Show the weapon in hand on the switch button; the drive-by button only appears for drive-by weapons. */
+  setWeapon(label: string, driveBy: boolean): void {
+    if (label === this.weaponLabel && driveBy === this.driveBy) return;
+    this.weaponLabel = label;
+    this.driveBy = driveBy;
+    this.refresh();
+  }
+
   private refresh(): void {
     this.root.classList.toggle('is-menu', this.mode === 'menu');
     const classic = this.mode === 'driving' && this.scheme === 'classic';
@@ -242,6 +256,10 @@ export class TouchControls {
       if (def.id === 'context') {
         visible = visible && (this.context !== null || this.editing);
         el.textContent = this.context ?? 'ACTION';
+      } else if (def.id === 'weapon') {
+        el.textContent = this.weaponLabel || def.label;
+      } else if (def.id === 'driveby') {
+        visible = visible && (this.driveBy || this.editing);
       }
       el.style.display = visible ? '' : 'none';
     }
@@ -260,9 +278,10 @@ export class TouchControls {
       throttle: h('gas') ? 1 : 0,
       brake: h('brake') ? 1 : 0,
       handbrake: h('handbrake'),
-      fire: h('fire'),
+      fire: h('fire') || h('driveby'),
       interact: tap('context'),
       dodge: tap('dodge'),
+      nextWeapon: tap('weapon'),
     };
   }
 }

@@ -472,7 +472,7 @@ export class ActorSystem {
       this.heard.push(e.x, e.z);
       // The player's rounds: a ped-height hit test along the shot, so actors can be shot
       // whatever height the shot ray is cast at. Rounds that already hit a ped are left to it.
-      if (e.hit !== 'ped' && !w.player.vehicle && Math.hypot(e.x - w.playerCtl.x, e.z - w.playerCtl.z) < 1.5) this.hitAlong(e.x, e.z, e.hx, e.hz);
+      if (e.byPlayer && e.hit !== 'ped') this.hitAlong(e.x, e.z, e.hx, e.hz);
     }
     for (const a of this.actors) if (a.active && !a.dead && !a.riding) this.stepActor(a, dt);
     for (const d of this.drivers) if (d.active) this.stepDriver(d, dt);
@@ -646,7 +646,7 @@ export class ActorSystem {
       hz = tz + (dx / len) * side + (dz / len) * 4;
     }
     w.peds.alarm(a.x, a.z, w.content.peds.gunshotAlertRadius * 0.6);
-    w.events.push({ type: 'shot', x: a.x + (dx / len) * 0.6, z: a.z + (dz / len) * 0.6, hx, hz, hit: kind });
+    w.events.push({ type: 'shot', x: a.x + (dx / len) * 0.6, z: a.z + (dz / len) * 0.6, hx, hz, hit: kind, byPlayer: false });
   }
 
   private stepDriver(d: Driver, dt: number): void {

@@ -484,7 +484,7 @@ export class WorldMissionHost implements MissionHost {
     const cp = raw as Checkpoint;
     const w = this.world;
     const pc = w.playerCtl;
-    if (pc.dead) pc.respawn();
+    if (pc.dead || pc.busted) pc.respawn();
     if (pc.mode === 'driving') pc.exit();
     // Vehicles spawned after the checkpoint go, so they come back fresh at their spawn point.
     const keep = new Set(cp.vehicles.map((s) => s.ref));

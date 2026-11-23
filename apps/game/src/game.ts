@@ -44,6 +44,7 @@ import {
 import { loadGameContent, type GameContent } from './content';
 import { GameFlow } from './flow';
 import { setupTuning } from './tuning';
+import { CombatLayer } from './combat-layer';
 import { SoundBridge } from './sound';
 
 export interface GameStats {
@@ -79,6 +80,7 @@ export class Game {
   private propsView!: PropsView;
   private skids!: SkidMarks;
   private sceneLights!: SceneLights;
+  private combat!: CombatLayer;
   private signs!: { stream: (x: number, z: number) => void };
   private signals!: SignalsView;
   private readonly hemi = new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8);
@@ -167,6 +169,7 @@ export class Game {
     await this.saves.load().catch((err: unknown) => console.warn('Save unavailable', err));
     const save = this.saves.current;
     this.director.setProgress({ completed: save.completedMissions, respect: save.respect });
+    this.world.score.credits = this.saves.current.credits;
   }
 
   private setupMissions(bot: boolean): void {
@@ -205,6 +208,7 @@ export class Game {
       const mins = `${Math.floor(r.seconds / 60)}:${String(Math.floor(r.seconds % 60)).padStart(2, '0')}`;
       this.hud.toast(`JOB DONE  ${mins}\n+${r.pay.total.toLocaleString('en-GB')} cr`, performance.now(), 3.5);
       this.saves.current = applyMissionResult(this.saves.current, r.missionId, { credits: r.pay.total, rep: r.respect, unlocks: r.unlocks }, r.seconds);
+      this.world.score.credits = this.saves.current.credits;
       this.autosave('mission end');
       this.flow.missionCompleted(r);
     };
@@ -259,6 +263,18 @@ export class Game {
     this.people = new PeopleView(s, this.content.sim.peds.colours);
     this.markers = new MarkersView(s);
     this.droneView = new DroneView(s, this.content.sim.heat.droneSightRange);
+    this.combat = new CombatLayer(this.world, {
+      scene: s,
+      overlay: this.overlay,
+      hud: this.hud,
+      input: this.input,
+      particles: this.particles,
+      lights: this.sceneLights,
+      rig: this.rig,
+      vibrate: (ms) => {
+        if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(ms);
+      },
+    });
     const top = this.content.quality.tiers.ultra;
     this.rain = new Rain(s, top.rainStreaks, top.rainSplashes, this.lightField.uniforms);
     this.postfx.addOccluder(
@@ -419,6 +435,7 @@ export class Game {
       this.onSimEvent(e);
       this.flow.onSimEvent(e);
     }
+    this.saves.current.credits = Math.max(0, Math.floor(this.world.score.credits));
     this.saves.current.stats.playSeconds += SIM_DT;
     if (!this.director.active) {
       this.freeRoamSaveTimer += SIM_DT;
@@ -530,6 +547,7 @@ export class Game {
 
   private onSimEvent(e: SimEvent): void {
     this.sound.audio.onEvent(e);
+    if (this.combat.onEvent(e)) return;
     const feel = this.content.feel;
     if (e.type === 'impact') {
       const n = Math.min(feel.sparksMax, Math.round(e.strength * feel.sparksPerStrength));
@@ -613,6 +631,7 @@ export class Game {
     this.flow.update(dt);
     this.hud.tick(performance.now());
     this.people.update(w, alpha, dt, w.time);
+    this.combat.update(alpha, dt);
     const pv = w.player.vehicle;
     if (pv) {
       const x = pv.prevX + (pv.x - pv.prevX) * alpha;

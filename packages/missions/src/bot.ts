@@ -57,7 +57,7 @@ export class MissionBot {
     this.interactCooldown = Math.max(0, this.interactCooldown - dt);
     this.fireCooldown = Math.max(0, this.fireCooldown - dt);
     this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
-    if (pc.dead) return out;
+    if (pc.incapacitated) return out;
 
     // Hack minigame: wait for the input phase, then tap the sequence with a human-ish delay.
     if (d.hack) {

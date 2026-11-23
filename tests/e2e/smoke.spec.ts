@@ -83,9 +83,15 @@ test('on foot: walk, roll and fire without errors', async ({ page }) => {
   await simFor(page, 0.5);
   await page.evaluate(() => window.__neon!.setIntents({ fire: true }));
   await simFor(page, 1.2);
-  const heat = await page.evaluate(() => window.__neon!.game.world.heat.level);
-  expect(heat).toBeGreaterThanOrEqual(1);
-  await expect(page.locator('.nh-heat .chev.on').first()).toBeAttached();
+  // A few unwitnessed shots register, but do not bring the police down on you.
+  const heat = await page.evaluate(() => ({ level: window.__neon!.game.world.heat.level, points: window.__neon!.game.world.heat.points }));
+  expect(heat.points).toBeGreaterThan(0);
+  expect(heat.level).toBeLessThanOrEqual(1);
+  await expect(page.locator('.nh-vitals .nh-bar--body')).toBeAttached();
+  await expect(page.locator('.nh-weapon__name')).toHaveText(/\S/);
+  // Hidden overlays must really be hidden (flex boxes ignore [hidden] without a rule).
+  await expect(page.locator('.nh-fate')).toBeHidden();
+  await expect(page.locator('.nh-arrest')).toBeHidden();
   expect(errors).toEqual([]);
 });
 

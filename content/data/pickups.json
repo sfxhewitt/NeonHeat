@@ -1,0 +1,23 @@
+{
+  "radius": 1.5,
+  "respawnSec": 40,
+  "pool": 64,
+  "kinds": {
+    "health": { "shape": "cross", "colour": "#3dff8a", "health": 50 },
+    "armour": { "shape": "shield", "colour": "#3d9bff", "armour": 50 },
+    "bat": { "shape": "bat", "colour": "#ff2bd6", "weapon": "bat", "ammo": 0 },
+    "pistol": { "shape": "pistol", "colour": "#f2f2ff", "weapon": "pistol", "ammo": 36 },
+    "smg": { "shape": "smg", "colour": "#21f0ff", "weapon": "smg", "ammo": 120 },
+    "shotgun": { "shape": "shotgun", "colour": "#ff9a3c", "weapon": "shotgun", "ammo": 16 },
+    "rifle": { "shape": "rifle", "colour": "#d7ff2b", "weapon": "rifle", "ammo": 12 },
+    "launcher": { "shape": "launcher", "colour": "#ff3355", "weapon": "launcher", "ammo": 5 },
+    "arc": { "shape": "arc", "colour": "#b98cff", "weapon": "arc", "ammo": 12 },
+    "grenade": { "shape": "launcher", "colour": "#ff3355", "weapon": "launcher", "ammo": 5 },
+    "taser": { "shape": "arc", "colour": "#b98cff", "weapon": "arc", "ammo": 12 }
+  },
+  "auto": {
+    "kinds": ["health", "armour", "pistol", "smg", "health", "shotgun", "bat", "armour", "rifle", "health", "arc", "launcher", "smg", "armour", "pistol", "health"],
+    "minSpacing": 30,
+    "kerbOffset": 9.5
+  }
+}

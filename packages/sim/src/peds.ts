@@ -24,6 +24,7 @@ export interface Ped {
   threatX: number;
   threatZ: number;
   colour: number;
+  hp: number;
   body: RAPIER_NS.RigidBody | null;
   collider: RAPIER_NS.Collider | null;
 }
@@ -64,6 +65,7 @@ export class PedSystem {
         threatX: 0,
         threatZ: 0,
         colour: 0,
+        hp: 0,
         body: null,
         collider: null,
       });
@@ -125,6 +127,7 @@ export class PedSystem {
     p.timer = rng.range(0, 2);
     p.facing = p.prevFacing = rng.range(-Math.PI, Math.PI);
     p.colour = rng.int(0, this.config.colours.length - 1);
+    p.hp = this.config.hp;
     const body = physics.createRigidBody(
       R.RigidBodyDesc.dynamic()
         .setTranslation(x, 0, z)
@@ -175,15 +178,47 @@ export class PedSystem {
     }
   }
 
-  knockDown(p: Ped, vx: number, vz: number, byPlayer: boolean): void {
+  /**
+   * Knock a ped flat (hit by a car, shot dead). A car hit by the player is a
+   * crime; weapons report their own crimes, so they pass `carHit` false.
+   */
+  knockDown(p: Ped, vx: number, vz: number, byPlayer: boolean, carHit = true): void {
     if (p.state === 'down') return;
+    const w = this.world;
     p.state = 'down';
+    p.hp = 0;
     p.timer = this.config.downSec;
     p.collider?.setCollisionGroups(DOWN_GROUPS);
     p.body?.setLinvel({ x: vx * 0.6, y: 0, z: vz * 0.6 }, true);
-    this.world.events.push({ type: 'pedHit', pedId: p.id, x: p.x, z: p.z, byPlayer });
-    if (byPlayer) this.world.heat.pedHit(this.world.time, this.world.player.x, this.world.player.z);
+    w.events.push({ type: 'pedHit', pedId: p.id, x: p.x, z: p.z, byPlayer });
+    if (byPlayer && carHit && w.heat.pedHit(w.time)) w.police.crime('hitPed', w.player.x, w.player.z);
     this.alarm(p.x, p.z, this.config.crashAlertRadius);
+  }
+
+  /** Weapon or fist damage. Returns true if this put the ped down. */
+  damage(p: Ped, amount: number, kx: number, kz: number, byPlayer: boolean): boolean {
+    if (!p.active || p.state === 'down') return false;
+    p.hp -= amount;
+    if (p.hp <= 0) {
+      this.knockDown(p, kx, kz, byPlayer, false);
+      return true;
+    }
+    // Hurt: stagger back, then run from whoever did it.
+    p.body?.setLinvel({ x: kx, y: 0, z: kz }, true);
+    p.state = 'flee';
+    p.timer = this.world.rng.range(this.config.fleeSecMin, this.config.fleeSecMax);
+    p.threatX = this.world.player.x;
+    p.threatZ = this.world.player.z;
+    return false;
+  }
+
+  /** Arc caster: rooted to the spot, twitching, for `sec`. */
+  stun(p: Ped, sec: number): void {
+    if (!p.active || p.state === 'down') return;
+    p.state = 'cower';
+    p.timer = sec;
+    p.threatX = this.world.player.x;
+    p.threatZ = this.world.player.z;
   }
 
   /** Pre-physics: decide and set velocities. */

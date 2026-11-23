@@ -692,6 +692,46 @@
   .nh-title__rain, .nh-title__sweep, .nh-logo__neon, .nh-logo__slice, .nh-big h1::before, .nh-big h1::after { animation: none !important; }
 }
 
+/* Combat HUD: body/armour, weapon, score chain, arrest meter */
+.nh-vitals {
+  position: absolute; top: calc(10px + var(--nh-safe-t)); left: calc(124px + var(--nh-safe-l)); display: flex; flex-direction: column; gap: 5px;
+  padding: 6px 10px 6px 8px; background: linear-gradient(90deg, rgba(14, 12, 34, 0.78), rgba(14, 12, 34, 0)); --nh-weapon: #f2f2ff;
+}
+.nh-vitals__bars { display: flex; flex-direction: column; gap: 3px; }
+.nh-vital { display: flex; align-items: center; gap: 6px; }
+.nh-vital .nh-bar__label { width: 48px; }
+.nh-vitals .nh-bar { width: 112px; height: 8px; }
+.nh-bar--body > i { background: #3dff8a; box-shadow: 0 0 8px #3dff8a; }
+.nh-bar--armour > i { background: #3d9bff; box-shadow: 0 0 8px #3d9bff; -webkit-mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px); mask: repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 8px); }
+.nh-vital--armour.is-empty { opacity: 0.45; }
+.nh-weapon { display: flex; align-items: center; gap: 6px; font-weight: 800; letter-spacing: 0.14em; color: var(--nh-weapon); text-shadow: 0 0 8px var(--nh-weapon); }
+.nh-weapon svg { width: 28px; height: 28px; filter: drop-shadow(0 0 4px var(--nh-weapon)); }
+.nh-weapon__name { font-size: 11px; }
+.nh-weapon__ammo { font-size: 18px; font-style: italic; color: #eaffff; }
+.nh-weapon__ammo.is-empty { color: var(--nh-red); }
+.nh-score { font-size: 13px; font-weight: 800; color: var(--nh-acid); letter-spacing: 0.08em; text-shadow: 0 0 8px rgba(215, 255, 43, 0.7); }
+.nh-credits { font-size: 10px; font-weight: 700; color: #b8b4e8; letter-spacing: 0.16em; }
+.nh-arrest { display: flex; align-items: center; gap: 6px; }
+.nh-arrest .nh-bar { width: 96px; height: 8px; border-color: rgba(77, 140, 255, 0.7); }
+.nh-bar--arrest > i { background: var(--nh-blue); box-shadow: 0 0 8px var(--nh-blue); animation: nh-pulse 0.25s infinite alternate; -webkit-mask: none; mask: none; transition: width 0.08s; }
+.nh-btn--weapon { border-radius: 14px; font-size: 10px; letter-spacing: 0.08em; border-color: rgba(185, 140, 255, 0.85); box-shadow: 0 0 14px rgba(185, 140, 255, 0.3); }
+.nh-btn--driveby { border-color: rgba(255, 51, 85, 0.9); box-shadow: 0 0 14px rgba(255, 51, 85, 0.35); font-size: 10px; }
+.nh-btn--driveby.is-down { background: rgba(255, 51, 85, 0.4); }
+
+/* FLATLINED / BOOKED card */
+.nh-fate {
+  position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(60, 0, 30, 0.55), rgba(5, 3, 12, 0.85) 70%); animation: nh-fate-in 0.35s ease-out; font-family: var(--nh-font);
+}
+.nh-fate.is-booked { background: radial-gradient(ellipse at center, rgba(10, 20, 70, 0.55), rgba(5, 3, 12, 0.85) 70%); }
+.nh-fate.is-out { opacity: 0; transition: opacity 0.4s; }
+.nh-fate__title {
+  font-size: clamp(44px, 11vw, 96px); font-weight: 900; font-style: italic; letter-spacing: 0.18em; color: var(--nh-magenta);
+  text-shadow: 0 0 24px var(--nh-magenta), 0 0 4px #fff; transform: skewX(-8deg);
+}
+.nh-fate.is-booked .nh-fate__title { color: var(--nh-blue); text-shadow: 0 0 24px var(--nh-blue), 0 0 4px #fff; }
+.nh-fate__sub { font-size: 15px; letter-spacing: 0.2em; color: var(--nh-ink); text-transform: uppercase; }
+@keyframes nh-fate-in { from { opacity: 0; transform: scale(1.08); } to { opacity: 1; transform: none; } }
 /* Car radio */
 .nh-radio-btn {
   position: fixed; z-index: 30; top: calc(66px + var(--nh-safe-t)); right: calc(12px + var(--nh-safe-r)); width: 48px; height: 48px;
@@ -711,3 +751,6 @@
 .nh-modal__sub { margin: 14px 0 4px; font-size: 11px; letter-spacing: 0.24em; color: var(--nh-cyan); border-top: 1px solid #2a2950; padding-top: 10px; }
 .nh-choice--wrap { flex-wrap: wrap; justify-content: flex-end; max-width: 340px; }
 .nh-slider { width: 180px; height: 48px; accent-color: var(--nh-magenta); background: transparent; }
+/* Flex containers ignore the hidden attribute unless told. */
+.nh-health[hidden], .nh-vitals[hidden], .nh-score[hidden], .nh-arrest[hidden], .nh-fate[hidden] { display: none; }
+.nh-fate { pointer-events: none; }

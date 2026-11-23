@@ -102,7 +102,8 @@ describe('pistol', () => {
       c.ai.timer = 100;
     }
     run(w, 1, intents({ fire: true }));
-    expect(p.aimTarget).toBe(ahead.id);
+    expect(w.combat.aimKind).toBe('vehicle');
+    expect(w.combat.aimId).toBe(ahead.id);
     expect(ahead.hp).toBeLessThan(ahead.params.maxHealth);
     expect(behind.hp).toBe(behind.params.maxHealth);
     expect(w.heat.level).toBeGreaterThanOrEqual(1);
@@ -131,7 +132,7 @@ describe('pedestrians', () => {
     for (const q of w.peds.peds.filter((p) => p.active)) expect(w.insideBuilding(q.x, q.z, -0.5)).toBe(false);
   });
 
-  it('are knocked down by the player car, which raises HEAT', async () => {
+  it('are knocked down by the player car, a crime (in full only if witnessed)', async () => {
     const content = loadContent();
     content.traffic.count = 0;
     content.peds.count = 1;
@@ -155,7 +156,9 @@ describe('pedestrians', () => {
     });
     expect(hit).toBe(true);
     expect(ped.state).toBe('down');
-    expect(w.heat.level).toBeGreaterThanOrEqual(1);
+    // Nobody else saw it: only the unwitnessed share counts.
+    expect(w.heat.points).toBeGreaterThan(0);
+    expect(w.heat.level).toBeLessThanOrEqual(1);
   });
 
   it('a car hitting the player on foot hurts them', async () => {

@@ -12,5 +12,6 @@ export * from './screen';
 export * from './map-geometry';
 export * from './map-paint';
 export * from './minimap';
+export * from './combat-hud';
 export * from './radio-ui';
 export * from './full-map';

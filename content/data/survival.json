@@ -1,0 +1,11 @@
+{
+  "player": { "maxArmour": 100, "startArmour": 0, "armourAbsorb": 1 },
+  "flatlined": { "creditFraction": 0.1, "respawnSec": 3.5, "loseWeapons": true, "marker": "clinic" },
+  "booked": { "creditFraction": 0.15, "respawnSec": 3.5, "loseWeapons": true, "marker": "precinct" },
+  "score": {
+    "chainWindowSec": 6,
+    "multiplierStep": 0.5,
+    "maxMultiplier": 5,
+    "bankDelaySec": 1.5
+  }
+}

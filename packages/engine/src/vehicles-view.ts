@@ -190,8 +190,12 @@ export class VehiclesView {
       const ry = (this.kerbR[slot] = this.kerbR[slot]! + ((v.kerbRear ? kh : 0) - this.kerbR[slot]!) * k);
       const wheelbase = p.length * 0.64;
       const pitch = (v.destroyed ? 0 : (v.controls.brake > 0.1 ? 0.025 : 0) - v.controls.throttle * 0.015) - (fy - ry) / wheelbase;
-      o.position.set(x, (fy + ry) / 2, z);
-      o.rotation.set(pitch, yaw, roll, 'YXZ');
+      // Thrown over by an explosion: a barrel roll with a hop (the sim keeps cars flat).
+      const flipT = world.combat.flip[v.id] ?? 0;
+      const flipSec = world.content.weapons.explosion.flipSec;
+      const fp = flipT > 0 && flipSec > 0 ? 1 - flipT / flipSec : 0;
+      o.position.set(x, (fy + ry) / 2 + Math.sin(fp * Math.PI) * 1.8, z);
+      o.rotation.set(pitch, yaw, roll + fp * Math.PI * 2 * ((v.id & 1) === 0 ? 1 : -1), 'YXZ');
       const sc = L.scale;
       o.scale.set(sc, sc, sc);
       o.updateMatrix();

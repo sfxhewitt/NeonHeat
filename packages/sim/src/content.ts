@@ -2,6 +2,8 @@ import { WeatherConfigSchema, type WeatherConfig } from './weather';
 import { z } from 'zod';
 import { HeatConfigSchema, type HeatConfig } from './heat';
 import { TrafficConfigSchema, type TrafficConfig } from './traffic';
+import { PickupsConfigSchema, type PickupsConfig } from './pickups';
+import { SurvivalConfigSchema, type SurvivalConfig } from './survival';
 import { CitySpecSchema, generateCity, type GeneratedMap } from './citygen';
 
 /** Zod schemas for every piece of content the simulation consumes. */
@@ -162,6 +164,8 @@ export const PedsConfigSchema = z.object({
   respawnMinDist: z.number().nonnegative(),
   aiHz: z.number().positive(),
   colours: z.array(z.string().regex(/^#[0-9a-fA-F]{6}$/)).min(1),
+  /** Pedestrian hit points (weapons and fists wear them down). */
+  hp: z.number().positive().default(100),
   player: z.object({
     radius: z.number().positive(),
     mass: z.number().positive(),
@@ -179,16 +183,71 @@ export const PedsConfigSchema = z.object({
 });
 export type PedsConfig = z.infer<typeof PedsConfigSchema>;
 
+/** One weapon. `kind` picks the firing model; the optional blocks configure the special kinds. */
 export const WeaponSchema = z.object({
   name: z.string(),
+  /** Short HUD label. */
+  short: z.string(),
+  kind: z.enum(['melee', 'hitscan', 'projectile', 'arc']),
   fireIntervalSec: z.number().positive(),
   range: z.number().positive(),
   lockConeDeg: z.number().positive().max(180),
   damageVehicle: z.number().nonnegative(),
   damagePed: z.number().nonnegative(),
   spreadDeg: z.number().nonnegative(),
+  /** Hitscan rounds per trigger pull (shotgun). */
+  pellets: z.number().int().positive().default(1),
+  /** Melee: damage of each hit in a combo, cycling while hits land within comboWindowSec. */
+  comboDamage: z.array(z.number().nonnegative()).default([]),
+  comboWindowSec: z.number().nonnegative().default(0),
+  /** Shove given to whatever is hit (m/s). */
+  knockback: z.number().nonnegative().default(0),
+  /** 0 = no ammo needed. */
+  ammoMax: z.number().int().nonnegative(),
+  /** Gunfire alerts pedestrians within this radius. */
+  noiseRadius: z.number().nonnegative(),
+  /** Can be fired sideways from a moving car. */
+  driveBy: z.boolean().default(false),
+  projectile: z
+    .object({ speed: z.number().positive(), gravity: z.number().positive(), radius: z.number().positive(), blastRadius: z.number().positive(), fuseSec: z.number().positive(), pool: z.number().int().positive() })
+    .optional(),
+  arc: z.object({ chain: z.number().int().nonnegative(), chainRange: z.number().positive(), stunSec: z.number().positive() }).optional(),
 });
-export const WeaponsSchema = z.object({ pistol: WeaponSchema });
+export type WeaponDef = z.infer<typeof WeaponSchema>;
+
+export const WeaponsSchema = z
+  .object({
+    /** Inventory order (weapon switching cycles through owned weapons in this order). */
+    order: z.array(z.string()).min(1),
+    /** Weapon id to starting ammo. */
+    startLoadout: z.record(z.string(), z.number().int().nonnegative()),
+    respawnLoadout: z.record(z.string(), z.number().int().nonnegative()),
+    weapons: z.record(z.string(), WeaponSchema),
+    /** Exploding vehicles. */
+    explosion: z.object({
+      vehicleRadius: z.number().positive(),
+      vehicleDamagePed: z.number().nonnegative(),
+      vehicleDamageVehicle: z.number().nonnegative(),
+      impulse: z.number().nonnegative(),
+      spin: z.number().nonnegative(),
+      flipSec: z.number().nonnegative(),
+      pedAlarmRadius: z.number().nonnegative(),
+      /** Wrecks lighter than this (bikes) crumple instead of blowing up. */
+      wreckMinMass: z.number().nonnegative().default(500),
+    }),
+    /** Drive-by: half-angle of the cone to each side of the car, degrees. */
+    driveByConeDeg: z.number().positive().max(180),
+  })
+  .superRefine((w, ctx) => {
+    for (const id of [...w.order, ...Object.keys(w.startLoadout), ...Object.keys(w.respawnLoadout)]) {
+      if (!(id in w.weapons)) ctx.addIssue({ code: 'custom', message: `Unknown weapon "${id}"` });
+    }
+    for (const [id, d] of Object.entries(w.weapons)) {
+      if (d.kind === 'projectile' && !d.projectile) ctx.addIssue({ code: 'custom', message: `Weapon "${id}" needs a projectile block` });
+      if (d.kind === 'arc' && !d.arc) ctx.addIssue({ code: 'custom', message: `Weapon "${id}" needs an arc block` });
+      if (d.kind === 'melee' && d.comboDamage.length === 0) ctx.addIssue({ code: 'custom', message: `Melee weapon "${id}" needs comboDamage` });
+    }
+  });
 export type WeaponsConfig = z.infer<typeof WeaponsSchema>;
 
 export interface SimContent {
@@ -199,6 +258,8 @@ export interface SimContent {
   peds: PedsConfig;
   weapons: WeaponsConfig;
   props: PropsConfig;
+  pickups: PickupsConfig;
+  survival: SurvivalConfig;
   weather: WeatherConfig;
 }
 
@@ -210,6 +271,8 @@ export interface RawSimContent {
   peds: unknown;
   weapons: unknown;
   props: unknown;
+  pickups: unknown;
+  survival: unknown;
   /** Optional: defaults apply when absent. */
   weather?: unknown;
 }
@@ -234,6 +297,19 @@ export function parseSimContent(raw: RawSimContent): SimContent {
   const props = parse('props', PropsConfigSchema, raw.props);
   for (const p of map.parking) if (!(p.variant in vehicles.variants)) throw new Error(`Parking uses unknown variant "${p.variant}"`);
   for (const p of map.props) if (!(p.kind in props.kinds)) throw new Error(`Map prop uses unknown kind "${p.kind}"`);
+  const pickups = parse('pickups', PickupsConfigSchema, raw.pickups);
+  const survival = parse('survival', SurvivalConfigSchema, raw.survival);
   const weather = parse('weather', WeatherConfigSchema, raw.weather ?? {});
-  return { vehicles, map, heat, traffic, peds, weapons, props, weather };
+  checkCombatRefs(vehicles, heat, weapons, pickups);
+  return { vehicles, map, heat, traffic, peds, weapons, props, pickups, survival, weather };
+}
+
+/** Cross-file references of the combat layer: police variants, pickup weapons. */
+function checkCombatRefs(vehicles: VehiclesContent, heat: HeatConfig, weapons: WeaponsConfig, pickups: PickupsConfig): void {
+  for (const l of heat.levels) for (const v of l.variants) if (!(v in vehicles.variants)) throw new Error(`HEAT level uses unknown variant "${v}"`);
+  if (!(heat.roadblocks.variant in vehicles.variants)) throw new Error(`Roadblock uses unknown variant "${heat.roadblocks.variant}"`);
+  for (const [id, k] of Object.entries(pickups.kinds)) {
+    if (k.weapon && !(k.weapon in weapons.weapons)) throw new Error(`Pickup "${id}" gives unknown weapon "${k.weapon}"`);
+  }
+  for (const k of pickups.auto.kinds) if (!(k in pickups.kinds)) throw new Error(`Auto pickup uses unknown kind "${k}"`);
 }

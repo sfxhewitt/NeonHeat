@@ -262,6 +262,12 @@ export class Hud {
     this.creditsDeltaUntil = now + 2600;
   }
 
+  /** The hull bar only shows while driving (on foot the combat HUD shows body and armour). */
+  showHealth(on: boolean): void {
+    if (this.healthWrap.hidden === !on) return;
+    this.healthWrap.hidden = !on;
+  }
+
   setTrace(percent: number): void {
     const v = Math.round(percent);
     if (v === this.last.trace) return;
