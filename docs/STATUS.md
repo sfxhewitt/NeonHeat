@@ -1,5 +1,27 @@
 # Status
 
+## Front end and flow (23 Nov 2026)
+
+The game now has a proper front end, all in `packages/ui` with the wiring in `apps/game/src/flow.ts` (game.ts only calls into it).
+
+- **Title screen**: original NEON HEAT logotype drawn as SVG paths (neon-tube NEON, solid HEAT whose A is the double HEAT chevron), rain, light sweep and scanlines over the paused city. Tap to start is the first user gesture: it calls `flow.audio.onFirstGesture` (audio unlock) and requests full screen. Then Continue (with a save summary) / New game (two-tap confirm when a save exists) / Settings / Credits. The first-boot benchmark still runs behind it.
+- **Pause menu** (menu button, Esc, or M for the map): tab rail with Map, Jobs (active job with Restart job / Walk away, respect bars for the five crews, payphone list), Stats (lifetime stats from the save) and Settings (steering scheme, touch layout, vibration, graphics, frame rate, minimap north-up or turning, Sound section with master / radio / effects volumes and a test-sound hook). Resume.
+- **Full map** (Map tab or tap the minimap): pan, pinch, wheel, zoom buttons, centre on me, map key; districts tinted and labelled, roads, water, parks, landmarks (shape + colour badges), crew payphones, police with vision cones at HEAT 3+, the objective, tap to set a waypoint (tap the pin to clear) and the GPS route with its length.
+- **Minimap**: static layer pre-rendered once, a window blitted at 30 Hz; zooms out with speed; optional heading-up rotation with a compass N; route line, police with cones at HEAT 3+, crew payphones, waypoint and objective clamped to the rim; district name underneath.
+- **GPS**: `flow.setRouteFn(route)` takes the road graph's `route(fromX, fromZ, toX, toZ)`; until then a straight line. Routes refresh when the target moves or the player strays more than 10 m.
+- **Map data**: everything draws from the `MapGeometry` interface (`packages/ui/src/map-geometry.ts`); `geometryFromBlockMap` adapts the current block. The new city calls `flow.setGeometry(geom)`.
+- **Cards**: job start banner (crew icon and title), job done (time, damage, pay roll-up, respect changes, Continue; pauses the game), FLATLINED and BOOKED (`{ title, subtitle, lines[] }`; shown for `playerDied` now and for `playerWasted` / `playerBusted` with an optional `penalty` once those events exist), HEAT level-change flashes (chevron banner up, HEAT LOST when clear), "Entering <district>" banner.
+- **HUD**: credits with a rolling count-up and +/- pop, weapon/ammo slot (`hud.setWeapon`) and armour bar (`hud.setArmour`) ready for combat, onboarding hint line `hud.showHint(text, controlId?)` with the named control pulsing, urgent timer, restyled objective, dialogue and toasts. Type is Chakra Petch (OFL, bundled).
+- **Save**: new lifetime stats default to 0, so existing v1 saves load unchanged.
+- **Tests**: e2e start flow updated (tap to start, New game), job-done card checked, and a new phone test opens the map from the minimap, sets a waypoint by touch, zooms, visits Jobs and Stats and resumes. Unit tests for the map geometry adapter, routes and crew icons, and the stats defaults.
+
+### Next
+
+- Swap in the generated city: `flow.setGeometry(cityGeometry)` and `flow.setRouteFn(world.route)`.
+- Hook the AudioEngine to `flow.audio.onFirstGesture` / `onTestSound` and read the volume settings.
+- Combat: call `hud.setWeapon` and `hud.setArmour` each frame (they only write on change).
+- Tutorial mission `hint` event: call `game.hud.showHint(text, controlId)`.
+
 ## Kerbs and street furniture (23 Nov 2026)
 
 Playing on the phone, hitting a kerb stopped the car dead. The kerb itself never had a collider. The problem was what stands on the pavement:

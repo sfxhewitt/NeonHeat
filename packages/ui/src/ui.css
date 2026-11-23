@@ -12,7 +12,7 @@
 .nh-hud button, .nh-modal button, .nh-title button, .nh-big button, .nh-fullmap button, .nh-menu-btn, .nh-edit-done { font-family: var(--nh-display); }
 
 /* While the title is up, the in-game HUD stays out of the picture. */
-#overlay:has(.nh-title) :is(.nh-hud, .nh-minimap, .nh-menu-btn, .nh-touch, .nh-arrow) { visibility: hidden; }
+#overlay:has(.nh-title:not(.is-out)) :is(.nh-hud, .nh-minimap, .nh-menu-btn, .nh-touch, .nh-arrow) { visibility: hidden; }
 
 :root {
   --nh-display: 'Chakra Petch', 'Avenir Next Condensed', 'Roboto Condensed', system-ui, sans-serif;
@@ -572,7 +572,7 @@
   position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; pointer-events: auto; font-family: var(--nh-display); color: var(--nh-ink);
   overflow: hidden; -webkit-tap-highlight-color: transparent;
 }
-.nh-title.is-out { animation: nh-title-out 0.42s ease-in forwards; }
+.nh-title.is-out { animation: nh-title-out 0.42s ease-in forwards; pointer-events: none; }
 @keyframes nh-title-out { to { opacity: 0; transform: scale(1.04); } }
 .nh-title__bg { position: absolute; inset: 0; background: radial-gradient(ellipse 70% 80% at 50% 46%, rgba(30, 14, 64, 0.62), rgba(5, 5, 16, 0.94) 72%), linear-gradient(rgba(5, 5, 16, 0.4), rgba(5, 5, 16, 0.8)); }
 .nh-title__bg i { position: absolute; inset: 0; pointer-events: none; }

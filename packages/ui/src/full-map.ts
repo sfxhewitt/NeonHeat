@@ -400,14 +400,24 @@ export class FullMap {
   private drawDistrictLabels(c: CanvasRenderingContext2D): void {
     c.textAlign = 'center';
     c.textBaseline = 'middle';
+    const pad = 28;
     for (const d of this.map.geom.districts) {
-      const pxW = d.w * this.zoom;
-      if (pxW < 70) continue;
-      const [x, y] = this.toScreen(d.x, d.z);
-      const size = Math.max(11, Math.min(22, pxW / 14));
+      // Label the part of the district that is on screen, so a name never sits off the edge.
+      const [x0, y0] = this.toScreen(d.x - d.w / 2, d.z - d.d / 2);
+      const [x1, y1] = this.toScreen(d.x + d.w / 2, d.z + d.d / 2);
+      const l = Math.max(x0, pad);
+      const r = Math.min(x1, this.w - pad - 56);
+      const t = Math.max(y0, pad + 24);
+      const b = Math.min(y1, this.h - pad);
+      if (r - l < 110 || b - t < 36) continue;
+      const size = Math.max(12, Math.min(22, (x1 - x0) / 14));
       c.font = `700 ${size.toFixed(0)}px ${FONT}`;
-      const text = d.name.toUpperCase().split('').join(' ');
-      c.globalAlpha = 0.55;
+      const text = d.name.toUpperCase().split('').join('\u200A');
+      if (c.measureText(text).width > r - l) continue;
+      // Sit in the upper third of the visible part: icons cluster in the middle less often.
+      const x = (l + r) / 2;
+      const y = t + (b - t) * 0.22;
+      c.globalAlpha = 0.6;
       c.lineWidth = 4;
       c.strokeStyle = 'rgba(5, 6, 14, 0.85)';
       c.strokeText(text, x, y);
