@@ -37,15 +37,12 @@ import {
   HackOverlay,
   Hud,
   InputManager,
-  Minimap,
-  SettingsMenu,
   loadSettings,
   showFailScreen,
-  storeSettings,
-  type MinimapDot,
   type Settings,
 } from '@neonheat/ui';
 import { loadGameContent, type GameContent } from './content';
+import { GameFlow } from './flow';
 import { setupTuning } from './tuning';
 import { SoundBridge } from './sound';
 
@@ -88,9 +85,6 @@ export class Game {
   private readonly key = new THREE.DirectionalLight(0xc0b0ff, 0.85);
   private readonly sky = new SkyGrade();
   private perfEl: HTMLElement | null = null;
-  private minimap!: Minimap;
-  private readonly mapDots: MinimapDot[] = [];
-  private mapTarget: { x: number; z: number } | null = null;
   private perfTimer = 0;
   director!: MissionDirector;
   /** Set with ?bot=1: the mission bot plays through the intent layer (demo and soak test). */
@@ -120,7 +114,8 @@ export class Game {
   readonly stats: GameStats = { fps: 0, frameMs: 0, tickMs: 0, drawCalls: 0, triangles: 0, frames: 0 };
   /** Rolling frame times for tests (ms). */
   readonly frameTimes: number[] = [];
-  private readonly menu: SettingsMenu;
+  /** Front end: title, pause menu, maps, cards, stats (apps/game/src/flow.ts). */
+  readonly flow: GameFlow;
   debug: DebugPanel | null = null;
   /** Hook for the app shell (quality changes need the benchmark result). */
   onSettingsChanged: ((s: Settings) => void) | null = null;
@@ -149,36 +144,14 @@ export class Game {
     this.hackUi = new HackOverlay(overlay);
     this.sound = new SoundBridge(this.content.audio, this.settings);
     this.saves = new SaveManager(typeof indexedDB === 'undefined' ? new MemoryStorage() : new IndexedDbStorage());
-    this.menu = new SettingsMenu(overlay, {
-      settings: this.settings,
-      onChange: (s) => {
-        storeSettings(s);
-        this.input.touch.setScheme(s.scheme);
-        this.onSettingsChanged?.(s);
-      },
-      onEditLayout: (on) => this.input.touch.setEditing(on),
-      onResetLayout: () => this.input.touch.resetLayout(),
-      onOpen: () => this.setPaused(true),
-      onClose: () => {
-        if (!this.closeFail) this.setPaused(false);
-      },
-      info: () => this.perfLine(),
-      ...this.sound.menuHooks(),
-      extra: () =>
-        this.director?.active
-          ? [
-              { label: 'Restart job', run: () => this.restartJob() },
-              { label: 'Walk away from the job', run: () => this.walkAway() },
-            ]
-          : [],
-    });
+    this.flow = new GameFlow(this, () => !this.closeFail);
   }
 
   async init(seed = 1): Promise<void> {
     const rapier = await initPhysics();
     this.world = new World({ seed, content: this.content.sim, rapier });
     this.buildScene();
-    this.minimap = new Minimap(this.hud.root, this.content.sim.map);
+    this.flow.init();
     const params = new URLSearchParams(location.search);
     this.setupMissions(params.has('bot'));
     this.sound.attach(this);
@@ -187,7 +160,7 @@ export class Game {
     if (import.meta.env.DEV || params.has('debug')) this.setupDebug();
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.setPaused(true);
-      else if (!this.menu.isOpen && !this.closeFail) this.setPaused(false);
+      else if (!this.flow.blocking && !this.closeFail) this.setPaused(false);
     });
     await this.saves.load().catch((err: unknown) => console.warn('Save unavailable', err));
   }
@@ -198,7 +171,7 @@ export class Game {
     this.director = d;
     if (bot) this.bot = new MissionBot(this.world, d);
     d.host.onDialogue = (speaker, text) => this.hud.showDialogue(speaker, text, performance.now(), 6);
-    d.onStart = (m) => this.hud.toast(m.title.toUpperCase(), performance.now(), 2.5);
+    d.onStart = (m) => this.flow.missionStarted(m);
     d.onHackStart = () => {
       this.hackHideTimer = 0;
       this.hackUi.show((n) => d.hackTap(n));
@@ -221,6 +194,7 @@ export class Game {
       this.hud.toast(`JOB DONE\n+${r.mission.rewards.credits.toLocaleString('en-GB')} cr`, performance.now(), 3.5);
       this.saves.current = applyMissionResult(this.saves.current, r.mission.id, r.mission.rewards);
       this.autosave('mission end');
+      this.flow.missionCompleted(r);
     };
   }
 
@@ -228,7 +202,7 @@ export class Game {
     this.closeFail = null;
     action();
     this.snapCamera();
-    this.setPaused(this.menu.isOpen);
+    this.setPaused(this.flow.blocking);
   }
 
   restartJob(): void {
@@ -347,6 +321,10 @@ export class Game {
     this.loop.reset();
   }
 
+  get isPaused(): boolean {
+    return this.paused;
+  }
+
   onVehicleParamsChanged(_variant: string): void {
     // Params are edited in place and read every step. Mass needs pushing into the physics collider.
     for (const v of this.world.vehicles) {
@@ -398,7 +376,7 @@ export class Game {
       alpha = this.loop.advance(dt, () => this.simStep());
     }
     const pc = this.world.playerCtl;
-    this.input.setMode(this.menu.isOpen ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
+    this.input.setMode(this.flow.blocking ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
     this.render(alpha, dt);
     this.sound.frame(dt);
     if (this.holdResolution) {
@@ -425,7 +403,10 @@ export class Game {
     this.world.step(this.intents);
     this.director.tick(SIM_DT);
     this.stats.tickMs = performance.now() - t0;
-    for (const e of this.world.events) this.onSimEvent(e);
+    for (const e of this.world.events) {
+      this.onSimEvent(e);
+      this.flow.onSimEvent(e);
+    }
     this.saves.current.stats.playSeconds += SIM_DT;
     if (!this.director.active) {
       this.freeRoamSaveTimer += SIM_DT;
@@ -459,7 +440,6 @@ export class Game {
       const o = r.objective;
       const radius = o && 'radius' in o ? o.radius : 3;
       this.markers.setTarget(v.targetX, v.targetZ, radius, this.world.time);
-      this.mapTarget = { x: v.targetX, z: v.targetZ };
       const p = this.projected.set(v.targetX, 0, v.targetZ).project(this.rig.camera);
       this.arrow.setTone(false);
       this.arrow.set(p.x, p.y, p.z > 1);
@@ -468,7 +448,6 @@ export class Game {
     } else {
       this.hud.setObjective(null, null);
       this.markers.setTarget(null);
-      this.mapTarget = null;
       // Free roam: point at the nearest job payphone.
       let best = Infinity;
       let gx = 0;
@@ -492,21 +471,6 @@ export class Game {
         this.giversShown = true;
       }
     }
-  }
-
-  private updateMinimap(dt: number): void {
-    const w = this.world;
-    const dots = this.mapDots;
-    dots.length = 0;
-    for (const v of w.vehicles) {
-      if (!v.active || v === w.player.vehicle) continue;
-      if (v.role === 'police' || v.role === 'squad') dots.push({ x: v.x, z: v.z, kind: 'police' });
-    }
-    if (this.mapTarget) dots.push({ x: this.mapTarget.x, z: this.mapTarget.z, kind: 'target' });
-    else if (!this.director.active) for (const m of this.director.missions) dots.push({ x: m.giver.pos[0], z: m.giver.pos[2], kind: 'giver' });
-    const pv = w.player.vehicle;
-    const pc = w.playerCtl;
-    this.minimap.update(dt, pv ? pv.x : pc.x, pv ? pv.z : pc.z, pv ? pv.yaw : pc.facing, dots, w.time);
   }
 
   /** Tier and frame-rate readout (pause menu line, and an optional corner overlay). */
@@ -602,8 +566,6 @@ export class Game {
     } else if (e.type === 'playerHurt') {
       this.rig.addShake(Math.min(1.2, e.amount * 0.03));
       if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(40);
-    } else if (e.type === 'playerDied') {
-      this.hud.toast('FLATLINED', performance.now(), 3);
     } else if (e.type === 'playerRespawned') {
       this.rig.snap({ x: e.x, z: e.z, vx: 0, vz: 0, speedT: 0, onFoot: true });
       this.hud.toast('PATCHED UP', performance.now(), 2);
@@ -636,7 +598,7 @@ export class Game {
     this.hud.setHealth(pv0 ? w.vehicleHealth(pv0) : w.playerCtl.hp / w.playerCtl.maxHp, pv0 ? 'HULL' : 'BODY');
     this.hud.setTrace(w.trace);
     this.updateMissionHud(dt);
-    this.updateMinimap(dt);
+    this.flow.update(dt);
     this.hud.tick(performance.now());
     this.people.update(w, alpha, dt, w.time);
     const pv = w.player.vehicle;

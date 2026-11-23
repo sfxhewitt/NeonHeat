@@ -15,6 +15,8 @@ export interface Settings {
   radioStation: number;
   /** Frame rate and tier readout in the corner. */
   perf: boolean;
+  /** Minimap turns with the player's heading instead of staying north-up. */
+  minimapRotate: boolean;
 }
 
 const KEY = 'neonheat.settings.v1';
@@ -30,6 +32,7 @@ export function loadSettings(): Settings {
     sfxVolume: 1,
     radioStation: 0,
     perf: false,
+    minimapRotate: false,
   };
   try {
     const raw = localStorage.getItem(KEY);

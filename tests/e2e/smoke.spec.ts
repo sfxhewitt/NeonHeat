@@ -94,6 +94,7 @@ test('title screen starts the game on tap', async ({ page }) => {
   await page.goto('/?quality=low');
   await expect(page.getByRole('heading', { name: /NEON/ })).toBeVisible();
   await page.getByRole('button', { name: 'TAP TO START' }).click();
+  await page.getByRole('menuitem', { name: /New game/ }).click();
   await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
   const tier = await page.evaluate(() => window.__neon!.game.tier);
   expect(tier).toBe('low');

@@ -1,5 +1,5 @@
 import { GameAudio, type AudioConfig } from '@neonheat/audio';
-import { RadioButton, storeSettings, type Settings, type SettingsMenuHooks } from '@neonheat/ui';
+import { RadioButton, storeSettings, type Settings, type SettingsPanelHooks } from '@neonheat/ui';
 import type { Game } from './game';
 
 /**
@@ -23,7 +23,7 @@ export class SoundBridge {
   }
 
   /** Extra hooks for the pause menu's Sound section. */
-  menuHooks(): Pick<SettingsMenuHooks, 'stations' | 'onSoundChange' | 'onButton'> {
+  menuHooks(): Pick<SettingsPanelHooks, 'stations' | 'onSoundChange' | 'onButton'> {
     return {
       stations: () => this.audio.stations,
       onSoundChange: (s, final) => {

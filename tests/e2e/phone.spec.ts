@@ -80,9 +80,10 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
 
   // --- Start from the title screen with a tap, exactly as a player would.
   await page.goto('/?quality=low');
-  const start = page.locator('.nh-title button');
+  const start = page.locator('.nh-title__press');
   await expect(start).toBeVisible({ timeout: 30_000 });
   await start.tap();
+  await page.locator('.nh-title [data-act="new"]').tap();
   await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
 
   // The game is always landscape, whichever way the phone is held.
@@ -115,20 +116,17 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   // --- Get into the parked starter car with the context button.
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
-    const s = w.content.map.spawns['start_car'].pos;
-    const car = w.vehicles
-      .filter((v: { active: boolean; role: string }) => v.active && v.role === 'parked')
-      .sort((a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - s[0], a.z - s[2]) - Math.hypot(b.x - s[0], b.z - s[2]))[0];
-    w.playerCtl.teleport(car.x + Math.cos(car.yaw) * 2.2, car.z - Math.sin(car.yaw) * 2.2);
+    const car = w.vehicles.find((v: { active: boolean; variantId: string; role: string }) => v.active && v.variantId === 'kestrel' && v.role === 'parked');
+    w.playerCtl.teleport(car.x, car.z + 2.4);
   });
   await expect(context).toHaveText('ENTER');
   await context.tap();
   await expect.poll(async () => (await player(page)).driving).toBe(true);
 
   // --- Drive: direction steering, push the stick the way you want to go.
-  // Push the stick the way the car faces (yaw 0 is +Z, which is screen-down).
+  // Push the way the car faces (parked cars in the city face any direction), so the test drives rather than turns.
   p0 = await player(page);
-  const yaw: number = await page.evaluate(() => window.__neon!.game.world.player.vehicle.yaw);
+  const yaw = await page.evaluate(() => window.__neon!.game.world.player.vehicle!.yaw as number);
   await finger.press(sx, sy);
   await finger.move(sx + Math.sin(yaw) * 70, sy + Math.cos(yaw) * 70);
   await page.waitForTimeout(2500);
@@ -162,8 +160,8 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
     w.heat.clear();
-    const g = window.__neon!.game.director.missions.find((m: { id: string }) => m.id === 'glasshounds_03_hot_chrome').giver.pos;
-    w.playerCtl.teleport(g[0], g[2] + 1);
+    const giver = window.__neon!.game.director.missions[0].giver.pos;
+    w.playerCtl.teleport(giver[0], giver[2] + 1);
   });
   await expect(context).toHaveText('ANSWER');
   await context.tap();
@@ -172,9 +170,8 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
 
   // Reach the lot, then hack the prototype on the touch panel.
   await page.evaluate(() => {
-    const w = window.__neon!.game.world;
-    const m = w.content.map.markers['glass_lot_2'].pos;
-    w.playerCtl.teleport(m[0], m[2]);
+    const p = window.__neon!.game.world.content.map.markers.glass_lot_2.pos;
+    window.__neon!.game.world.playerCtl.teleport(p[0], p[2]);
   });
   await expect.poll(() => page.evaluate(() => window.__neon!.mission().objective)).toBe('hack_car');
   await page.evaluate(() => {
@@ -204,15 +201,20 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect(page.locator('.nh-mission__timer')).toHaveText(/^[0-3]:[0-5]\d$/);
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
-    const m = w.content.map.markers['chopshop_1'].pos;
-    w.teleportVehicle(w.player.vehicle, m[0], m[2], Math.PI);
+    const p = w.content.map.markers.chopshop_1.pos;
+    w.teleportVehicle(w.player.vehicle, p[0], p[2], Math.PI);
   });
-  await expect(page.locator('.nh-toast')).toContainText('JOB DONE', { timeout: 10_000 });
+  // The job-done card: title, pay, Continue.
+  await expect(page.locator('.nh-done h2')).toHaveText('Hot Chrome', { timeout: 10_000 });
+  await expect(page.locator('.nh-done [data-pay]')).toHaveText('+1,500', { timeout: 5000 });
   expect(await page.evaluate(() => window.__neon!.mission().credits)).toBe(1500);
+  await page.locator('.nh-done [data-act="continue"]').tap();
+  await expect(page.locator('.nh-done')).toHaveCount(0);
+  await expect(page.locator('.nh-credits__num')).toHaveText('1,500', { timeout: 5000 });
 
   // The pause menu opens and closes with a tap.
   await page.locator('.nh-menu-btn').first().tap();
-  await expect(page.locator('.nh-modal h2')).toHaveText('PAUSED');
+  await expect(page.locator('.nh-pause h2')).toHaveText('PAUSED');
   await page.locator('[data-act="resume"]').tap();
   await expect(page.locator('.nh-modal')).toHaveCount(0);
 
@@ -245,4 +247,42 @@ test('iPhone: touch buttons stay on screen and at least 48 px', async ({ page })
     expect(b.x + b.w).toBeLessThanOrEqual(vw.width + 1);
     expect(b.y + b.h).toBeLessThanOrEqual(vw.height + 1);
   }
+});
+
+test('iPhone: the minimap opens the full map, a tap sets a waypoint, the menu closes by touch', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?autostart=1&quality=low');
+  await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
+  const paused = () => page.evaluate(() => window.__neon!.game.isPaused);
+
+  // Tap the minimap: the pause menu opens on the Map tab and the game pauses.
+  await page.locator('.nh-minimap').tap();
+  await expect(page.locator('.nh-pause h2')).toHaveText('PAUSED');
+  await expect(page.locator('.nh-tab[data-tab="map"]')).toHaveClass(/is-on/);
+  await expect(page.locator('.nh-fullmap__canvas')).toBeVisible();
+  expect(await paused()).toBe(true);
+
+  // Tap the map: a waypoint, and a GPS route from the player to it.
+  const box = (await page.locator('.nh-fullmap__canvas').boundingBox())!;
+  // Off-centre: the map opens centred on the player, and a waypoint on top of the player clears itself.
+  await page.touchscreen.tap(box.x + box.width * 0.3, box.y + box.height * 0.3);
+  await expect.poll(() => page.evaluate(() => window.__neon!.game.flow.live.waypoint !== null)).toBe(true);
+  expect(await page.evaluate(() => window.__neon!.game.flow.live.route.length)).toBeGreaterThanOrEqual(2);
+  await expect(page.locator('.nh-fullmap__readout')).toContainText('Waypoint');
+
+  // Zoom with the on-screen button, then look at the other tabs.
+  const zoom0 = await page.evaluate(() => (window.__neon!.game.flow as unknown as { fullMap: { view: { zoom: number } } }).fullMap.view.zoom);
+  await page.locator('.nh-fullmap [data-map="in"]').tap();
+  const zoom1 = await page.evaluate(() => (window.__neon!.game.flow as unknown as { fullMap: { view: { zoom: number } } }).fullMap.view.zoom);
+  expect(zoom1).toBeGreaterThan(zoom0);
+  await page.locator('.nh-tab[data-tab="jobs"]').tap();
+  await expect(page.locator('.nh-crew')).toHaveCount(5);
+  await page.locator('.nh-tab[data-tab="stats"]').tap();
+  await expect(page.locator('.nh-stat').first()).toBeVisible();
+
+  // Resume by touch: the menu goes and the game runs again.
+  await page.locator('[data-act="resume"]').tap();
+  await expect(page.locator('.nh-pause')).toHaveCount(0);
+  expect(await paused()).toBe(false);
+  expect(errors).toEqual([]);
 });
