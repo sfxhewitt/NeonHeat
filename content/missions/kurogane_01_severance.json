@@ -1,0 +1,49 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "kurogane_01_severance",
+  "faction": "kurogane",
+  "title": "Severance",
+  "summary": "A Kurogane analyst is selling secrets. Follow him to his buyer and bring back a picture. Quietly.",
+  "chain": 1,
+  "giver": { "type": "payphone", "at": "marker:glass_payphone_1" },
+  "prerequisites": { "missions": ["story_01_first_call"] },
+  "budgetMinutes": 6,
+  "spawns": {
+    "analyst_car": { "variant": "kestrel", "at": "marker:glass_road_2", "locked": true, "role": "courier" }
+  },
+  "actors": {
+    "buyer": { "faction": "null_saints", "at": "marker:undercroft_door_1", "offset": [1.5, 0], "behaviour": "idle", "role": "witness" }
+  },
+  "objectives": [
+    {
+      "id": "eyes_on",
+      "type": "reach",
+      "target": "spawn:analyst_car",
+      "radius": 45,
+      "vehicle": "any",
+      "text": "Get eyes on the analyst's car",
+      "onStart": [{ "do": "dialogue", "line": "k01_intro" }, { "do": "spawn", "refs": ["spawn:analyst_car"] }]
+    },
+    {
+      "id": "tail",
+      "type": "tail",
+      "target": "spawn:analyst_car",
+      "route": ["marker:glass_road_6", "marker:undercroft_road_2", "marker:undercroft_door_1"],
+      "speed": 12,
+      "minRange": 14,
+      "maxRange": 75,
+      "onStart": [{ "do": "dialogue", "line": "k01_tail" }, { "do": "spawn", "refs": ["actor:buyer"] }]
+    },
+    {
+      "id": "photo",
+      "type": "photograph",
+      "target": "actor:buyer",
+      "range": 30,
+      "holdSec": 3,
+      "onStart": [{ "do": "dialogue", "line": "k01_photo" }],
+      "onComplete": [{ "do": "dialogue", "line": "k01_done" }]
+    }
+  ],
+  "rewards": { "credits": 1200, "rep": { "kurogane": 10, "null_saints": -5 } },
+  "failPolicy": "checkpoint"
+}

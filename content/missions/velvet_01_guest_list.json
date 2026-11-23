@@ -1,0 +1,38 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "velvet_01_guest_list",
+  "faction": "velvet_choir",
+  "title": "Guest List",
+  "summary": "Seraphine is headlining tonight and her driver has gone missing. You are the driver now. Do not get her noticed.",
+  "chain": 1,
+  "giver": { "type": "payphone", "at": "marker:lantern_payphone_1" },
+  "prerequisites": { "missions": ["story_01_first_call"] },
+  "budgetMinutes": 5,
+  "actors": {
+    "seraphine": { "faction": "velvet_choir", "at": "marker:stadium", "behaviour": "idle", "role": "vip" }
+  },
+  "objectives": [
+    {
+      "id": "pick_up",
+      "type": "reach",
+      "target": "marker:stadium",
+      "radius": 10,
+      "vehicle": "any",
+      "text": "Pick Seraphine up at the stadium",
+      "onStart": [{ "do": "dialogue", "line": "v01_intro" }, { "do": "spawn", "refs": ["actor:seraphine"] }],
+      "onComplete": [{ "do": "board", "actors": ["actor:seraphine"] }, { "do": "dialogue", "line": "v01_aboard" }]
+    },
+    {
+      "id": "drop",
+      "type": "dropOff",
+      "target": "marker:lantern_door_2",
+      "radius": 9,
+      "passengers": ["actor:seraphine"],
+      "failOn": [{ "if": "heatAtLeast", "value": 2, "message": "Seraphine will not arrive with a police escort" }],
+      "onStart": [{ "do": "dialogue", "line": "v01_rules", "delaySec": 4 }],
+      "onComplete": [{ "do": "dialogue", "line": "v01_done" }]
+    }
+  ],
+  "rewards": { "credits": 900, "rep": { "velvet_choir": 8 }, "timeBonus": { "underSec": 120, "credits": 200 } },
+  "failPolicy": "checkpoint"
+}

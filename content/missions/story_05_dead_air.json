@@ -1,0 +1,59 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "story_05_dead_air",
+  "faction": "null_saints",
+  "title": "Dead Air",
+  "summary": "Kurogane has found the Saints' rig. Litany is loading the van. Get her across the city to Vesper's other place, in one piece.",
+  "story": true,
+  "giver": { "type": "payphone", "at": "marker:undercroft_payphone_3" },
+  "prerequisites": { "missions": ["story_04_salt_and_iron"] },
+  "budgetMinutes": 7,
+  "spawns": {
+    "saints_van": { "variant": "brick", "at": "marker:undercroft_lot_2", "yaw": 0, "locked": true, "role": "escort" },
+    "hunter_a": { "variant": "interceptor", "at": "marker:glass_road_1", "locked": true, "role": "hostile" },
+    "hunter_b": { "variant": "enforcer", "at": "marker:undercroft_road_7", "locked": true, "role": "hostile" }
+  },
+  "actors": {
+    "cleaner_1": { "faction": "kurogane", "at": "marker:safehouse_2", "offset": [8, 4], "behaviour": "guard", "hostile": true, "group": "cleaners" },
+    "cleaner_2": { "faction": "kurogane", "at": "marker:safehouse_2", "offset": [-7, 5], "behaviour": "guard", "hostile": true, "group": "cleaners" },
+    "cleaner_3": { "faction": "kurogane", "at": "marker:safehouse_2", "offset": [2, -8], "behaviour": "guard", "hostile": true, "hp": 2, "group": "cleaners" }
+  },
+  "objectives": [
+    {
+      "id": "van",
+      "type": "reach",
+      "target": "marker:undercroft_lot_2",
+      "radius": 18,
+      "vehicle": "any",
+      "text": "Get to the Saints' van with a car",
+      "onStart": [{ "do": "dialogue", "line": "s05_intro" }]
+    },
+    {
+      "id": "escort",
+      "type": "protect",
+      "target": "spawn:saints_van",
+      "destination": "marker:safehouse_2",
+      "radius": 16,
+      "speed": 11,
+      "failOn": [{ "if": "tooFar", "target": "spawn:saints_van", "distance": 120, "graceSec": 10, "message": "You left Litany to fend for herself" }],
+      "onStart": [
+        { "do": "dialogue", "line": "s05_go" },
+        { "do": "drive", "vehicle": "spawn:hunter_a", "mode": "ram", "target": "spawn:saints_van", "speed": 22, "delaySec": 10 },
+        { "do": "dialogue", "line": "s05_hunters", "delaySec": 10 },
+        { "do": "drive", "vehicle": "spawn:hunter_b", "mode": "ram", "target": "spawn:saints_van", "speed": 20, "delaySec": 28 }
+      ],
+      "onComplete": [{ "do": "spawn", "refs": ["actor:cleaner_1", "actor:cleaner_2", "actor:cleaner_3"] }, { "do": "dialogue", "line": "s05_cleaners" }]
+    },
+    {
+      "id": "cleaners",
+      "type": "eliminate",
+      "targets": ["actor:cleaner_1", "actor:cleaner_2", "actor:cleaner_3"],
+      "text": "Deal with the cleaners at the safehouse",
+      "failOn": [{ "if": "vehicleDestroyed", "target": "spawn:saints_van", "message": "They got to the van" }],
+      "onStart": [{ "do": "aggro", "refs": ["actor:cleaner_1", "actor:cleaner_2", "actor:cleaner_3"] }],
+      "onComplete": [{ "do": "dialogue", "line": "s05_done" }]
+    }
+  ],
+  "rewards": { "credits": 3000, "rep": { "null_saints": 12, "glasshounds": 5, "kurogane": -10 }, "unlocks": ["safehouse:safehouse_2"] },
+  "failPolicy": "checkpoint"
+}

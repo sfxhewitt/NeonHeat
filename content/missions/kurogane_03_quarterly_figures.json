@@ -1,0 +1,47 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "kurogane_03_quarterly_figures",
+  "faction": "kurogane",
+  "title": "Quarterly Figures",
+  "summary": "An armoured car full of Kurogane's quarterly results needs to reach the stadium vault. Freelancers want a look at the numbers.",
+  "chain": 3,
+  "giver": { "type": "payphone", "at": "marker:glass_payphone_3" },
+  "prerequisites": { "missions": ["kurogane_02_hostile_takeover"] },
+  "budgetMinutes": 6,
+  "spawns": {
+    "armoured": { "variant": "enforcer", "at": "marker:glass_lot_1", "yaw": 0, "locked": true, "role": "escort" },
+    "raider_a": { "variant": "vandal", "at": "marker:glass_road_3", "locked": true, "role": "hostile" },
+    "raider_b": { "variant": "vandal", "at": "marker:ashgrove_road_7", "locked": true, "role": "hostile" },
+    "raider_c": { "variant": "kestrel", "at": "marker:ashgrove_road_3", "locked": true, "role": "hostile" }
+  },
+  "objectives": [
+    {
+      "id": "meet",
+      "type": "reach",
+      "target": "marker:glass_lot_1",
+      "radius": 18,
+      "vehicle": "any",
+      "text": "Meet the armoured car (bring a car)",
+      "onStart": [{ "do": "dialogue", "line": "k03_intro" }]
+    },
+    {
+      "id": "escort",
+      "type": "protect",
+      "target": "spawn:armoured",
+      "destination": "marker:stadium",
+      "radius": 14,
+      "speed": 12,
+      "failOn": [{ "if": "tooFar", "target": "spawn:armoured", "distance": 110, "graceSec": 10, "message": "You left the armoured car behind" }],
+      "onStart": [
+        { "do": "dialogue", "line": "k03_go" },
+        { "do": "drive", "vehicle": "spawn:raider_a", "mode": "ram", "target": "spawn:armoured", "speed": 22, "delaySec": 12 },
+        { "do": "dialogue", "line": "k03_raiders", "delaySec": 12 },
+        { "do": "drive", "vehicle": "spawn:raider_b", "mode": "ram", "target": "spawn:armoured", "speed": 22, "delaySec": 30 },
+        { "do": "drive", "vehicle": "spawn:raider_c", "mode": "ram", "target": "spawn:armoured", "speed": 24, "delaySec": 45 }
+      ],
+      "onComplete": [{ "do": "dialogue", "line": "k03_done" }]
+    }
+  ],
+  "rewards": { "credits": 1800, "rep": { "kurogane": 12 } },
+  "failPolicy": "checkpoint"
+}

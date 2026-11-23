@@ -1,0 +1,55 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "story_02_cold_boot",
+  "faction": "null_saints",
+  "title": "Cold Boot",
+  "summary": "The Hot Chrome prototype had something in the boot that was worth more than the car. Litany wants to plug it in.",
+  "story": true,
+  "giver": { "type": "payphone", "at": "marker:undercroft_payphone_1" },
+  "prerequisites": { "missions": ["glasshounds_03_hot_chrome"] },
+  "budgetMinutes": 6,
+  "objectives": [
+    {
+      "id": "core",
+      "type": "reach",
+      "target": "marker:chopshop_1",
+      "radius": 6,
+      "vehicle": "none",
+      "text": "Collect the data core from the chop shop",
+      "onStart": [{ "do": "dialogue", "line": "s02_intro" }],
+      "onComplete": [{ "do": "dialogue", "line": "s02_core" }]
+    },
+    {
+      "id": "to_saints",
+      "type": "reach",
+      "target": "marker:rail_yard",
+      "radius": 10,
+      "vehicle": "any",
+      "text": "Drive the core to the rail yard"
+    },
+    {
+      "id": "plug_in",
+      "type": "hack",
+      "target": "marker:undercroft_door_2",
+      "minigame": "sequence",
+      "difficulty": 3,
+      "text": "Hack the core open at the Saints' rig",
+      "onStart": [{ "do": "dialogue", "line": "s02_rig" }],
+      "onFail": [{ "do": "addTrace", "value": 30 }],
+      "onComplete": [
+        { "do": "addTrace", "value": 40 },
+        { "do": "setHeat", "value": 2 },
+        { "do": "spawnSquad", "squad": "kurogane_pursuit", "delaySec": 6 },
+        { "do": "dialogue", "line": "s02_lattice" }
+      ]
+    },
+    {
+      "id": "run",
+      "type": "escape",
+      "text": "Kurogane felt that. Lose the HEAT",
+      "onComplete": [{ "do": "dialogue", "line": "s02_done" }]
+    }
+  ],
+  "rewards": { "credits": 2000, "rep": { "null_saints": 10, "glasshounds": 5, "kurogane": -10 } },
+  "failPolicy": "checkpoint"
+}

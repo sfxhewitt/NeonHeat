@@ -1,0 +1,55 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "nullsaints_03_root_access",
+  "faction": "null_saints",
+  "title": "Root Access",
+  "summary": "Three Kurogane junction boxes, three districts, one very nervous TRACE meter. Get in, get root, get out.",
+  "chain": 3,
+  "giver": { "type": "payphone", "at": "marker:undercroft_payphone_2" },
+  "prerequisites": { "missions": ["nullsaints_02_ghost_signal"] },
+  "budgetMinutes": 7,
+  "objectives": [
+    {
+      "id": "box_glass",
+      "type": "hack",
+      "target": "marker:glass_door_5",
+      "minigame": "sequence",
+      "difficulty": 2,
+      "text": "Hack the junction box in the Glass Quarter",
+      "failOn": [{ "if": "traceAtLeast", "value": 100, "message": "Fully traced: Kurogane has your face" }],
+      "onStart": [{ "do": "dialogue", "line": "n03_intro" }],
+      "onFail": [{ "do": "addTrace", "value": 15 }],
+      "onComplete": [{ "do": "addTrace", "value": 25 }, { "do": "setHeat", "value": 1 }, { "do": "dialogue", "line": "n03_one" }]
+    },
+    {
+      "id": "box_lantern",
+      "type": "hack",
+      "target": "marker:lantern_door_5",
+      "minigame": "sequence",
+      "difficulty": 3,
+      "text": "Hack the junction box in Lantern Row",
+      "failOn": [{ "if": "traceAtLeast", "value": 100, "message": "Fully traced: Kurogane has your face" }],
+      "onFail": [{ "do": "addTrace", "value": 15 }],
+      "onComplete": [{ "do": "addTrace", "value": 25 }, { "do": "dialogue", "line": "n03_two" }]
+    },
+    {
+      "id": "box_ashgrove",
+      "type": "hack",
+      "target": "marker:ashgrove_door_5",
+      "minigame": "sequence",
+      "difficulty": 3,
+      "text": "Hack the junction box in Ashgrove",
+      "failOn": [{ "if": "traceAtLeast", "value": 100, "message": "Fully traced: Kurogane has your face" }],
+      "onFail": [{ "do": "addTrace", "value": 15 }],
+      "onComplete": [{ "do": "addTrace", "value": 20 }, { "do": "setHeat", "value": 2 }, { "do": "dialogue", "line": "n03_three" }]
+    },
+    {
+      "id": "jack_out",
+      "type": "escape",
+      "text": "Lose the HEAT",
+      "onComplete": [{ "do": "addTrace", "value": -60 }, { "do": "dialogue", "line": "n03_done" }]
+    }
+  ],
+  "rewards": { "credits": 2000, "rep": { "null_saints": 12, "kurogane": -10 } },
+  "failPolicy": "checkpoint"
+}

@@ -1,0 +1,47 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "rustmouth_04_bridge_toll",
+  "faction": "rustmouth",
+  "title": "Bridge Toll",
+  "summary": "Every Rustmouth crew races for the right to tax the bridges this year. The Gaffer has entered you. He did not ask.",
+  "chain": 4,
+  "giver": { "type": "payphone", "at": "marker:saltworks_payphone_1" },
+  "prerequisites": { "missions": ["rustmouth_03_crane_game"], "respect": { "rustmouth": 25 } },
+  "budgetMinutes": 6,
+  "spawns": {
+    "entry": { "variant": "vandal", "at": "marker:saltworks_lot_2", "yaw": 0, "role": "target" },
+    "rival_one": { "variant": "vandal", "at": "marker:saltworks_lot_2", "offset": [-6, 0], "yaw": 0, "locked": true, "role": "racer" },
+    "rival_two": { "variant": "kestrel", "at": "marker:saltworks_lot_2", "offset": [6, 0], "yaw": 0, "locked": true, "role": "racer" }
+  },
+  "objectives": [
+    {
+      "id": "car",
+      "type": "stealVehicle",
+      "vehicle": "spawn:entry",
+      "text": "Get in your entry",
+      "onStart": [{ "do": "dialogue", "line": "r04_intro" }, { "do": "spawn", "refs": ["spawn:rival_one", "spawn:rival_two"] }]
+    },
+    {
+      "id": "race",
+      "type": "race",
+      "checkpoints": [
+        "marker:bridge_west",
+        "marker:undercroft_road_4",
+        "marker:bridge_central",
+        "marker:glass_road_8",
+        "marker:bridge_east",
+        "marker:saltworks_road_6",
+        "marker:dock_cranes"
+      ],
+      "radius": 12,
+      "vehicle": "spawn:entry",
+      "opponents": ["spawn:rival_one", "spawn:rival_two"],
+      "opponentSpeed": 22,
+      "timeLimitSec": 260,
+      "onStart": [{ "do": "dialogue", "line": "r04_go" }],
+      "onComplete": [{ "do": "dialogue", "line": "r04_done" }]
+    }
+  ],
+  "rewards": { "credits": 2000, "rep": { "rustmouth": 12 } },
+  "failPolicy": "checkpoint"
+}

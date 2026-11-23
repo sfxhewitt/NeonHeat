@@ -1,0 +1,49 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "glasshounds_04_repo_job",
+  "faction": "glasshounds",
+  "title": "Repo Job",
+  "summary": "A Rustmouth chancer drove off in one of Vesper's cars. She would like it back, ideally not in pieces.",
+  "chain": 4,
+  "giver": { "type": "payphone", "at": "marker:ashgrove_payphone_2" },
+  "prerequisites": { "missions": ["glasshounds_03_hot_chrome"], "respect": { "glasshounds": 25 } },
+  "budgetMinutes": 6,
+  "spawns": {
+    "lifted_car": { "variant": "vandal", "at": "marker:saltworks_road_3", "locked": true, "role": "target" }
+  },
+  "objectives": [
+    {
+      "id": "find",
+      "type": "reach",
+      "target": "spawn:lifted_car",
+      "radius": 70,
+      "vehicle": "any",
+      "text": "Find the stolen Vandal in the Saltworks",
+      "onStart": [
+        { "do": "dialogue", "line": "gh04_intro" },
+        { "do": "drive", "vehicle": "spawn:lifted_car", "mode": "route", "route": ["marker:saltworks_road_6", "marker:saltworks_road_1", "marker:dock_cranes"], "speed": 11, "loop": true }
+      ]
+    },
+    {
+      "id": "chase",
+      "type": "chase",
+      "target": "spawn:lifted_car",
+      "catch": "disable",
+      "disableHealth": 0.5,
+      "escapeDistance": 240,
+      "escapeSec": 10,
+      "onStart": [{ "do": "dialogue", "line": "gh04_spotted" }],
+      "onComplete": [{ "do": "dialogue", "line": "gh04_stopped" }, { "do": "lock", "vehicle": "spawn:lifted_car", "value": false }]
+    },
+    {
+      "id": "return",
+      "type": "deliverVehicle",
+      "vehicle": "spawn:lifted_car",
+      "target": "marker:chopshop_1",
+      "minHealth": 0.15,
+      "onComplete": [{ "do": "dialogue", "line": "gh04_done" }]
+    }
+  ],
+  "rewards": { "credits": 1600, "rep": { "glasshounds": 10, "rustmouth": -5 } },
+  "failPolicy": "checkpoint"
+}

@@ -1,0 +1,48 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "rustmouth_02_low_tide",
+  "faction": "rustmouth",
+  "title": "Low Tide",
+  "summary": "Kurogane parked an armoured hauler on the Gaffer's quay. Possession is nine tenths of the law, and the Gaffer wants the other tenth too.",
+  "chain": 2,
+  "giver": { "type": "payphone", "at": "marker:saltworks_payphone_3" },
+  "prerequisites": { "missions": ["rustmouth_01_scrap_value"] },
+  "budgetMinutes": 6,
+  "spawns": {
+    "hauler": { "variant": "enforcer", "at": "marker:saltworks_lot_4", "yaw": 3.1416, "role": "target" }
+  },
+  "actors": {
+    "guard_1": { "faction": "kurogane", "at": "marker:saltworks_lot_4", "offset": [5, -5], "behaviour": "guard", "hostile": true, "group": "quay" },
+    "guard_2": { "faction": "kurogane", "at": "marker:saltworks_lot_4", "offset": [-6, 4], "behaviour": "wander", "hostile": true, "group": "quay" },
+    "guard_3": { "faction": "kurogane", "at": "marker:saltworks_lot_4", "offset": [7, 8], "behaviour": "guard", "hostile": true, "group": "quay" }
+  },
+  "objectives": [
+    {
+      "id": "quay",
+      "type": "reach",
+      "target": "marker:saltworks_lot_4",
+      "radius": 35,
+      "text": "Get down to the quay",
+      "onStart": [{ "do": "dialogue", "line": "r02_intro" }, { "do": "spawn", "refs": ["spawn:hauler", "actor:guard_1", "actor:guard_2", "actor:guard_3"] }]
+    },
+    {
+      "id": "take",
+      "type": "stealVehicle",
+      "vehicle": "spawn:hauler",
+      "text": "Take the hauler",
+      "onStart": [{ "do": "dialogue", "line": "r02_guards" }],
+      "onComplete": [{ "do": "setHeat", "value": 2 }, { "do": "dialogue", "line": "r02_alarm" }]
+    },
+    { "id": "lose_heat", "type": "escape", "failOn": [{ "if": "vehicleDestroyed", "target": "spawn:hauler", "message": "The hauler was wrecked" }] },
+    {
+      "id": "deliver",
+      "type": "deliverVehicle",
+      "vehicle": "spawn:hauler",
+      "target": "marker:chopshop_2",
+      "minHealth": 0.3,
+      "onComplete": [{ "do": "dialogue", "line": "r02_done" }]
+    }
+  ],
+  "rewards": { "credits": 1500, "rep": { "rustmouth": 10, "kurogane": -10 } },
+  "failPolicy": "checkpoint"
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "kurogane_04_golden_parachute",
+  "faction": "kurogane",
+  "title": "Golden Parachute",
+  "summary": "A vice-president resigned this morning, taking a prototype and the company's drive keys with him. Accept his resignation.",
+  "chain": 4,
+  "giver": { "type": "payphone", "at": "marker:glass_payphone_4" },
+  "prerequisites": { "missions": ["kurogane_03_quarterly_figures"] },
+  "budgetMinutes": 7,
+  "spawns": {
+    "exec_car": { "variant": "prototype", "at": "marker:glass_road_5", "locked": true, "role": "target" }
+  },
+  "objectives": [
+    {
+      "id": "find",
+      "type": "reach",
+      "target": "spawn:exec_car",
+      "radius": 60,
+      "vehicle": "any",
+      "text": "Catch up with the vice-president",
+      "onStart": [
+        { "do": "dialogue", "line": "k04_intro" },
+        { "do": "drive", "vehicle": "spawn:exec_car", "mode": "route", "route": ["marker:glass_road_1", "marker:lantern_road_4", "marker:undercroft_road_6", "marker:tunnel_mouth"], "speed": 13 }
+      ]
+    },
+    {
+      "id": "chase",
+      "type": "chase",
+      "target": "spawn:exec_car",
+      "catch": "wreck",
+      "speed": 26,
+      "escapeDistance": 230,
+      "escapeSec": 10,
+      "timeLimitSec": 180,
+      "onStart": [{ "do": "dialogue", "line": "k04_chase" }]
+    },
+    {
+      "id": "search",
+      "type": "reach",
+      "target": "spawn:exec_car",
+      "radius": 5,
+      "vehicle": "none",
+      "text": "Search the wreck for the drive keys",
+      "onComplete": [{ "do": "setHeat", "value": 2 }, { "do": "dialogue", "line": "k04_keys" }]
+    },
+    { "id": "lose_heat", "type": "escape" },
+    {
+      "id": "hand_in",
+      "type": "reach",
+      "target": "marker:glass_door_1",
+      "radius": 6,
+      "text": "Hand the keys in at the Glass Quarter",
+      "onComplete": [{ "do": "dialogue", "line": "k04_done" }]
+    }
+  ],
+  "rewards": { "credits": 2500, "rep": { "kurogane": 15 } },
+  "failPolicy": "checkpoint"
+}

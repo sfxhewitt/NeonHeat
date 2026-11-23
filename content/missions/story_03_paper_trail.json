@@ -1,0 +1,61 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "story_03_paper_trail",
+  "faction": "velvet_choir",
+  "title": "Paper Trail",
+  "summary": "Mother Lune knows the Kurogane courier who carries the Lattice contracts. Follow him to the signing and get the buyer's face.",
+  "story": true,
+  "giver": { "type": "payphone", "at": "marker:lantern_payphone_2" },
+  "prerequisites": { "missions": ["story_02_cold_boot"], "respect": { "velvet_choir": 8 } },
+  "budgetMinutes": 7,
+  "spawns": {
+    "courier": { "variant": "kestrel", "at": "marker:lantern_road_3", "locked": true, "role": "courier" }
+  },
+  "actors": {
+    "signatory": { "faction": "kurogane", "at": "marker:market_square", "offset": [2, 0], "behaviour": "idle", "role": "witness" },
+    "minder_1": { "faction": "kurogane", "at": "marker:market_square", "offset": [-4, 3], "behaviour": "guard", "hostile": true, "group": "minders" },
+    "minder_2": { "faction": "kurogane", "at": "marker:market_square", "offset": [5, -4], "behaviour": "guard", "hostile": true, "group": "minders" }
+  },
+  "objectives": [
+    {
+      "id": "pick_up_trail",
+      "type": "reach",
+      "target": "spawn:courier",
+      "radius": 45,
+      "vehicle": "any",
+      "text": "Find the courier's car in Lantern Row",
+      "onStart": [{ "do": "dialogue", "line": "s03_intro" }, { "do": "spawn", "refs": ["spawn:courier"] }]
+    },
+    {
+      "id": "tail",
+      "type": "tail",
+      "target": "spawn:courier",
+      "route": ["marker:lantern_road_6", "marker:glass_road_5", "marker:central_tower", "marker:market_square"],
+      "speed": 12,
+      "minRange": 14,
+      "maxRange": 75,
+      "onStart": [{ "do": "dialogue", "line": "s03_tail" }],
+      "onComplete": [{ "do": "spawn", "refs": ["actor:signatory", "actor:minder_1", "actor:minder_2"] }]
+    },
+    {
+      "id": "photo",
+      "type": "photograph",
+      "target": "actor:signatory",
+      "range": 32,
+      "holdSec": 3,
+      "text": "Photograph whoever signs",
+      "onStart": [{ "do": "dialogue", "line": "s03_photo" }],
+      "onComplete": [{ "do": "aggro", "refs": ["actor:minder_1", "actor:minder_2"] }, { "do": "dialogue", "line": "s03_made" }]
+    },
+    {
+      "id": "away",
+      "type": "reach",
+      "target": "marker:lantern_door_1",
+      "radius": 8,
+      "text": "Get the pictures back to Mother Lune",
+      "onComplete": [{ "do": "dialogue", "line": "s03_done" }]
+    }
+  ],
+  "rewards": { "credits": 2200, "rep": { "velvet_choir": 10, "kurogane": -5 } },
+  "failPolicy": "checkpoint"
+}

@@ -1,0 +1,42 @@
+{
+  "glasshounds": {
+    "name": "Glasshounds",
+    "contact": "Vesper",
+    "colour": "#2bf0ff",
+    "shape": "diamond",
+    "district": "ashgrove",
+    "blurb": "Car thieves and fixers out of Ashgrove. If it has wheels and a lock, they have opinions about it."
+  },
+  "kurogane": {
+    "name": "Kurogane",
+    "contact": "Mr Sato-Reyes",
+    "colour": "#ff3b4e",
+    "shape": "square",
+    "district": "glass",
+    "blurb": "Corporate security syndicate that owns the Glass Quarter's towers and most of its laws."
+  },
+  "velvet_choir": {
+    "name": "Velvet Choir",
+    "contact": "Mother Lune",
+    "colour": "#ff2bd6",
+    "shape": "circle",
+    "district": "lantern",
+    "blurb": "They run every club, stage and back room in Lantern Row, and they never forget a favour."
+  },
+  "rustmouth": {
+    "name": "Rustmouth",
+    "contact": "Gaffer Odge",
+    "colour": "#e6ff2b",
+    "shape": "triangle",
+    "district": "saltworks",
+    "blurb": "Dock scrappers and smugglers. Anything that comes off a ship in the Saltworks passes through their hands."
+  },
+  "null_saints": {
+    "name": "Null Saints",
+    "contact": "Litany",
+    "colour": "#3bff8a",
+    "shape": "hexagon",
+    "district": "undercroft",
+    "blurb": "Hackers under the elevated rail. They trade in secrets, and they can make your TRACE vanish."
+  }
+}

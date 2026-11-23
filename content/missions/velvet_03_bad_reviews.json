@@ -1,0 +1,33 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "velvet_03_bad_reviews",
+  "faction": "velvet_choir",
+  "title": "Bad Reviews",
+  "summary": "A rival promoter has three vans touring the city with very rude posters of Mother Lune. Cancel the tour.",
+  "chain": 3,
+  "giver": { "type": "payphone", "at": "marker:lantern_payphone_4" },
+  "prerequisites": { "missions": ["velvet_02_encore"] },
+  "budgetMinutes": 6,
+  "spawns": {
+    "van_glass": { "variant": "brick", "at": "marker:glass_lot_3", "locked": true, "role": "target" },
+    "van_ashgrove": { "variant": "brick", "at": "marker:ashgrove_lot_3", "locked": true, "role": "target" },
+    "van_undercroft": { "variant": "brick", "at": "marker:undercroft_lot_3", "locked": true, "role": "target" }
+  },
+  "objectives": [
+    {
+      "id": "vans",
+      "type": "destroyVehicle",
+      "targets": ["spawn:van_glass", "spawn:van_ashgrove", "spawn:van_undercroft"],
+      "text": "Wreck the promoter's poster vans",
+      "timeLimitSec": 300,
+      "onStart": [
+        { "do": "dialogue", "line": "v03_intro" },
+        { "do": "spawnSquad", "squad": "promoter_heavies", "delaySec": 70 },
+        { "do": "dialogue", "line": "v03_heavies", "delaySec": 70 }
+      ],
+      "onComplete": [{ "do": "dialogue", "line": "v03_done" }]
+    }
+  ],
+  "rewards": { "credits": 1500, "rep": { "velvet_choir": 10 } },
+  "failPolicy": "checkpoint"
+}
