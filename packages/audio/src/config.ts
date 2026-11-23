@@ -167,6 +167,8 @@ export const AudioConfigSchema = z.object({
     }),
     /** Brick-wall-ish limiter after the compressor (dB). */
     limiterThreshold: z.number().max(0),
+    /** Master high-pass: sub-bass phones cannot play only eats headroom (Hz). */
+    highpassHz: z.number().min(10).max(200),
     reverbSeconds: z.number().min(0.2).max(6),
     /** When paused: music level multiplier and low-pass cutoff (Hz). */
     pausedMusic: z.number().min(0).max(1),

@@ -137,10 +137,15 @@ export class AudioEngine {
     limiter.attack.value = 0.001;
     limiter.release.value = 0.08;
     this.master = ctx.createGain();
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = b.highpassHz;
+    hp.Q.value = 0.6;
+    hp.connect(comp);
     comp.connect(limiter).connect(this.master).connect(ctx.destination);
 
     this.music = ctx.createGain();
-    this.music.connect(comp);
+    this.music.connect(hp);
     this.duck = ctx.createGain();
     this.duck.connect(this.music);
     this.musicFilter = ctx.createBiquadFilter();
@@ -152,7 +157,7 @@ export class AudioEngine {
     this.musicIn.connect(this.musicFilter);
 
     this.sfx = ctx.createGain();
-    this.sfx.connect(comp);
+    this.sfx.connect(hp);
     this.worldMute = ctx.createGain();
     this.worldMute.connect(this.sfx);
     this.world = ctx.createGain();
@@ -174,7 +179,7 @@ export class AudioEngine {
     this.reverbSend = ctx.createGain();
     const ret = ctx.createGain();
     ret.gain.value = b.reverbReturn;
-    this.reverbSend.connect(verb).connect(ret).connect(comp);
+    this.reverbSend.connect(verb).connect(ret).connect(hp);
     const worldVerb = ctx.createGain();
     worldVerb.gain.value = 0.12;
     this.world.connect(worldVerb).connect(this.reverbSend);

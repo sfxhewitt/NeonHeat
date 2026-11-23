@@ -279,7 +279,7 @@ export class VehicleAudio {
 
     const base = isPlayer ? vc.playerGain : car.role === 'traffic' && speed < 1 ? vc.idleGain : vc.otherGain;
     const fadeIn = Math.min(1, v.age / 0.3);
-    const level = c.gain * base * (0.55 + 0.45 * load) * (isPlayer ? 1 : distanceGain(dist, L)) * fadeIn;
+    const level = c.gain * base * (0.4 + 0.6 * load) * (isPlayer ? 1 : distanceGain(dist, L)) * fadeIn;
     v.gain.gain.setTargetAtTime(level, t, 0.05);
     v.pan.pan.setTargetAtTime(isPlayer ? panFor(dx, L) * 0.4 : panFor(dx, L), t, 0.05);
 
