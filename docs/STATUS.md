@@ -42,6 +42,27 @@ Known gaps:
 - Garage buildings are only placed for drive-in sites on open lots.
 - The sign posts have no colliders.
 - The chop shop's yard floodlight barely shows in the light field.
+## Living city (23 Nov 2026)
+
+All tuning is in `content/data/life.json` (Zod: `packages/sim/src/life-config.ts`); per-tier caps (`responders`, `gangMembers`, `gangCars`) are in `quality.json`.
+
+- **Emergency services** (`services.ts`). A ped knocked down near the player brings an ambulance; a wreck heavier than `wreckMinMass` catches fire and brings a fire tender. Units come from the nearest clinic marker or a road out of view, follow the road graph with sirens and beacons on, park at the kerb, and the crew walks round to the job. Paramedics kneel either side and revive the patient; firefighters hose the wreck until it goes out (flames, spray and steam in `apps/game/src/life-layer.ts`). Then the vehicle rejoins traffic with its lights off. Traffic pulls over and slows for any siren, including police with HEAT. Audio gets `siren` events, plus `v.siren` for the siren voices.
+- **Street crews** (`gangs.ts`). Five crews hang about in groups at spots in their home district, each with its colour and its own silhouette: a hood, a visor with pads, a hat with coat tails, a beanie with vest bands, or a crest with an antenna pack. Crew cars cruise their turf in crew colours. Respect: call `world.gangs.setRespect(crew, n)` (the director syncs mission progress). At +20 or more, members nod to you and fight police who come for you. In between, they ignore you unless attacked. At -20 or less, they shoot on sight on their own turf. Rival squads raid each other now and then: a stand-off, then a fight, and a crowd gathers. Hitting a crew member is a police crime only if police see it.
+- **Crowds** (`crowds.ts`).
+  - People walk in small groups and cross at junctions on the pedestrian phase of `trafficLight()`, queueing across the zebra.
+  - They put up umbrellas in rain and shelter in doorways in storms.
+  - They gather round wrecks and fights, then scatter at gunfire, and dive away from a car mounting the pavement.
+  - Density follows district style and time of day.
+- **Rendering** (`people-view.ts`, `people-gear.ts`). All kit and umbrellas are one `BatchedMesh` and every glowing detail one instanced mesh, so this adds 1 draw call (the glow mesh replaced the officers' shoulder-light mesh). New poses: kneel, nod, hose, film, shelter, aim, loiter. The people cap rose from 65 to 120.
+- **Performance**: a 60 s headless run with everything on (crews, crowds, responders, traffic, police) took 1.15 ms per tick on average. The three life systems account for about 0.05 ms of that.
+- **Tests**: `tests/unit/living-city.test.ts` (19). Screenshots are in `overnight/living-city/`.
+- **Open**:
+  - Police do not respond to crew fights, and officers do not shoot crew members.
+  - Hostile crew cars cruise but do not chase.
+  - Kneeling is approximate: the legs do not bend.
+  - A responder sometimes parks at an angle part-way into the lane.
+  - The first dispatch of a route runs a Dijkstra, which may cause a small hitch on a slow phone.
+  - Wrecks too light to burn (bikes) no longer smoke.
 
 ## Wanted, combat and survival (23 Nov 2026)
 

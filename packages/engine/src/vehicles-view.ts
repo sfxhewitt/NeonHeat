@@ -231,7 +231,8 @@ export class VehiclesView {
 
       if (v.destroyed) continue;
       const braking = v.controls.brake > 0.1 || (v.controls.handbrake && !parked);
-      const onCall = !parked && L.beacons !== 'none';
+      // Police show their lights whenever they are out; ambulances and fire tenders only on a call.
+      const onCall = !parked && L.beacons !== 'none' && (v.beacons || v.role === 'police' || v.role === 'squad');
       const ph = (world.time * 1.6 + slot * 0.29) % 1;
       const strobeA = ph < 0.5 && ((ph * 6) % 1) < 0.75;
       const strobeB = ph >= 0.5 && (((ph - 0.5) * 6) % 1) < 0.75;
@@ -267,6 +268,9 @@ export class VehiclesView {
   private repaint(world: World, v: Vehicle): void {
     this.slotSeed[v.id] = v.paintSeed;
     this.slotPaint[v.id]!.set(paintFor(world.content.vehicles, v.variantId, v.paintSeed));
+    // Crew cars cruise in their crew's colour.
+    const crew = world.gangs.carCrew[v.id] ?? -1;
+    if (crew >= 0) this.slotPaint[v.id]!.set(world.gangs.crews[crew]!.colour).multiplyScalar(0.8);
   }
 
   /** A new vehicle in a slot: swap the batch geometry and roll its paint and rider. */
@@ -361,7 +365,7 @@ export function applyPaintMask(mat: Material): void {
         #ifdef USE_BATCHING_COLOR
           nhTint = getBatchingColor( getIndirectIndex( gl_DrawID ) );
         #endif
-        if (nhTint.r + nhTint.g + nhTint.b < 0.0005) vColor *= 0.07;
+        if (nhTint.r + nhTint.g + nhTint.b < 0.0005) vColor *= 0.15;
         else vColor *= mix(vec3(1.0), nhTint, paintMask);
       #endif`,
     );

@@ -168,6 +168,40 @@ export class Particles {
     for (let i = 0; i < 6; i++) this.puffSmoke(x + (this.rand() - 0.5) * radius * 0.5, z + (this.rand() - 0.5) * radius * 0.5, true);
   }
 
+  /** Flames licking up off a burning wreck; `strength` 0..1 fades them as the fire dies. */
+  flame(x: number, z: number, strength: number): void {
+    const fire = [0xffe08a, 0xffa040, 0xff5a2a];
+    const n = strength > 0.5 ? 3 : strength > 0.2 ? 2 : 1;
+    for (let i = 0; i < n; i++) {
+      const s = 0.4 + strength * 0.8;
+      this.sparks.spawn(x + (this.rand() - 0.5) * 2.6, 1.2 + this.rand() * 0.5, z + (this.rand() - 0.5) * 2.6, (this.rand() - 0.5) * 0.6, 1.5 + this.rand() * 2.5 * s, (this.rand() - 0.5) * 0.6, 0.4 + this.rand() * 0.4 * s, 0.5 + this.rand() * 0.7 * s, -1.5, fire[i % 3]!);
+    }
+  }
+
+  /** A jet of water from a hose nozzle at (x, z) towards (tx, tz). */
+  spray(x: number, z: number, tx: number, tz: number): void {
+    const dx = tx - x;
+    const dz = tz - z;
+    const d = Math.hypot(dx, dz) || 1;
+    const sp = 6 + d * 0.9;
+    for (let i = 0; i < 3; i++) {
+      const j = (this.rand() - 0.5) * 0.14;
+      const k = 0.85 + this.rand() * 0.3;
+      this.sparks.spawn(x, 1.45, z, (dx / d + j) * sp * k, 2 + this.rand() * 1.5, (dz / d - j) * sp * k, d / sp + 0.15, 0.3, 9, 0xc4ecff);
+    }
+  }
+
+  /** Smoke off a burning wreck: low, drifting puffs rather than a column rising into the camera. */
+  wreckSmoke(x: number, z: number, strength: number): void {
+    const c = strength > 0.5 ? 0x22222c : 0x3a3c48;
+    this.smoke.spawn(x + (this.rand() - 0.5) * 2, 1.4, z + (this.rand() - 0.5) * 2, (this.rand() - 0.5) * 2.2, 0.8 + this.rand() * 0.8, (this.rand() - 0.5) * 2.2, 1.1, 0.45 + strength * 0.3, 0, c);
+  }
+
+  /** White steam where a fire has just been put out. */
+  steam(x: number, z: number): void {
+    for (let i = 0; i < 6; i++) this.smoke.spawn(x + (this.rand() - 0.5) * 2, 1, z + (this.rand() - 0.5) * 2, (this.rand() - 0.5), 1.5 + this.rand() * 1.5, (this.rand() - 0.5), 2.2, 1.2, -0.4, 0xb8c0cc);
+  }
+
   muzzle(x: number, y: number, z: number, dx: number, dz: number): void {
     for (let i = 0; i < 4; i++) {
       this.sparks.spawn(x, y, z, dx * (10 + this.rand() * 10), 0.5, dz * (10 + this.rand() * 10), 0.08, 0.35, 0, 0xfff2a0);

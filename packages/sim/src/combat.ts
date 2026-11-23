@@ -271,6 +271,12 @@ export class CombatSystem {
     };
     // People with guns first: an officer a little further away still wins over a car.
     for (const o of w.officers.officers) if (o.active && o.state !== 'down') consider('officer', o.id, o.x, o.z, -4);
+    // Crew members shooting at the player.
+    const gangs = w.gangs;
+    for (let i = 0; i < gangs.hostileCount; i++) {
+      const p = w.peds.peds[gangs.hostilePeds[i]!]!;
+      if (p.active && p.state !== 'down') consider('ped', p.id, p.x, p.z, -3);
+    }
     for (const v of w.vehicles) {
       if (!v.active || v.destroyed || v === exclude || v === w.player.vehicle) continue;
       if (v.role !== 'police' && v.role !== 'squad') continue;
@@ -328,7 +334,8 @@ export class CombatSystem {
     } else if (wp.kind === 'projectile') this.launch(x, z, ang, wp, target);
     else this.arcCast(x, z, ang, wp, target);
     if (wp.kind !== 'melee') {
-      w.police.crime('gunfire', w.player.x, w.player.z);
+      // Shooting it out with a street crew is only a police matter if they see it.
+      if (target?.kind !== 'ped' || w.gangs.reportable(target.id)) w.police.crime('gunfire', w.player.x, w.player.z);
       if (wp.noiseRadius > 0) w.peds.alarm(x, z, wp.noiseRadius);
     }
     // Out of rounds: drop to the next usable weapon.
@@ -399,7 +406,7 @@ export class CombatSystem {
     if (kind === 'ped') {
       const p = w.peds.peds[id]!;
       const down = w.peds.damage(p, amount, kx, kz, byPlayer);
-      if (byPlayer) w.police.crime(down ? 'killPed' : 'assault', px, pz);
+      if (byPlayer && w.gangs.reportAttack(id)) w.police.crime(down ? 'killPed' : 'assault', px, pz);
       return down;
     }
     if (kind === 'officer') {

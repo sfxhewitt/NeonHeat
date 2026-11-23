@@ -45,6 +45,7 @@ import { loadGameContent, type GameContent } from './content';
 import { GameFlow } from './flow';
 import { setupTuning } from './tuning';
 import { CombatLayer } from './combat-layer';
+import { LifeLayer } from './life-layer';
 import { SoundBridge } from './sound';
 import { EconomyLayer } from './economy-layer';
 
@@ -84,6 +85,7 @@ export class Game {
   private combat!: CombatLayer;
   /** Shops, resprays, safehouses, cyberware, exports (apps/game/src/economy-layer.ts). */
   economy!: EconomyLayer;
+  private life!: LifeLayer;
   private signs!: { stream: (x: number, z: number) => void };
   private signals!: SignalsView;
   private readonly hemi = new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8);
@@ -115,6 +117,7 @@ export class Game {
   /** Remaining hit-stop, seconds of frozen simulation. */
   private hitStop = 0;
   private smokeTimer = 0;
+  private smokeN = 0;
   private readonly intents: Intents = emptyIntents();
   private paused = false;
   private last = 0;
@@ -266,11 +269,12 @@ export class Game {
     this.signs = buildSignage(s, signs);
     this.shadows = new BlobShadows(s);
     this.vehiclesView = new VehiclesView(s, this.content.sim.vehicles.variants);
-    this.particles = new Particles(s);
+    this.particles = new Particles(s, 384);
     this.skids = new SkidMarks(s);
     this.people = new PeopleView(s, this.content.sim.peds.colours);
     this.markers = new MarkersView(s);
     this.droneView = new DroneView(s, this.content.sim.heat.droneSightRange);
+    this.life = new LifeLayer(this.particles);
     this.combat = new CombatLayer(this.world, {
       scene: s,
       overlay: this.overlay,
@@ -336,6 +340,9 @@ export class Game {
     this.world.peds.cap = q.peds;
     this.world.traffic.cap = q.traffic;
     this.world.police.cap = q.police;
+    this.world.services.cap = q.responders;
+    this.world.gangs.cap = q.gangMembers;
+    this.world.gangs.carCap = q.gangCars;
     this.dynRes = q.dynamicResolution ? new DynamicResolution(this.content.quality.dynamicResolution) : null;
   }
 
@@ -557,6 +564,7 @@ export class Game {
 
   private onSimEvent(e: SimEvent): void {
     this.sound.audio.onEvent(e);
+    this.life.onEvent(e);
     if (this.economy.onEvent(e)) return;
     if (this.combat.onEvent(e)) return;
     const feel = this.content.feel;
@@ -621,14 +629,20 @@ export class Game {
     this.smokeTimer -= dt;
     if (this.smokeTimer <= 0) {
       this.smokeTimer = 0.08;
+      this.smokeN++;
       const sm = this.skids.smoke;
       for (let i = 0; i < sm.length; i += 2) this.particles.puffSmoke(sm[i]!, sm[i + 1]!, false);
       for (const v of w.vehicles) {
         if (!v.active) continue;
         const h = v.hp / v.params.maxHealth;
-        if (v.destroyed || h < 0.35) this.particles.puffSmoke(v.x, v.z, v.destroyed);
+        // Wrecks smoke while they burn (black, greying as the fire is fought); damaged cars smoke from the engine.
+        if (v.destroyed) {
+          const burn = w.services.burnOf(v.id);
+          if (burn > 0.01 && (this.smokeN & 1) === 0) this.particles.wreckSmoke(v.x, v.z, burn);
+        } else if (h < 0.35) this.particles.puffSmoke(v.x, v.z, false);
       }
     }
+    this.life.update(w, dt);
     this.particles.update(dt);
     this.rig.shakeMax = this.content.feel.shakeMax;
     this.rig.shakeDecay = this.content.feel.shakeDecay;
