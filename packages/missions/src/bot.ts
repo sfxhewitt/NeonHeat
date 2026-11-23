@@ -37,6 +37,7 @@ export class MissionBot {
   private wedged = 0;
   private wedgeDist = Infinity;
   private walkStuck = 0;
+  private shoveTime = 0;
   private walkRoute = 0;
   private walkPath: { x: number; z: number }[] = [];
   private walkGoal = { x: Infinity, z: Infinity };
@@ -118,7 +119,12 @@ export class MissionBot {
         return this.inCar(v.vehicleId, base, 3);
       case 'stealVehicle':
         return v.vehicleId >= 0 ? this.inCar(v.vehicleId, base, 0) : { ...base, need: 'foot' };
-      case 'destroyVehicle':
+      case 'destroyVehicle': {
+        // A parked target: get out and shoot it (ramming a heavy truck barely scratches it).
+        const t = v.vehicleId >= 0 ? w.vehicles[v.vehicleId] : undefined;
+        if (t && Math.hypot(t.vx, t.vz) < 3) return { ...base, need: 'foot', stopAt: 9, shoot: true };
+        return { ...base, need: 'car', arrive: 30, car: -1 };
+      }
       case 'chase':
         // Ram it: arrive flat out.
         return { ...base, need: 'car', arrive: 30, car: -1 };
@@ -205,6 +211,14 @@ export class MissionBot {
         return;
       }
       if (p.follow !== undefined) return this.tail(p, dist, out);
+      // Ramming but only shoving at walking pace: back off for a run-up.
+      if (p.arrive >= 30 && dist < 10 && Math.abs(forwardSpeed(w.player.vehicle!)) < 6) this.shoveTime += 1 / 60;
+      else this.shoveTime = 0;
+      if (this.shoveTime > 1) {
+        this.shoveTime = 0;
+        this.reverseTime = 1.6;
+        this.reverseSteer = 0;
+      }
       this.drive(p.x, p.z, dist, out, p.arrive);
       return;
     }

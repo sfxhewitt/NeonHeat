@@ -34,6 +34,10 @@ interface Checkpoint {
   gone: string[];
   heat: number;
   trace: number;
+  /** Weapons as they were: a retry after BOOKED or FLATLINED (which strip them) is still a fair go. */
+  owned: boolean[];
+  ammo: number[];
+  weapon: number;
 }
 
 /** MissionHost implemented over the simulation world. */
@@ -477,7 +481,7 @@ export class WorldMissionHost implements MissionHost {
       actors.push({ ref, x: a.x, z: a.z, hp: a.hp, dead: a.dead, riding: a.riding, aggro: a.aggro });
     }
     for (const ref of this.deadActors) if (!this.actorSlots.has(ref)) actors.push({ ref, x: 0, z: 0, hp: 0, dead: true, riding: false, aggro: false });
-    return { px: w.player.x, pz: w.player.z, facing: w.playerCtl.facing, drivingRef, vehicles, actors, gone: [...this.gone], heat: w.heat.level, trace: w.trace };
+    return { px: w.player.x, pz: w.player.z, facing: w.playerCtl.facing, drivingRef, vehicles, actors, gone: [...this.gone], heat: w.heat.level, trace: w.trace, owned: [...w.combat.owned], ammo: [...w.combat.ammo], weapon: w.combat.current };
   }
 
   restoreCheckpoint(raw: unknown): void {
@@ -547,6 +551,13 @@ export class WorldMissionHost implements MissionHost {
       if (Math.hypot(v.x - cp.px, v.z - cp.pz) < RETRY_CLEAR_RADIUS) w.despawnVehicle(v);
     }
     for (const o of w.officers.officers) if (o.active && Math.hypot(o.x - cp.px, o.z - cp.pz) < RETRY_CLEAR_RADIUS) w.officers.despawn(o);
+    if (cp.owned) {
+      for (let i = 0; i < cp.owned.length; i++) {
+        w.combat.owned[i] = cp.owned[i]!;
+        w.combat.ammo[i] = cp.ammo[i]!;
+      }
+      w.combat.current = cp.weapon;
+    }
     w.heat.clear();
     if (cp.heat > 0) w.heat.setLevel(cp.heat, cp.px, cp.pz);
     w.trace = cp.trace;
