@@ -2,12 +2,12 @@
   "padRadius": 2.2,
   "carPad": { "radius": 5, "maxSpeed": 3 },
   "brands": {
-    "clinic": { "name": "MERCY LINE", "tagline": "Clinic and cyberware" },
-    "precinct": { "name": "CITY WATCH", "tagline": "Precinct" },
-    "safehouse": { "name": "HIDEOUT", "tagline": "Safehouse" },
-    "respray": { "name": "FRESH COAT", "tagline": "Respray while you wait" },
-    "arms": { "name": "LOUD GOODS", "tagline": "Arms and armour" },
-    "chopshop": { "name": "CHOP CHOP", "tagline": "Export yard" }
+    "clinic": { "name": "MERCY LINE", "tagline": "Clinic and cyberware", "colour": "#ff5c7c" },
+    "precinct": { "name": "CITY WATCH", "tagline": "Precinct", "colour": "#4d8bff" },
+    "safehouse": { "name": "HIDEOUT", "tagline": "Safehouse", "colour": "#d7ff2b" },
+    "respray": { "name": "FRESH COAT", "tagline": "Respray while you wait", "colour": "#21f0ff" },
+    "arms": { "name": "LOUD GOODS", "tagline": "Arms and armour", "colour": "#ff9a3c" },
+    "chopshop": { "name": "CHOP CHOP", "tagline": "Export yard", "colour": "#b98cff" }
   },
   "respray": { "price": 150 },
   "arms": {

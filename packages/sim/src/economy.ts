@@ -32,7 +32,8 @@ export type ServiceKind = (typeof SERVICE_KINDS)[number];
 export const CYBERWARE = ['reflex', 'plating', 'ghost'] as const;
 export type CyberwareId = (typeof CYBERWARE)[number];
 
-const Brand = z.object({ name: z.string().min(1), tagline: z.string() });
+/** A shop's name, tagline and neon colour (the same colour as its map badge; a shape always pairs with it). */
+const Brand = z.object({ name: z.string().min(1), tagline: z.string(), colour: z.string().regex(/^#[0-9a-fA-F]{6}$/) });
 
 export const EconomyConfigSchema = z.object({
   /** On-foot pads (shop doors, safehouse doors), metres. */
@@ -41,12 +42,12 @@ export const EconomyConfigSchema = z.object({
   carPad: z.object({ radius: z.number().positive(), maxSpeed: z.number().positive() }).default({ radius: 5, maxSpeed: 3 }),
   /** Shop names and taglines, shown on the signs and the shop panel. */
   brands: z.record(z.enum(SERVICE_KINDS), Brand).default({
-    clinic: { name: 'CLINIC', tagline: '' },
-    precinct: { name: 'PRECINCT', tagline: '' },
-    safehouse: { name: 'SAFEHOUSE', tagline: '' },
-    respray: { name: 'RESPRAY', tagline: '' },
-    arms: { name: 'ARMS', tagline: '' },
-    chopshop: { name: 'CHOP SHOP', tagline: '' },
+    clinic: { name: 'CLINIC', tagline: '', colour: '#ff5c7c' },
+    precinct: { name: 'PRECINCT', tagline: '', colour: '#4d8bff' },
+    safehouse: { name: 'SAFEHOUSE', tagline: '', colour: '#d7ff2b' },
+    respray: { name: 'RESPRAY', tagline: '', colour: '#21f0ff' },
+    arms: { name: 'ARMS', tagline: '', colour: '#ff9a3c' },
+    chopshop: { name: 'CHOP SHOP', tagline: '', colour: '#b98cff' },
   }),
   respray: z.object({ price: Price }).default({ price: 150 }),
   arms: z
