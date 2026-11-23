@@ -18,15 +18,18 @@ import {
   Vector2,
   Vector3,
 } from 'three';
-import { layoutLamps as layoutLampSpots, type MapContent } from '@neonheat/sim';
+import type { Matrix4 } from 'three';
+import { RoadGraph, layoutLamps as layoutLampSpots, type MapContent } from '@neonheat/sim';
 import { Palette } from './palette';
 import { BLOOM_LAYER } from './layers';
 import { MeshBuilder } from './mesh-kit';
+import { InstanceStream } from './stream';
 
 export interface CityMeshes {
   ground: Mesh;
   roads: Mesh;
   pavements: Mesh;
+  water: Mesh;
   buildings: InstancedMesh;
   roofProps: InstancedMesh;
   lampPosts: InstancedMesh;
@@ -44,18 +47,35 @@ export interface CityMeshes {
   lamps: { x: number; z: number; colour: number }[];
   /** Knock a street lamp flat (its head, pool and light shaft go dark) or stand it back up. */
   setLampDown(index: number, down: boolean): void;
+  /** Stream the instances near (x, z) into view. Cheap when called every frame. */
+  stream(x: number, z: number): void;
 }
 
+const KERB_STONE = 0x5a5878;
 
-/** Build the static block: ground, roads, pavements with kerbs, lit buildings, roof clutter and street lights. */
+/**
+ * Build the city: ground, roads with markings, pavements with kerbs, parks,
+ * yards, the river with its quays and bridges, lit buildings, roof clutter and
+ * street lights. Buildings, roof clutter and lamps are streamed: only those
+ * near the camera are drawn.
+ */
 export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material): CityMeshes {
   const [sx, sz] = map.size;
-  const ground = new Mesh(new PlaneGeometry(sx + 40, sz + 40), new MeshLambertMaterial({ color: 0x0e0f1e }));
-  ground.rotation.x = -Math.PI / 2;
+  const river = map.water[0];
+  const rz0 = river ? river.z - river.d / 2 : 0;
+  const rz1 = river ? river.z + river.d / 2 : 0;
+  // Ground: north and south of the river (the river bed is lower, under the water).
+  const gb = new MeshBuilder();
+  if (river) {
+    gb.box(0, -0.05, (-sz / 2 - 20 + rz0) / 2, sx + 40, 0.1, rz0 + sz / 2 + 20, 0x0e0f1e);
+    gb.box(0, -0.05, (rz1 + sz / 2 + 20) / 2, sx + 40, 0.1, sz / 2 + 20 - rz1, 0x0e0f1e);
+  } else gb.box(0, -0.05, 0, sx + 40, 0.1, sz + 40, 0x0e0f1e);
+  const ground = new Mesh(gb.build(), new MeshLambertMaterial({ vertexColors: true }));
   ground.name = 'ground';
   scene.add(ground);
 
-  const roads = new Mesh(buildRoadGeometry(map), roadMaterial ?? new MeshLambertMaterial({ color: Palette.road }));
+  const graph = new RoadGraph(map);
+  const roads = new Mesh(buildRoadGeometry(map, graph), roadMaterial ?? new MeshLambertMaterial({ color: Palette.road }));
   roads.renderOrder = -2;
   roads.name = 'roads';
   roads.position.y = 0.02;
@@ -66,6 +86,11 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
   const pavements = new Mesh(buildPavementGeometry(map), pavementMat);
   pavements.name = 'pavements';
   scene.add(pavements);
+
+  const water = new Mesh(buildWaterGeometry(map), waterMaterial());
+  water.name = 'water';
+  water.renderOrder = -3;
+  scene.add(water);
 
   // Buildings: one instanced box, windows and shopfronts drawn by the shader.
   const geo = new BoxGeometry(1, 1, 1);
@@ -84,35 +109,47 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
   const focusScreen = new Vector2(0.5, 0.5);
   installBuildingShader(mat, focus, viewport, focusScreen);
   // Tall buildings get a setback tier on top: drawn as extra instances.
-  const parts: { x: number; z: number; w: number; d: number; y: number; h: number; seed: number; tint: number }[] = [];
+  const parts: { x: number; z: number; w: number; d: number; y: number; h: number; seed: number; tint: number; district: number }[] = [];
   map.buildings.forEach((b, i) => {
-    const tint = i;
-    parts.push({ x: b.x, z: b.z, w: b.w, d: b.d, y: 0, h: b.h, seed: i, tint });
+    const district = b.district ?? 0;
+    parts.push({ x: b.x, z: b.z, w: b.w, d: b.d, y: 0, h: b.h, seed: i, tint: i, district });
     if (b.h > 15 && b.w > 11 && b.d > 11) {
       const th = Math.round(b.h * (0.22 + ((i * 13) % 7) / 40));
-      parts.push({ x: b.x + ((i % 3) - 1) * b.w * 0.08, z: b.z, w: b.w * 0.62, d: b.d * 0.62, y: b.h, h: th, seed: i + 500, tint });
+      parts.push({ x: b.x + ((i % 3) - 1) * b.w * 0.08, z: b.z, w: b.w * 0.62, d: b.d * 0.62, y: b.h, h: th, seed: i + 500, tint: i, district });
+      // The tallest towers step back twice.
+      if (b.h > 45) parts.push({ x: b.x, z: b.z, w: b.w * 0.38, d: b.d * 0.38, y: b.h + th, h: Math.round(b.h * 0.18), seed: i + 900, tint: i, district });
     }
   });
+  // Each district has its own facade palette: towers steel-blue, market plum, housing brick-violet, docks rust, industrial grey-green.
+  const palettes: Record<string, number[]> = {
+    towers: [0x2e3a66, 0x34406e, 0x283458, 0x3a4878, 0x2a3a5e],
+    market: [0x3a2850, 0x452a58, 0x33244a, 0x4a3060, 0x3c2c54],
+    housing: [0x3a2e4e, 0x423456, 0x352a48, 0x3e3050, 0x2f2a46],
+    docks: [0x3c3236, 0x46383a, 0x343036, 0x403a3e, 0x2e2c34],
+    industrial: [0x2c3438, 0x343c40, 0x283034, 0x30383c, 0x262e32],
+  };
+  const styleOf = map.districts.map((d) => d.style);
   const buildings = new InstancedMesh(geo, mat, parts.length);
   buildings.name = 'buildings';
   const o = new Object3D();
   const col = new Color();
-  const base = [0x2c2e58, 0x33305a, 0x272a4e, 0x3a3462, 0x2a3350];
-  parts.forEach((p, i) => {
+  const buildingItems = parts.map((p) => {
     o.position.set(p.x, p.y, p.z);
+    o.rotation.set(0, 0, 0);
     o.scale.set(p.w, p.h, p.d);
     o.updateMatrix();
-    buildings.setMatrixAt(i, o.matrix);
+    const base = palettes[styleOf[p.district] ?? 'market'] ?? palettes.market!;
     col.setHex(base[p.tint % base.length]!).offsetHSL(((p.tint * 37) % 11) / 400, 0, ((p.tint * 53) % 7) / 260);
-    buildings.setColorAt(i, col);
+    return { x: p.x, z: p.z, matrix: o.matrix.clone(), colour: { r: col.r, g: col.g, b: col.b } };
   });
-  buildings.instanceMatrix.needsUpdate = true;
+  buildings.setColorAt(0, col);
+  const buildingStream = new InstanceStream(buildings, buildingItems, 260);
   scene.add(buildings);
 
   // Roof clutter: AC units, water tanks, antennas, stair housings.
   const roofItems: { x: number; y: number; z: number; w: number; h: number; d: number }[] = [];
   parts.forEach((p, i) => {
-    if (i > 0 && parts[i - 1]!.seed + 500 === p.seed) return; // the base below has a setback
+    if (i + 1 < parts.length && parts[i + 1]!.seed === p.seed + 500) return; // the base below has a setback
     const top = p.y + p.h;
     const n = 2 + (p.seed % 3);
     for (let k = 0; k < n; k++) {
@@ -125,12 +162,16 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
     }
   });
   const roofProps = new InstancedMesh(geo, new MeshLambertMaterial({ color: 0x3a3a5c, flatShading: true }), roofItems.length);
-  roofItems.forEach((r, i) => {
-    o.position.set(r.x, r.y, r.z);
-    o.scale.set(r.w, r.h, r.d);
-    o.updateMatrix();
-    roofProps.setMatrixAt(i, o.matrix);
-  });
+  const roofStream = new InstanceStream(
+    roofProps,
+    roofItems.map((r) => {
+      o.position.set(r.x, r.y, r.z);
+      o.scale.set(r.w, r.h, r.d);
+      o.updateMatrix();
+      return { x: r.x, z: r.z, matrix: o.matrix.clone() };
+    }),
+    200,
+  );
   roofProps.name = 'roof-props';
   scene.add(roofProps);
 
@@ -148,69 +189,77 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
     new MeshBasicMaterial({ map: radialTexture(), transparent: true, blending: AdditiveBlending, depthWrite: false, toneMapped: false }),
     lamps.length,
   );
-  lamps.forEach((l, i) => {
+  const lampCones = new InstancedMesh(coneGeometry(), coneMaterial(), lamps.length);
+  const postItems: { x: number; z: number; matrix: Matrix4 }[] = [];
+  const headItems: { x: number; z: number; matrix: Matrix4; colour: Color }[] = [];
+  const poolItems: { x: number; z: number; matrix: Matrix4; colour: Color }[] = [];
+  const coneItems: { x: number; z: number; matrix: Matrix4; colour: Color }[] = [];
+  for (const l of lamps) {
     o.position.set(l.x, 0, l.z);
     o.rotation.set(0, l.yaw, 0);
     o.scale.set(1, 1, 1);
     o.updateMatrix();
-    lampPosts.setMatrixAt(i, o.matrix);
+    postItems.push({ x: l.x, z: l.z, matrix: o.matrix.clone() });
     o.position.set(l.x + Math.sin(l.yaw) * 1.3, 6.5, l.z + Math.cos(l.yaw) * 1.3);
     o.updateMatrix();
-    lampHeads.setMatrixAt(i, o.matrix);
-    lampHeads.setColorAt(i, col.setHex(l.colour).multiplyScalar(1.4));
+    headItems.push({ x: l.x, z: l.z, matrix: o.matrix.clone(), colour: new Color(l.colour).multiplyScalar(1.4) });
     o.position.set(l.x + Math.sin(l.yaw) * 2.2, 0.06, l.z + Math.cos(l.yaw) * 2.2);
     o.scale.set(13, 1, 13);
     o.updateMatrix();
-    lightPools.setMatrixAt(i, o.matrix);
-    lightPools.setColorAt(i, col.setHex(l.colour).multiplyScalar(0.32));
-  });
+    poolItems.push({ x: l.x, z: l.z, matrix: o.matrix.clone(), colour: new Color(l.colour).multiplyScalar(0.32) });
+    o.position.set(l.x + Math.sin(l.yaw) * 1.3, 0, l.z + Math.cos(l.yaw) * 1.3);
+    o.rotation.set(0, 0, 0);
+    o.scale.set(1, 1, 1);
+    o.updateMatrix();
+    coneItems.push({ x: l.x, z: l.z, matrix: o.matrix.clone(), colour: new Color(l.colour) });
+  }
+  for (const m of [lampHeads, lightPools, lampCones]) m.setColorAt(0, col);
+  const lampStreams = [
+    new InstanceStream(lampPosts, postItems, 200),
+    new InstanceStream(lampHeads, headItems, 200),
+    new InstanceStream(lightPools, poolItems, 200),
+    new InstanceStream(lampCones, coneItems, 200),
+  ];
   lampHeads.layers.enable(BLOOM_LAYER);
   lightPools.layers.enable(BLOOM_LAYER);
   lightPools.renderOrder = -1;
   lampPosts.name = 'lamp-posts';
   lampHeads.name = 'lamp-heads';
   lightPools.name = 'light-pools';
-  const lampCones = new InstancedMesh(coneGeometry(), coneMaterial(), lamps.length);
-  lamps.forEach((l, i) => {
-    o.position.set(l.x + Math.sin(l.yaw) * 1.3, 0, l.z + Math.cos(l.yaw) * 1.3);
-    o.rotation.set(0, 0, 0);
-    o.scale.set(1, 1, 1);
-    o.updateMatrix();
-    lampCones.setMatrixAt(i, o.matrix);
-    lampCones.setColorAt(i, col.setHex(l.colour));
-  });
   lampCones.name = 'lamp-cones';
   lampCones.renderOrder = 2;
   lampCones.visible = false;
   scene.add(lampPosts, lampHeads, lightPools, lampCones);
 
   // Knocked-down lamps: the post lies on the pavement, away from the road; the rest goes dark.
-  const standing = [lampPosts, lampHeads, lightPools, lampCones].map((m) => new Float32Array(m.instanceMatrix.array));
   const fallen = new Object3D();
-  const hidden = new Object3D();
-  hidden.scale.set(0, 0, 0);
-  hidden.updateMatrix();
   const kerb = map.roads.kerbHeight;
   const setLampDown = (i: number, down: boolean): void => {
     const l = lamps[i];
     if (!l) return;
-    [lampPosts, lampHeads, lightPools, lampCones].forEach((m, k) => {
-      if (!down) m.instanceMatrix.array.set(standing[k]!.subarray(i * 16, i * 16 + 16), i * 16);
+    lampStreams.forEach((s, k) => {
+      if (!down) s.override(i, undefined);
       else if (k === 0) {
         fallen.position.set(l.x, kerb + 0.18, l.z);
         fallen.rotation.set(-Math.PI / 2 + 0.06, l.yaw, 0, 'YXZ');
+        fallen.scale.set(1, 1, 1);
         fallen.updateMatrix();
-        m.setMatrixAt(i, fallen.matrix);
-      } else m.setMatrixAt(i, hidden.matrix);
-      m.instanceMatrix.needsUpdate = true;
+        s.override(i, new Float32Array(fallen.matrix.elements));
+      } else s.override(i, null);
     });
+  };
+  const streams = [buildingStream, roofStream, ...lampStreams];
+  const stream = (x: number, z: number): void => {
+    for (const s of streams) s.update(x, z);
   };
 
   return {
     setLampDown,
+    stream,
     ground,
     roads,
     pavements,
+    water,
     buildings,
     roofProps,
     lampPosts,
@@ -224,63 +273,184 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
   };
 }
 
-/** Raised pavement slabs filling every block, with a pale kerb along the road edge. */
+/**
+ * Raised pavement slabs filling every block, with a pale kerb along the road
+ * edge. Parks are lawn, yards are tarmac, and the river quays drop to the water.
+ */
 export function buildPavementGeometry(map: MapContent): BufferGeometry {
-  const { positions, width } = map.roads;
   const KERB = map.roads.kerbHeight;
-  const [sx, sz] = map.size;
   const b = new MeshBuilder();
-  const cuts = (half: number): [number, number][] => {
-    const c = [-half, ...positions.flatMap((p) => [p - width / 2, p + width / 2]), half];
-    const out: [number, number][] = [];
-    for (let i = 0; i < c.length; i += 2) out.push([c[i]!, c[i + 1]!]);
-    return out;
-  };
-  for (const [x0, x1] of cuts(sx / 2)) {
-    for (const [z0, z1] of cuts(sz / 2)) {
-      const w = x1 - x0;
-      const d = z1 - z0;
-      b.box((x0 + x1) / 2, KERB / 2, (z0 + z1) / 2, w, KERB, d, 0x24233a);
-      // Kerb stones: a pale lip on each edge.
-      b.box((x0 + x1) / 2, KERB / 2 + 0.005, z0 + 0.2, w, KERB + 0.01, 0.4, 0x5a5878);
-      b.box((x0 + x1) / 2, KERB / 2 + 0.005, z1 - 0.2, w, KERB + 0.01, 0.4, 0x5a5878);
-      b.box(x0 + 0.2, KERB / 2 + 0.005, (z0 + z1) / 2, 0.4, KERB + 0.01, d, 0x5a5878);
-      b.box(x1 - 0.2, KERB / 2 + 0.005, (z0 + z1) / 2, 0.4, KERB + 0.01, d, 0x5a5878);
+  const river = map.water[0];
+  for (const k of map.blocks) {
+    const w = k.x1 - k.x0;
+    const d = k.z1 - k.z0;
+    if (w <= 0.2 || d <= 0.2) continue;
+    const cx = (k.x0 + k.x1) / 2;
+    const cz = (k.z0 + k.z1) / 2;
+    const quay = k.kind === 'promenade' && river !== undefined;
+    // Quays go down to below the water line.
+    const bottom = quay ? -1.6 : 0;
+    const colour = k.kind === 'park' ? 0x1c2a2a : k.kind === 'lot' ? 0x1d1c2c : k.kind === 'promenade' ? 0x26263c : 0x24233a;
+    b.box(cx, (KERB + bottom) / 2, cz, w, KERB - bottom, d, colour);
+    if (k.kind === 'park' || k.kind === 'promenade') {
+      // Lawns inset from the paved edge, with a walkway through promenades.
+      const inset = 2.2;
+      if (k.kind === 'park') b.box(cx, KERB + 0.01, cz, w - inset * 2, 0.02, d - inset * 2, 0x18302a);
+      else {
+        const lawnD = (d - 6) / 2 - inset;
+        if (lawnD > 1) {
+          b.box(cx, KERB + 0.01, k.z0 + inset + lawnD / 2, w - inset * 2, 0.02, lawnD, 0x18302a);
+          b.box(cx, KERB + 0.01, k.z1 - inset - lawnD / 2, w - inset * 2, 0.02, lawnD, 0x18302a);
+        }
+      }
+    }
+    if (k.kind === 'lot') {
+      // Parking bay lines.
+      for (let x = k.x0 + 4; x < k.x1 - 4; x += 3.4) {
+        for (const z of [k.z0 + 8, k.z1 - 8]) if (z > k.z0 + 5 && z < k.z1 - 5) b.box(x - 1.7, KERB + 0.012, z, 0.12, 0.01, 5, 0x55557a);
+      }
+    }
+    // Kerb stones: a pale lip on each edge.
+    b.box(cx, KERB / 2 + 0.005, k.z0 + 0.2, w, KERB + 0.01, 0.4, KERB_STONE);
+    b.box(cx, KERB / 2 + 0.005, k.z1 - 0.2, w, KERB + 0.01, 0.4, KERB_STONE);
+    b.box(k.x0 + 0.2, KERB / 2 + 0.005, cz, 0.4, KERB + 0.01, d, KERB_STONE);
+    b.box(k.x1 - 0.2, KERB / 2 + 0.005, cz, 0.4, KERB + 0.01, d, KERB_STONE);
+    if (quay) {
+      // A railing along the water's edge.
+      const edgeZ = Math.abs(k.z0 - (river.z - river.d / 2)) < 1 || Math.abs(k.z0 - (river.z + river.d / 2)) < 1 ? k.z0 : k.z1;
+      b.box(cx, KERB + 0.5, edgeZ + (edgeZ === k.z0 ? 0.3 : -0.3), w, 0.08, 0.08, 0x6a6890);
+      for (let x = k.x0 + 1; x < k.x1; x += 3) b.box(x, KERB + 0.25, edgeZ + (edgeZ === k.z0 ? 0.3 : -0.3), 0.08, 0.5, 0.08, 0x4a4868);
+    }
+  }
+  // Bridges: deck edges, a skirt down to the water and railings.
+  for (const s of map.roads.segments) {
+    if (s.kind !== 'bridge') continue;
+    const hw = s.width / 2;
+    const cz = (s.z0 + s.z1) / 2;
+    const len = s.z1 - s.z0;
+    b.box(s.x0, -0.8, cz, s.width + 1.2, 1.6, len, 0x1a1a2c);
+    for (const side of [-1, 1]) {
+      b.box(s.x0 + side * (hw + 0.3), 0.6, cz, 0.5, 1.2, len, 0x3a3a58);
+      b.box(s.x0 + side * (hw + 0.3), 1.25, cz, 0.6, 0.1, len, 0x8a88b8);
     }
   }
   return b.build();
 }
 
-/** One merged mesh for the whole road grid, with world-space UVs for the road shader. */
-export function buildRoadGeometry(map: MapContent): BufferGeometry {
-  const { positions, width, extent } = map.roads;
-  const quads: [number, number, number, number][] = [];
-  for (const p of positions) {
-    quads.push([-extent, p - width / 2, extent, p + width / 2]); // east-west
-    quads.push([p - width / 2, -extent, p + width / 2, extent]); // north-south
-  }
+/**
+ * Road surface: one quad per stretch of road between junctions, plus a box at
+ * each junction. Every vertex carries its position across and along the road,
+ * so the shader can paint lanes, stop lines and crossings exactly.
+ */
+export function buildRoadGeometry(map: MapContent, graph = new RoadGraph(map)): BufferGeometry {
   const verts: number[] = [];
   const uvs: number[] = [];
-  for (const [x0, z0, x1, z1] of quads) {
-    const v = [
+  const lane: number[] = []; // across, along, inner length, half width
+  const info: number[] = []; // start is a junction, end is a junction, kind (0 street, 1 avenue, 2 alley, 3 bridge)
+  // Half-widths of the roads crossing at each node, per axis.
+  const nsHalf = new Float32Array(graph.nodes.length);
+  const ewHalf = new Float32Array(graph.nodes.length);
+  for (const e of graph.edges) {
+    for (const id of [e.a, e.b]) {
+      if (e.alongX) ewHalf[id] = Math.max(ewHalf[id]!, e.width / 2);
+      else nsHalf[id] = Math.max(nsHalf[id]!, e.width / 2);
+    }
+  }
+  const kindId = { street: 0, avenue: 1, alley: 2, bridge: 3 } as const;
+  const quad = (x0: number, z0: number, x1: number, z1: number, attr: (x: number, z: number) => [number, number, number, number], inf: [number, number, number]): void => {
+    for (const [x, z] of [
       [x0, z0],
       [x0, z1],
       [x1, z1],
       [x0, z0],
       [x1, z1],
       [x1, z0],
-    ];
-    for (const [x, z] of v) {
-      verts.push(x!, 0, z!);
-      uvs.push(x!, z!);
+    ] as const) {
+      verts.push(x, 0, z);
+      uvs.push(x, z);
+      lane.push(...attr(x, z));
+      info.push(...inf);
     }
+  };
+  for (const e of graph.edges) {
+    const A = graph.nodes[e.a]!;
+    const B = graph.nodes[e.b]!;
+    const hw = e.width / 2;
+    if (e.alongX) {
+      const [L, R] = A.x < B.x ? [A, B] : [B, A];
+      const sx = L.x + nsHalf[L.id]!;
+      const ex = R.x - nsHalf[R.id]!;
+      if (ex - sx < 0.1) continue;
+      const len = ex - sx;
+      const jS = nsHalf[L.id]! > 0 ? 1 : 0;
+      const jE = nsHalf[R.id]! > 0 ? 1 : 0;
+      quad(sx, A.z - hw, ex, A.z + hw, (x, z) => [z - A.z, x - sx, len, hw], [jS, jE, kindId[e.kind]]);
+    } else {
+      const [T, U] = A.z < B.z ? [A, B] : [B, A];
+      const sz = T.z + ewHalf[T.id]!;
+      const ez = U.z - ewHalf[U.id]!;
+      if (ez - sz < 0.1) continue;
+      const len = ez - sz;
+      const jS = ewHalf[T.id]! > 0 ? 1 : 0;
+      const jE = ewHalf[U.id]! > 0 ? 1 : 0;
+      // Across is measured so that + is the right-hand side of travel towards +along (here: west of a southbound lane).
+      quad(A.x - hw, sz, A.x + hw, ez, (x, z) => [A.x - x, z - sz, len, hw], [jS, jE, kindId[e.kind]]);
+    }
+  }
+  // Junction boxes: plain tarmac.
+  for (const n of graph.nodes) {
+    const hx = nsHalf[n.id]!;
+    const hz = ewHalf[n.id]!;
+    if (hx <= 0 || hz <= 0) continue;
+    quad(n.x - hx, n.z - hz, n.x + hx, n.z + hz, () => [99, 0, 1, 1], [0, 0, 0]);
   }
   const g = new BufferGeometry();
   g.setAttribute('position', new BufferAttribute(new Float32Array(verts), 3));
   g.setAttribute('uv', new BufferAttribute(new Float32Array(uvs), 2));
+  g.setAttribute('aLane', new BufferAttribute(new Float32Array(lane), 4));
+  g.setAttribute('aInfo', new BufferAttribute(new Float32Array(info), 3));
   g.computeVertexNormals();
   return g;
 }
+
+/** The river surface, a little below the street. */
+function buildWaterGeometry(map: MapContent): BufferGeometry {
+  const b = new MeshBuilder();
+  const [sx] = map.size;
+  for (const w of map.water) b.box(w.x, -0.85, w.z, w.w, 0.02, w.d, 0x0a1430);
+  // Under the bridges too, so the river reads as one sheet.
+  const river = map.water[0];
+  if (river) b.box(0, -0.86, river.z, sx + 40, 0.02, river.d, 0x0a1430);
+  return b.build();
+}
+
+/** Dark water with slow ripples, catching neon from the light field in the shader of the wet road (see game). */
+function waterMaterial(): MeshLambertMaterial {
+  const m = new MeshLambertMaterial({ vertexColors: true });
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = waterTime;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWw;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvWw = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWw;\nuniform float uTime;')
+      .replace(
+        '#include <emissivemap_fragment>',
+        `#include <emissivemap_fragment>
+        {
+          float r1 = sin(vWw.x * 0.21 + uTime * 0.7) * sin(vWw.z * 0.37 - uTime * 0.5);
+          float r2 = sin(vWw.x * 0.83 - uTime * 1.3 + vWw.z * 0.4) * 0.5;
+          float glint = smoothstep(0.75, 1.0, r1 + r2 * 0.6);
+          diffuseColor.rgb *= 0.85 + 0.3 * (r1 * 0.5 + 0.5);
+          totalEmissiveRadiance += vec3(0.25, 0.35, 0.7) * glint * 0.18;
+        }`,
+      );
+  };
+  return m;
+}
+
+/** Shared time uniform for the river ripples (the game ticks it). */
+export const waterTime = { value: 0 };
 
 /** An open cone from the lamp head (6.4 m) to a 3.4 m circle on the ground. */
 function coneGeometry(): BufferGeometry {

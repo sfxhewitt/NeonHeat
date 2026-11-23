@@ -8,9 +8,6 @@
   "giver": { "type": "payphone", "at": "marker:ashgrove_payphone_1" },
   "prerequisites": { "missions": ["glasshounds_02_test_drive"] },
   "budgetMinutes": 6,
-  "spawns": {
-    "prototype_car": { "variant": "prototype", "at": "marker:glass_lot_2", "yaw": -1.5708, "locked": true, "role": "target" }
-  },
   "objectives": [
     { "id": "goto_lot", "type": "reach", "target": "marker:glass_lot_2", "radius": 6,
       "onStart": [{ "do": "dialogue", "line": "gh_03_intro" }] },

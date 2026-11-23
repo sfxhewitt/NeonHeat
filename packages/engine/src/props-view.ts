@@ -3,6 +3,7 @@ import type { Prop } from '@neonheat/sim';
 import { BLOOM_LAYER } from './layers';
 import { MeshBuilder } from './mesh-kit';
 import { NeonColours } from './palette';
+import { InstanceStream } from './stream';
 
 interface KindModel {
   body: BufferGeometry;
@@ -148,9 +149,9 @@ function glowColour(kind: string, id: number): number {
 export class PropsView {
   readonly meshes: InstancedMesh[] = [];
   private readonly glows: InstancedMesh[] = [];
-  private readonly slots: { prop: Prop; body: InstancedMesh; glow: InstancedMesh | null; index: number; shown: boolean }[] = [];
+  private readonly slots: { prop: Prop; streams: InstanceStream[]; index: number; shown: boolean }[] = [];
+  private readonly streams: InstanceStream[] = [];
   private readonly o = new Object3D();
-  private readonly zero = new Object3D();
   private readonly models = models();
 
   constructor(scene: Scene, props: readonly Prop[]) {
@@ -163,30 +164,34 @@ export class PropsView {
     const bodyMat = new MeshLambertMaterial({ vertexColors: true, flatShading: true });
     const glowMat = new MeshBasicMaterial({ vertexColors: true, toneMapped: false });
     const c = new Color();
-    this.zero.scale.set(0, 0, 0);
-    this.zero.updateMatrix();
+    const o = this.o;
     for (const [kind, list] of byKind) {
       const model = this.models[kind];
       if (!model) continue;
+      const items = list.map((p) => {
+        o.position.set(p.x, 0, p.z);
+        o.rotation.set(0, p.yaw, 0);
+        o.scale.set(1, 1, 1);
+        o.updateMatrix();
+        const colour = c.setHex(glowColour(kind, p.id)).multiplyScalar(kind === 'bollard' ? 0.5 : 1.3);
+        return { x: p.x, z: p.z, matrix: o.matrix.clone(), colour: { r: colour.r, g: colour.g, b: colour.b } };
+      });
       const body = new InstancedMesh(model.body, bodyMat, list.length);
       body.name = `props-${kind}`;
       scene.add(body);
       this.meshes.push(body);
-      let glow: InstancedMesh | null = null;
+      const kindStreams = [new InstanceStream(body, items.map((i) => ({ x: i.x, z: i.z, matrix: i.matrix })), 150)];
       if (model.glow) {
-        glow = new InstancedMesh(model.glow, glowMat, list.length);
+        const glow = new InstancedMesh(model.glow, glowMat, list.length);
         glow.name = `props-${kind}-glow`;
         glow.layers.enable(BLOOM_LAYER);
+        glow.setColorAt(0, c);
         scene.add(glow);
         this.glows.push(glow);
+        kindStreams.push(new InstanceStream(glow, items, 150));
       }
-      list.forEach((p, i) => {
-        this.place(p, body, glow, i, true);
-        if (glow) glow.setColorAt(i, c.setHex(glowColour(kind, p.id)).multiplyScalar(kind === 'bollard' ? 0.5 : 1.3));
-        this.slots.push({ prop: p, body, glow, index: i, shown: true });
-      });
-      body.instanceMatrix.needsUpdate = true;
-      if (glow) glow.instanceMatrix.needsUpdate = true;
+      this.streams.push(...kindStreams);
+      list.forEach((p, i) => this.slots.push({ prop: p, streams: kindStreams, index: i, shown: true }));
     }
   }
 
@@ -209,15 +214,9 @@ export class PropsView {
     return this.models[kind]?.debris ?? 0x55556a;
   }
 
-  private place(p: Prop, body: InstancedMesh, glow: InstancedMesh | null, i: number, show: boolean): void {
-    const o = this.o;
-    o.position.set(p.x, 0, p.z);
-    o.rotation.set(0, p.yaw, 0);
-    o.scale.set(1, 1, 1);
-    o.updateMatrix();
-    const mat = show ? o.matrix : this.zero.matrix;
-    body.setMatrixAt(i, mat);
-    glow?.setMatrixAt(i, mat);
+  /** Draw the props near (x, z). */
+  stream(x: number, z: number): void {
+    for (const s of this.streams) s.update(x, z);
   }
 
   /** Hide smashed props, show restored ones. Only touches what changed. */
@@ -226,9 +225,7 @@ export class PropsView {
       const show = !s.prop.broken;
       if (show === s.shown) continue;
       s.shown = show;
-      this.place(s.prop, s.body, s.glow, s.index, show);
-      s.body.instanceMatrix.needsUpdate = true;
-      if (s.glow) s.glow.instanceMatrix.needsUpdate = true;
+      for (const st of s.streams) st.override(s.index, show ? undefined : null);
     }
   }
 }

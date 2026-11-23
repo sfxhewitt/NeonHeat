@@ -25,6 +25,12 @@ export interface AiState {
   revSteer: number;
   /** Road-graph node currently driven towards, or -1. */
   waypoint: number;
+  /** Traffic on the road graph: driving the edge navFrom -> navTo, then turning towards navNext (-1 = not chosen). */
+  navFrom: number;
+  navTo: number;
+  navNext: number;
+  /** Cruising speed for this driver (m/s): some are in a hurry, some dawdle. */
+  cruise: number;
 }
 
 export function makeAiState(): AiState {
@@ -42,6 +48,10 @@ export function makeAiState(): AiState {
     searchNode: -1,
     revSteer: 0,
     waypoint: -1,
+    navFrom: -1,
+    navTo: -1,
+    navNext: -1,
+    cruise: 0,
   };
 }
 

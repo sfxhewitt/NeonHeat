@@ -21,8 +21,8 @@ class FakeHost implements MissionHost {
   checkpoints = 0;
   restored = 0;
   resolve(ref: string) {
-    if (ref === 'marker:kurogane_lot') return { x: 100, z: 0 };
-    if (ref === 'marker:gh_chopshop') return { x: -100, z: 0 };
+    if (ref === 'marker:glass_lot_2') return { x: 100, z: 0 };
+    if (ref === 'marker:chopshop_1') return { x: -100, z: 0 };
     return { x: 100, z: 5 };
   }
   ensureVehicle() {
@@ -239,7 +239,7 @@ describe('MissionDirector in the world', () => {
     w.playerCtl.teleport(g[0], g[2] + 1);
     step();
     step(intents({ interact: true }));
-    const lot = w.content.map.markers['kurogane_lot']!.pos;
+    const lot = w.content.map.markers['glass_lot_2']!.pos;
     w.playerCtl.teleport(lot[0], lot[2]);
     step();
     const car = w.vehicles[d.runner!.view.vehicleId]!;
@@ -279,7 +279,7 @@ describe('MissionDirector in the world', () => {
     expect(d.runner?.state).toBe('running');
     expect(w.interactables.some((i) => i.id.startsWith('giver:'))).toBe(false);
     // Skip ahead: stand at the lot, hack the car.
-    const lot = w.content.map.markers['kurogane_lot']!.pos;
+    const lot = w.content.map.markers['glass_lot_2']!.pos;
     w.playerCtl.teleport(lot[0], lot[2]);
     step();
     expect(d.runner?.objective?.id).toBe('hack_car');
