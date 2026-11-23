@@ -1,15 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { World } from '@neonheat/sim';
-import { fixtureContent, intents, makeWorld, run } from './helpers';
+import { intents, loadContent, makeWorld, movePlayer, run } from './helpers';
 
 async function quietWorld(): Promise<World> {
-  return makeWorld(
-    3,
-    fixtureContent((c) => {
-      c.traffic.count = 0;
-      c.peds.count = 0;
-    }),
-  );
+  const c = loadContent();
+  c.traffic.count = 0;
+  c.peds.count = 0;
+  return makeWorld(3, c);
 }
 
 describe('mission actors (people)', () => {
@@ -39,7 +36,7 @@ describe('mission actors (people)', () => {
   it('tough actors get back up until their hit points run out; clear() removes the living', async () => {
     const w = await quietWorld();
     const m = w.content.map.markers['lantern_door_2']!.pos;
-    w.playerCtl.teleport(m[0] + 80, m[2] + 80);
+    movePlayer(w, m[0] + 20, m[2] + 20);
     const capBefore = w.peds.cap;
     const a = w.actors.spawnActor({ x: m[0], z: m[2], faction: 'velvet_choir', hostile: false, behaviour: 'idle', hp: 2 })!;
     const b = w.actors.spawnActor({ x: m[0] + 3, z: m[2], faction: 'velvet_choir', hostile: false, behaviour: 'idle' })!;
@@ -96,8 +93,10 @@ describe('mission actors (drivers)', () => {
     run(w, 12, intents());
     expect(Math.hypot(runner.x - w.player.x, runner.z - w.player.z)).toBeGreaterThan(80);
     const q = w.content.map.markers['saltworks_road_1']!.pos;
+    movePlayer(w, q[0] + 30, q[2] + 30);
     const target = w.spawnVehicle('brick', q[0], q[2], 0, 'parked')!;
     const rammer = w.spawnVehicle('enforcer', q[0] + 60, q[2], 0, 'parked')!;
+    target.persistent = rammer.persistent = true;
     w.actors.ram(rammer, target.id);
     const hp = target.hp;
     run(w, 15, intents());

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { driveTowards, handleStuck, resetAiState } from './ai';
 import { Groups, clamp, interactionGroups, wrapAngle } from './physics';
 import { forwardSpeed } from './vehicle';
+import { nearestMain } from './road-main';
 import type { Ped } from './peds';
 import type { Vehicle, World } from './world';
 
@@ -378,7 +379,7 @@ export class ActorSystem {
     d.speed = speed ?? this.config.driver.fleeSpeed;
     d.aggressive = true;
     d.polite = false;
-    d.node = this.world.roads.nearest(v.x, v.z).id;
+    d.node = nearestMain(this.world.roads, v.x, v.z).id;
     d.prevNode = -1;
     return d;
   }
@@ -419,10 +420,10 @@ export class ActorSystem {
     const lane = this.config.driver.laneOffset;
     const pts = this.tmpPts;
     pts.length = 0;
-    let from = g.nearest(v.x, v.z).id;
+    let from = nearestMain(g, v.x, v.z).id;
     const nodes: number[] = [from];
     for (const wp of waypoints) {
-      const to = g.nearest(wp.x, wp.z).id;
+      const to = nearestMain(g, wp.x, wp.z).id;
       const path = g.path(from, to);
       for (let i = 1; i < path.length; i++) nodes.push(path[i]!);
       from = to;
@@ -754,8 +755,8 @@ export class ActorSystem {
         a.targetX = tx + tvx * lead;
         a.targetZ = tz + tvz * lead;
       } else {
-        const here = g.nearest(v.x, v.z);
-        const hop = Math.hypot(here.x - v.x, here.z - v.z) < 12 ? g.nodes[g.nextHop(here.id, g.nearest(tx, tz).id)]! : here;
+        const here = nearestMain(g, v.x, v.z);
+        const hop = Math.hypot(here.x - v.x, here.z - v.z) < 12 ? g.nodes[g.nextHop(here.id, nearestMain(g, tx, tz).id)]! : here;
         a.targetX = hop.x;
         a.targetZ = hop.z;
       }
