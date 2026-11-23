@@ -1,5 +1,24 @@
 # Status
 
+## Overnight build, 23 Nov 2026: decisions and state
+
+The owner asked for a full game overnight. The design is in docs/DESIGN.md. Decisions made without asking, so nobody had to be woken:
+
+- **City.** Vey City is generated from content/map/city.json at load (seeded, 1.6 km, five districts, river, three bridges) instead of hand-made Tiled maps. It is deterministic, so missions name its markers.
+  - Pavements are 6 m wide, so a car can mount a kerb without hitting a shop front.
+  - The road graph joins alleys to the road they meet, so GPS and AI can use every road.
+- **Never add draws to the main city RNG mid-generation.** Every later building would move and mission spots would break; mission-lint catches it. New features use their own Rng stream (see `lotRng` in citygen.ts).
+- **Traffic** picks from the full roster, weighted by vehicles.json `traffic` and the district's `trafficHint` in city.json.
+- **Signals** are drawn from the sim's own `trafficLight()`, so what you see is what the cars obey.
+- **Weather and time** live in the sim (weather.ts) and are graded in apps/game/src/sky.ts. They start at 22:00 in drizzle; one in-game hour takes 60 s.
+- **One HUD.** The combat HUD owns body, armour, weapon and score; the main HUD owns credits, hints and the mission line.
+- **Save v2** (missions branch) adds respect, unlocks and mission records. The front end's stats fields default to 0 inside v2.
+- **e2e** reads its port from E2E_PORT, so several checkouts can run at once.
+
+### Next
+
+Economy (shops, respray, safehouses, cyberware, export list), side activities (rampages, stunt jumps, data shards, taxi and courier, races) and the living city (ambulances, fire tenders, gangs, crowds) are being built in parallel and merged after this section was written.
+
 ## Wanted, combat and survival (23 Nov 2026)
 
 - **HEAT 1-5, fairer.** A crime counts in full only when a police unit, the drone or a witness sees it. A witness is a pedestrian within 25 m with line of sight who phones it in after 4 s, unless they are knocked down first. Unwitnessed crime gives 20% of the points and is capped at HEAT 1, so a few shots fired in an empty street never bring a pursuit. Each level is distinct (`heat.json` `levels`):
