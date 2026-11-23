@@ -4,6 +4,31 @@ import { TrafficConfigSchema, type TrafficConfig } from './traffic';
 
 /** Zod schemas for every piece of content the simulation consumes. */
 
+const Hex = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+
+/**
+ * What kind of vehicle a variant is. Audio (engine voice), traffic (mixes) and
+ * missions ("steal any sports car") query this instead of variant ids.
+ */
+export const VehicleClassSchema = z.enum([
+  'compact',
+  'saloon',
+  'estate',
+  'taxi',
+  'suv',
+  'sports',
+  'super',
+  'muscle',
+  'van',
+  'pickup',
+  'truck',
+  'bus',
+  'bike',
+  'emergency',
+  'police',
+]);
+export type VehicleClass = z.infer<typeof VehicleClassSchema>;
+
 export const VehicleParamsSchema = z.object({
   name: z.string(),
   role: z.enum(['civilian', 'police', 'squad', 'mission']),
@@ -35,6 +60,20 @@ export const VehicleParamsSchema = z.object({
   autoStraighten: z.number().nonnegative(),
   maxHealth: z.number().positive(),
   armour: z.number().positive(),
+  /** Vehicle class, for audio, traffic and mission queries. */
+  class: VehicleClassSchema.default('saloon'),
+  /** Body model the renderer builds (defaults to one picked from the variant id). */
+  model: z.string().optional(),
+  /** Two-wheeler: no sideways drift without the rear brake (handbrake), lean visuals, rider shown. */
+  twoWheel: z.boolean().default(false),
+  /** Relative weight in civilian traffic mixes (0 = never picked as traffic by the roster helper). */
+  traffic: z.number().nonnegative().default(0),
+  /** District hints where this variant is more common (e.g. docks, downtown, industrial). */
+  districts: z.array(z.string()).default([]),
+  /** Paint colours an instance can roll. Empty: the class palette, else the variant colour. */
+  paints: z.array(Hex).default([]),
+  /** Most the body leans into a turn, radians (bikes). 0 = a car that only rolls a little. */
+  leanMax: z.number().min(0).max(1.2).default(0),
 });
 export type VehicleParams = z.infer<typeof VehicleParamsSchema>;
 
@@ -56,6 +95,8 @@ export const VehiclesSchema = z
         minBumpSpeed: z.number().nonnegative(),
       })
       .default({ speedLoss: 0.07, minBumpSpeed: 2.5 }),
+    /** Paint palettes by vehicle class, used when a variant has no paints of its own. */
+    paints: z.record(z.string(), z.array(Hex)).default({}),
   })
   .refine((v) => v.player in v.variants, { message: 'player variant must exist' });
 export type VehiclesContent = z.infer<typeof VehiclesSchema>;
