@@ -38,6 +38,14 @@ export async function boot(): Promise<void> {
     status = `Graphics: ${game.tier}`;
   })();
 
+  if (params.has('garage')) {
+    // Dev-only vehicle showroom; loaded on demand so it never touches the normal boot path.
+    await benchmark;
+    const { setupGarage } = await import('./garage');
+    setupGarage(game, { labels: params.has('labels'), city: params.has('city') });
+    window.__neon!.ready = true;
+    return;
+  }
   if (params.has('autostart')) {
     await benchmark;
     window.__neon!.ready = true;
