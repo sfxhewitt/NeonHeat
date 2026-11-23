@@ -56,6 +56,8 @@ export class AudioEngine {
   private duck!: GainNode;
   private worldMute!: GainNode;
   private unlockedOnce = false;
+  /** How the iPhone silent switch is bypassed: the Audio Session API, a silent media element, or not needed. */
+  silentSwitch: 'session' | 'keeper' | 'none' = 'none';
   private hidden = false;
   private paused = false;
   private failed = false;
@@ -101,6 +103,7 @@ export class AudioEngine {
       if (!ctx) return;
       if (ctx.state !== 'running') ctx.resume().catch(() => undefined);
       if (!this.unlockedOnce) {
+        this.silentSwitch = ignoreSilentSwitch();
         // iOS Safari: playing a buffer inside the gesture fully unlocks output.
         const b = ctx.createBuffer(1, 1, ctx.sampleRate);
         const s = ctx.createBufferSource();
@@ -207,6 +210,7 @@ export class AudioEngine {
   /** Tab hidden or app backgrounded: suspend the whole context (saves battery). */
   setHidden(hidden: boolean): void {
     this.hidden = hidden;
+    silentKeeper(hidden);
     const ctx = this.ctx;
     if (!ctx) return;
     if (hidden) ctx.suspend().catch(() => undefined);
@@ -366,4 +370,65 @@ function hash(s: string): number {
   let h = 2166136261;
   for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
   return h >>> 0;
+}
+
+/**
+ * iPhone ring/silent switch: Web Audio counts as "ambient" sound by default, so the switch mutes the
+ * whole game. Games play through it (as a video does). iOS 17+ lets a page say so with the Audio
+ * Session API; older iOS gets the same audio session by playing a silent looping media element.
+ * Must run inside a user gesture.
+ */
+let keeper: HTMLAudioElement | null = null;
+function ignoreSilentSwitch(): 'session' | 'keeper' | 'none' {
+  try {
+    const nav = navigator as Navigator & { audioSession?: { type: string } };
+    if (nav.audioSession) {
+      nav.audioSession.type = 'playback';
+      return 'session';
+    }
+    if (!/iP(hone|ad|od)/.test(navigator.userAgent) && !(navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent))) return 'none';
+    keeper = document.createElement('audio');
+    keeper.setAttribute('x-webkit-airplay', 'deny');
+    keeper.preload = 'auto';
+    keeper.loop = true;
+    keeper.src = silentWav();
+    keeper.play().catch(() => undefined);
+    return 'keeper';
+  } catch {
+    /* sound still plays with the switch off */
+    return 'none';
+  }
+}
+
+/** Pause the silent keeper in the background (so it never shows on the lock screen) and restart it after. */
+function silentKeeper(hidden: boolean): void {
+  if (!keeper) return;
+  if (hidden) keeper.pause();
+  else keeper.play().catch(() => undefined);
+}
+
+/** Half a second of 8 kHz 8-bit mono silence as a WAV data URI. */
+function silentWav(): string {
+  const n = 4000;
+  const bytes = new Uint8Array(44 + n);
+  const v = new DataView(bytes.buffer);
+  const str = (o: number, t: string): void => {
+    for (let i = 0; i < t.length; i++) bytes[o + i] = t.charCodeAt(i);
+  };
+  str(0, 'RIFF');
+  v.setUint32(4, 36 + n, true);
+  str(8, 'WAVEfmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, 8000, true);
+  v.setUint32(28, 8000, true);
+  v.setUint16(32, 1, true);
+  v.setUint16(34, 8, true);
+  str(36, 'data');
+  v.setUint32(40, n, true);
+  bytes.fill(128, 44);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return `data:audio/wav;base64,${btoa(bin)}`;
 }
