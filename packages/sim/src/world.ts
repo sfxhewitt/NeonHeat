@@ -251,7 +251,9 @@ export class World {
       const ahead = dx * fx + dz * fz;
       if (ahead <= 0 || ahead > range) continue;
       const lat = Math.abs(dx * fz - dz * fx);
-      if (lat > laneHalfWidth + o.params.width / 2) continue;
+      // A parked car is passed if the bodies clear (a brush is fine); moving cars use the lane width.
+      const parked = o.role === 'parked' && Math.abs(o.vx) + Math.abs(o.vz) < 0.5;
+      if (lat > (parked ? v.params.width / 2 + o.params.width / 2 - 0.15 : laneHalfWidth + o.params.width / 2)) continue;
       const gap = ahead - half - o.params.length / 2;
       if (gap < best) best = gap;
     }

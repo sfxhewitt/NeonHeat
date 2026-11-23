@@ -546,6 +546,7 @@ export class WorldMissionHost implements MissionHost {
       if (!v.active || v.destroyed || (v.role !== 'police' && v.role !== 'squad')) continue;
       if (Math.hypot(v.x - cp.px, v.z - cp.pz) < RETRY_CLEAR_RADIUS) w.despawnVehicle(v);
     }
+    for (const o of w.officers.officers) if (o.active && Math.hypot(o.x - cp.px, o.z - cp.pz) < RETRY_CLEAR_RADIUS) w.officers.despawn(o);
     w.heat.clear();
     if (cp.heat > 0) w.heat.setLevel(cp.heat, cp.px, cp.pz);
     w.trace = cp.trace;

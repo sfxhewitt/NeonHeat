@@ -605,8 +605,9 @@ function furnish(rng: Rng, spec: CitySpec, map: GeneratedMap): void {
         for (let i = 0; i < n; i++) {
           const t = rng.range(14, Math.max(14.5, len - 14));
           // In the road against this kerb, facing the way traffic flows on that side.
-          const x = k.x0 + dirX * t + k.nx * Math.min(1.25, hw - 4);
-          const z = k.z0 + dirZ * t + k.nz * Math.min(1.25, hw - 4);
+          // Tight to the kerb so a car in the near lane (a quarter of the road width out) passes clear.
+          const x = k.x0 + dirX * t + k.nx * Math.min(1.1, hw - 4);
+          const z = k.z0 + dirZ * t + k.nz * Math.min(1.1, hw - 4);
           const along = Math.atan2(dirX, dirZ);
           const yaw = along + (rightHandFacing(k.nx, k.nz, dirX, dirZ) ? 0 : Math.PI);
           if (map.parking.some((p) => Math.abs(p.x - x) < 6 && Math.abs(p.z - z) < 6)) continue;

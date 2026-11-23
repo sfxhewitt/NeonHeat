@@ -100,12 +100,17 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect(page.locator('text=Turn your device')).toHaveCount(0);
 
   // --- Walk: push the floating stick up (north is -Z), then right (+X).
+  // The title must be fully gone (it hides the touch layer while it fades out).
+  await expect(page.locator('.nh-title')).toHaveCount(0);
   const sx = size.w * 0.2;
   const sy = size.h * 0.65;
   let p0 = await player(page);
   await finger.press(sx, sy);
   await finger.move(sx, sy - 30);
   await finger.move(sx, sy - 70);
+  // The stick has taken the push before any walking is measured.
+  await page.waitForFunction(() => (window.__neon!.game.input as unknown as { touch: { stick: { y: number } } }).touch.stick.y > 0.5, null, { timeout: 10_000 });
+  p0 = await player(page);
   await simFor(page, 1.2);
   await finger.release();
   let p1 = await player(page);

@@ -33,6 +33,14 @@ export class MissionBot {
   private readonly ctl = emptyControls();
   private waypoint = -1;
   private stuckTime = 0;
+  /** Seconds the car has barely moved while heading for an on-foot goal. */
+  private wedged = 0;
+  private wedgeDist = Infinity;
+  private walkStuck = 0;
+  private walkRoute = 0;
+  private walkPath: { x: number; z: number }[] = [];
+  private walkGoal = { x: Infinity, z: Infinity };
+  private walkReplan = 0;
   private reverseTime = 0;
   private reverseSteer = 1;
   private interactCooldown = 0;
@@ -95,6 +103,8 @@ export class MissionBot {
     const v = r.view;
     const o = r.objective!;
     const base: Plan = { x: v.targetX, z: v.targetZ, need: 'either', car: -1, arrive: 0, stopAt: 0.8 };
+    // Drive carefully when the car has to arrive in one piece.
+    this.cruiseSpeed = o.type === 'deliverVehicle' && o.minHealth > 0 ? 16 : 22;
     switch (o.type) {
       case 'reach':
         if (o.vehicle === 'none') return { ...base, need: 'foot' };
@@ -154,7 +164,7 @@ export class MissionBot {
         if (o.action === 'exit') {
           if (pc.mode === 'foot') return null;
           this.stop(out);
-          if (Math.abs(w.playerSpeed()) < 1) this.press(out, pc.context?.kind === 'exit');
+          this.press(out, pc.context?.kind === 'exit');
           return null;
         }
         return { ...base, need: 'car', x: px, z: pz };
@@ -179,9 +189,16 @@ export class MissionBot {
     if (pc.mode === 'driving') {
       if (wantFoot) {
         // Drive up near the goal (a far on-foot goal is quicker by car), then stop and get out.
-        if (dist < 30) {
+        // Close enough, or wedged on the way: stop, get out and walk the rest.
+        // Wedged = not getting any closer over a few seconds (stuck, or circling a point it cannot reach).
+        this.wedged += 1 / 60;
+        if (dist < this.wedgeDist - 8) {
+          this.wedged = 0;
+          this.wedgeDist = dist;
+        }
+        if (dist < 30 || this.wedged > 6) {
           this.stop(out);
-          if (Math.abs(w.playerSpeed()) < 1) this.press(out, pc.context?.kind === 'exit');
+          this.press(out, pc.context?.kind === 'exit');
           return;
         }
         this.drive(p.x, p.z, dist, out, 6);
@@ -193,6 +210,8 @@ export class MissionBot {
     }
 
     // On foot.
+    this.wedged = 0;
+    this.wedgeDist = Infinity;
     const c = pc.context;
     if (p.press && c && p.press(c.kind, c.vehicleId, c.interactableId)) {
       this.press(out, true);
@@ -314,8 +333,24 @@ export class MissionBot {
     const pc = w.playerCtl;
     let gx = tx;
     let gz = tz;
-    if (!w.police.lineOfSight(pc.x, pc.z, tx, tz)) {
-      const p = this.routePoint(pc.x, pc.z, tx, tz, 3);
+    // Walking into a wall (sight lines see over low roofs): go round by the streets for a while.
+    if (Math.hypot(pc.vx, pc.vz) < 0.3) this.walkStuck += 1 / 60;
+    else this.walkStuck = Math.max(0, this.walkStuck - 1 / 60);
+    if (this.walkStuck > 1.5) {
+      this.walkRoute = 8;
+      this.walkStuck = 0;
+    }
+    this.walkRoute = Math.max(0, this.walkRoute - 1 / 60);
+    if (this.walkRoute > 0 || !w.police.lineOfSight(pc.x, pc.z, tx, tz)) {
+      // Follow the street route (joins the nearest road at both ends), re-planned now and then.
+      this.walkReplan -= 1 / 60;
+      if (this.walkReplan <= 0 || Math.hypot(this.walkGoal.x - tx, this.walkGoal.z - tz) > 5) {
+        this.walkPath = w.roads.route(pc.x, pc.z, tx, tz);
+        this.walkGoal = { x: tx, z: tz };
+        this.walkReplan = 3;
+      }
+      while (this.walkPath.length > 1 && Math.hypot(this.walkPath[0]!.x - pc.x, this.walkPath[0]!.z - pc.z) < 2.5) this.walkPath.shift();
+      const p = this.walkPath[0] ?? { x: tx, z: tz };
       gx = p.x;
       gz = p.z;
     } else this.waypoint = -1;

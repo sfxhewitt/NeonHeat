@@ -116,6 +116,8 @@ interface ObjectiveState {
   tooFar: number[];
   /** Chase: the target has been disabled. */
   disabled: boolean;
+  /** Tail: the player has had the target in range at least once (no "lost them" before that). */
+  acquired: boolean;
   hackDone: boolean;
 }
 
@@ -151,7 +153,7 @@ export class MissionRunner {
   private checkpoint: unknown = null;
   private firstCheckpoint: unknown = null;
   private readonly scheduled: Scheduled[] = [];
-  private readonly os: ObjectiveState = { count: 0, t1: 0, t2: 0, idx: 0, done: [], tooFar: [], disabled: false, hackDone: false };
+  private readonly os: ObjectiveState = { count: 0, t1: 0, t2: 0, idx: 0, done: [], tooFar: [], disabled: false, acquired: false, hackDone: false };
   private readonly actions: Record<PerformAction, number> = { dodge: 0, fire: 0, enter: 0, exit: 0 };
   /** Consecutive failures within half a second of an objective (re)starting. */
   private instantFails = 0;
@@ -243,6 +245,7 @@ export class MissionRunner {
     s.done.length = 0;
     s.tooFar.length = 0;
     s.disabled = false;
+    s.acquired = false;
     s.hackDone = false;
     for (const k of Object.keys(this.actions) as PerformAction[]) this.actions[k] = 0;
     for (let i = this.scheduled.length - 1; i >= 0; i--) if (this.scheduled[i]!.objective) this.scheduled.splice(i, 1);
@@ -543,7 +546,9 @@ export class MissionRunner {
         if (h.vehicleDestroyed(o.target)) return this.failed('The target was wrecked');
         const d = this.dist(p, h.resolve(o.target));
         s.t1 = d < o.minRange ? s.t1 + dt : Math.max(0, s.t1 - dt * 0.5);
-        s.t2 = d > o.maxRange ? s.t2 + dt : 0;
+        if (d <= o.maxRange) s.acquired = true;
+        // No "lost them" until the player first closes in (e.g. just after a retry); after that, falling back loses them.
+        s.t2 = d > o.maxRange && s.acquired ? s.t2 + dt : 0;
         if (s.t1 > o.tooCloseSec) return this.failed('They spotted you');
         if (s.t2 > o.lostSec) return this.failed('You lost them');
         return h.driverDone(o.target);

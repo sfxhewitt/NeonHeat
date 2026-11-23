@@ -56,6 +56,12 @@ export const ActorConfigSchema = z.object({
       laneHalfWidth: z.number().positive().default(1.3),
       minGap: z.number().positive().default(6),
       timeHeadway: z.number().positive().default(1),
+      /** A polite driver held up this long behind something that is not moving edges past it at creepSpeed. */
+      creepAfterSec: z.number().positive().default(2.5),
+      creepSpeed: z.number().positive().default(3),
+      /** How far to the side to aim when pulling out past an obstacle, and for how long before trying the lane again. */
+      passOffset: z.number().positive().default(3.5),
+      passSec: z.number().positive().default(3),
       stuckSec: z.number().positive().default(1.6),
       reverseSec: z.number().positive().default(1),
       aiHz: z.number().positive().default(15),
@@ -142,6 +148,8 @@ export interface Driver {
   prevNode: number;
   /** Route mode: loop back to the first point instead of stopping. */
   loop: boolean;
+  /** Seconds spent held up behind an obstacle (polite drivers). */
+  blockedSec: number;
 }
 
 const PED_GROUPS = interactionGroups(Groups.ped, Groups.static | Groups.vehicle | Groups.ped | Groups.player);
@@ -451,7 +459,10 @@ export class ActorSystem {
           oz += rz;
         }
       }
-      pts.push({ x: n.x + ox * lane, z: n.z + oz * lane });
+      // Keep to the traffic lane (a quarter of the road width out), clear of kerbside parking.
+      const e = prev ? g.edgeBetween(nodes[i - 1]!, nodes[i]!) : next ? g.edgeBetween(nodes[i]!, nodes[i + 1]!) : null;
+      const l = Math.min(lane, e ? e.width / 4 : lane);
+      pts.push({ x: n.x + ox * l, z: n.z + oz * l });
     }
     const last = waypoints[waypoints.length - 1];
     if (last) pts.push({ x: last.x, z: last.z });
@@ -686,6 +697,15 @@ export class ActorSystem {
     if (d.mode === 'route') {
       if (d.done) return;
       while (d.idx < d.xs.length && Math.hypot(d.xs[d.idx]! - v.x, d.zs[d.idx]! - v.z) < cfg.arriveRadius) d.idx++;
+      // Pushed wide (overtaking, a shunt) and already past this point along the next leg: carry on, do not loop back.
+      while (d.idx + 1 < d.xs.length) {
+        const lx = d.xs[d.idx + 1]! - d.xs[d.idx]!;
+        const lz = d.zs[d.idx + 1]! - d.zs[d.idx]!;
+        const px = v.x - d.xs[d.idx]!;
+        const pz = v.z - d.zs[d.idx]!;
+        if (Math.hypot(px, pz) > cfg.arriveRadius * 3 || px * lx + pz * lz <= 0) break;
+        d.idx++;
+      }
       if (d.idx >= d.xs.length) {
         if (d.loop && d.xs.length > 1) d.idx = 0;
         else {
@@ -764,6 +784,19 @@ export class ActorSystem {
     if (d.polite) {
       const gap = w.gapAhead(v, cfg.detectRange, cfg.laneHalfWidth);
       if (gap < Infinity) speed = Math.min(speed, Math.max(0, (gap - cfg.minGap) / cfg.timeHeadway));
+      // Held up and stopped (a parked car, a wreck, a jam): after a while edge past it, steering for the lane.
+      const held = speed < 1;
+      d.blockedSec = held ? d.blockedSec + Math.max(1, Math.round(60 / cfg.aiHz)) / 60 : 0;
+      if (d.blockedSec > cfg.creepAfterSec) {
+        // Pull out towards the road centre (we drive on the right, so the centre is to our left).
+        const fx = Math.sin(v.yaw);
+        const fz = Math.cos(v.yaw);
+        const [rx, rz] = right(fx, fz);
+        a.targetX = v.x + fx * 10 - rx * cfg.passOffset;
+        a.targetZ = v.z + fz * 10 - rz * cfg.passOffset;
+        speed = cfg.creepSpeed;
+        if (d.blockedSec > cfg.creepAfterSec + cfg.passSec) d.blockedSec = 0;
+      }
     }
     a.targetSpeed = speed;
     a.aggressive = d.aggressive;
@@ -838,5 +871,6 @@ function makeDriver(id: number): Driver {
     node: -1,
     prevNode: -1,
     loop: false,
+    blockedSec: 0,
   };
 }
