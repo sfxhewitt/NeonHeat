@@ -220,6 +220,11 @@ export class MissionRunner {
     else this.runEvents(o.onFail, true);
   }
 
+  /** Fail the job from outside (the player went down, for example). */
+  failWith(reason: string): void {
+    if (this.state === 'running') this.fail(reason);
+  }
+
   /** The director reports player actions (for `perform` objectives). */
   noteAction(action: PerformAction): void {
     this.actions[action]++;

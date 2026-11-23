@@ -4,21 +4,16 @@
  * the map, and finally the campaign as a whole (prerequisites, cycles, chains,
  * reachability from a new game).
  *
- *   pnpm mission-lint                 check everything against content/map (CI);
- *                                     falls back to the fixture city while
- *                                     content/map lacks the marker vocabulary
- *   pnpm mission-lint --map fixture   check against the unit-test fixture city
- *                                     (has the full marker vocabulary)
- *   pnpm mission-lint --map <file>    check against another map JSON file
+ *   pnpm mission-lint                 check everything against the generated city (CI)
+ *   pnpm mission-lint --map <file>    check against another city spec or map JSON file
  *   pnpm mission-lint --write-schema  regenerate content/missions/mission.schema.json
  *   pnpm mission-lint --strict        warnings fail the run too
  */
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { rawContent, rawMissions } from '@neonheat/content';
 import { CrewsSchema, DialogueSchema, SquadsSchema, lintCampaign, lintMission, missionJsonSchema, parseMission, type LintIssue, type Mission } from '@neonheat/missions';
-import { parseSimContent, type MapContent } from '@neonheat/sim';
+import { parseSimContent } from '@neonheat/sim';
 
 const root = resolve(import.meta.dirname, '../../..');
 const dir = join(root, 'content/missions');
@@ -26,14 +21,7 @@ const schemaPath = join(dir, 'mission.schema.json');
 const schemaText = JSON.stringify(missionJsonSchema(), null, 2) + '\n';
 const args = process.argv.slice(2);
 const strict = args.includes('--strict');
-let mapArg = args.includes('--map') ? args[args.indexOf('--map') + 1] : undefined;
-// Until the generated city lands, content/map is the old test block without the
-// marker vocabulary; fall back to the fixture city (which has all of it) then.
-const contentMarkers = (rawContent.map as { markers?: Record<string, unknown> }).markers ?? {};
-if (!mapArg && !('glass_payphone_1' in contentMarkers && 'central_tower' in contentMarkers)) {
-  console.warn('mission-lint: content/map has no marker vocabulary yet, so checking against the fixture city (pass --map to override)');
-  mapArg = 'fixture';
-}
+const mapArg = args.includes('--map') ? args[args.indexOf('--map') + 1] : undefined;
 
 if (args.includes('--write-schema')) {
   writeFileSync(schemaPath, schemaText);
@@ -62,11 +50,7 @@ try {
 if (current !== schemaText) fail('content/missions/mission.schema.json is out of date: run pnpm mission-lint --write-schema');
 
 const raw = structuredClone(rawContent) as Record<string, unknown>;
-if (mapArg === 'fixture') {
-  const mod = (await import(pathToFileURL(join(root, 'tests/unit/fixtures/city-fixture.ts')).href)) as { fixtureCity: () => MapContent };
-  raw.map = mod.fixtureCity();
-  console.info('mission-lint: using the fixture city map');
-} else if (mapArg) {
+if (mapArg) {
   raw.map = JSON.parse(readFileSync(resolve(process.cwd(), mapArg), 'utf8'));
   console.info(`mission-lint: using map ${mapArg}`);
 }

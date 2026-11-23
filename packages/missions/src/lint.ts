@@ -84,10 +84,15 @@ export function reachableFrom(grid: WalkGrid, x: number, z: number): (x: number,
     const c = q[i]!;
     const cx = c % n;
     const cz = (c - cx) / n;
-    if (cx > 0 && !seen[c - 1] && open[c - 1]) (seen[c - 1] = 1), q.push(c - 1);
-    if (cx < n - 1 && !seen[c + 1] && open[c + 1]) (seen[c + 1] = 1), q.push(c + 1);
-    if (cz > 0 && !seen[c - n] && open[c - n]) (seen[c - n] = 1), q.push(c - n);
-    if (cz < n - 1 && !seen[c + n] && open[c + n]) (seen[c + n] = 1), q.push(c + n);
+    const visit = (k: number): void => {
+      if (seen[k] || !open[k]) return;
+      seen[k] = 1;
+      q.push(k);
+    };
+    if (cx > 0) visit(c - 1);
+    if (cx < n - 1) visit(c + 1);
+    if (cz > 0) visit(c - n);
+    if (cz < n - 1) visit(c + n);
   }
   return (px, pz) => {
     const i = idx(px, pz);

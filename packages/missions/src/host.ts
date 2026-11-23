@@ -37,6 +37,9 @@ interface Checkpoint {
 }
 
 /** MissionHost implemented over the simulation world. */
+/** Police and squad cars this close to a checkpoint are removed when it is restored (m). */
+const RETRY_CLEAR_RADIUS = 150;
+
 export class WorldMissionHost implements MissionHost {
   /** The mission whose spawns and actors refs resolve against. */
   mission: Mission | null = null;
@@ -536,6 +539,12 @@ export class WorldMissionHost implements MissionHost {
     else {
       pc.teleport(cp.px, cp.pz);
       pc.facing = pc.prevFacing = cp.facing;
+    }
+    // A retry is a fresh go: patrols already on top of the restart point are sent away
+    // (they come back from a distance if HEAT is still up), so a retry cannot start in a death loop.
+    for (const v of w.vehicles) {
+      if (!v.active || v.destroyed || (v.role !== 'police' && v.role !== 'squad')) continue;
+      if (Math.hypot(v.x - cp.px, v.z - cp.pz) < RETRY_CLEAR_RADIUS) w.despawnVehicle(v);
     }
     w.heat.clear();
     if (cp.heat > 0) w.heat.setLevel(cp.heat, cp.px, cp.pz);

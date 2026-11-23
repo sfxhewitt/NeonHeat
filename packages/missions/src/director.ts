@@ -281,6 +281,8 @@ export class MissionDirector {
         if (running && !w.player.vehicle && Math.hypot(e.x - w.playerCtl.x, e.z - w.playerCtl.z) < 1.5) r.noteAction('fire');
       } else if (e.type === 'playerHurt') {
         if (running) this.damageHealth += e.amount;
+      } else if (e.type === 'playerDied') {
+        if (running) r.failWith('You went down. The job went with you.');
       } else if (e.type === 'interact' && e.id.startsWith('giver:') && !this.active) {
         this.start(e.id.slice('giver:'.length));
       } else if (e.type === 'interact' && e.id.startsWith('terminal:') && !this.hack && running) {

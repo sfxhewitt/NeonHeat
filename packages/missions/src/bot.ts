@@ -1,4 +1,4 @@
-import { driveTowards, emptyControls, emptyIntents, forwardSpeed, type Intents, type Vehicle, type World } from '@neonheat/sim';
+import { driveTowards, emptyControls, emptyIntents, forwardSpeed, nearestMain, type Intents, type Vehicle, type World } from '@neonheat/sim';
 import type { MissionDirector } from './director';
 
 type Need = 'foot' | 'car' | 'either';
@@ -154,7 +154,7 @@ export class MissionBot {
         if (o.action === 'exit') {
           if (pc.mode === 'foot') return null;
           this.stop(out);
-          if (Math.abs(w.playerSpeed()) < 3) this.press(out, pc.context?.kind === 'exit');
+          if (Math.abs(w.playerSpeed()) < 1) this.press(out, pc.context?.kind === 'exit');
           return null;
         }
         return { ...base, need: 'car', x: px, z: pz };
@@ -178,13 +178,11 @@ export class MissionBot {
 
     if (pc.mode === 'driving') {
       if (wantFoot) {
-        // Pull up near the goal, then get out.
-        if (dist < 14 || p.need === 'foot') {
-          if (dist < 30 || p.need === 'foot') {
-            this.stop(out);
-            if (Math.abs(w.playerSpeed()) < 3) this.press(out, pc.context?.kind === 'exit');
-            return;
-          }
+        // Drive up near the goal (a far on-foot goal is quicker by car), then stop and get out.
+        if (dist < 30) {
+          this.stop(out);
+          if (Math.abs(w.playerSpeed()) < 1) this.press(out, pc.context?.kind === 'exit');
+          return;
         }
         this.drive(p.x, p.z, dist, out, 6);
         return;
@@ -335,10 +333,10 @@ export class MissionBot {
   private routePoint(x: number, z: number, tx: number, tz: number, arrive = 6): { x: number; z: number } {
     const g = this.world.roads;
     if (this.waypoint < 0 || Math.hypot(g.nodes[this.waypoint]!.x - x, g.nodes[this.waypoint]!.z - z) > 450) {
-      this.waypoint = g.nearest(x, z).id;
+      this.waypoint = nearestMain(g, x, z).id;
     }
     const wp = g.nodes[this.waypoint]!;
-    if (Math.hypot(wp.x - x, wp.z - z) < arrive) this.waypoint = g.nextHop(wp.id, g.nearest(tx, tz).id);
+    if (Math.hypot(wp.x - x, wp.z - z) < arrive) this.waypoint = g.nextHop(wp.id, nearestMain(g, tx, tz).id);
     const n = g.nodes[this.waypoint]!;
     this.tmp.x = n.x;
     this.tmp.z = n.z;
