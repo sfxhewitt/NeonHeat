@@ -13,18 +13,28 @@ const FLASHES = 32;
 export class SceneLights {
   private readonly fx = new Float32Array(FLASHES * 5); // x, z, life, max life, colour
   private nextFlash = 0;
-  /** Light-field slot of each street lamp (layoutLamps order) and each lit prop (by prop id). */
-  private readonly lampSlots: number[] = [];
-  private readonly propSlots = new Map<number, number>();
+  /** Every static light in the city (lamps first, then lit props, then signs), streamed into the field near the camera. */
+  private readonly statics: { x: number; y: number; z: number; r: number; colour: number; i: number; on: boolean }[] = [];
+  private readonly lampStatic: number[] = [];
+  private readonly propStatic = new Map<number, number>();
+  private lastX = Infinity;
+  private lastZ = Infinity;
 
   /** A street lamp was knocked down or put back. */
   setLampOn(index: number, on: boolean): void {
-    this.field.setStaticOn(this.lampSlots[index] ?? -1, on);
+    this.setStatic(this.lampStatic[index] ?? -1, on);
   }
 
   /** A lit prop (vending machine, kiosk) was smashed or put back. */
   setPropLightOn(propId: number, on: boolean): void {
-    this.field.setStaticOn(this.propSlots.get(propId) ?? -1, on);
+    this.setStatic(this.propStatic.get(propId) ?? -1, on);
+  }
+
+  private setStatic(k: number, on: boolean): void {
+    const s = this.statics[k];
+    if (!s || s.on === on) return;
+    s.on = on;
+    this.lastX = Infinity; // re-stream on the next frame
   }
 
   constructor(
@@ -33,15 +43,43 @@ export class SceneLights {
     signs: Sign[],
     extra: { x: number; z: number; colour: number; radius: number; propId: number }[] = [],
   ) {
-    for (const l of extra) this.propSlots.set(l.propId, field.addStatic(l.x, 1.6, l.z, l.radius, l.colour, 0.9));
-    for (const l of lamps) this.lampSlots.push(field.addStatic(l.x, 6.4, l.z, 12.5, l.colour, 1.6));
+    for (const l of lamps) {
+      this.lampStatic.push(this.statics.length);
+      this.statics.push({ x: l.x, y: 6.4, z: l.z, r: 12.5, colour: l.colour, i: 1.6, on: true });
+    }
+    for (const l of extra) {
+      this.propStatic.set(l.propId, this.statics.length);
+      this.statics.push({ x: l.x, y: 1.6, z: l.z, r: l.radius, colour: l.colour, i: 0.9, on: true });
+    }
     for (const s of signs) {
       // Push the light off the facade so it is not inside its own building.
       const big = Math.max(s.w, s.h, s.d);
       const rad = Math.min(9, 3.5 + big * 0.7);
       // Signs high up a tower barely reach the street.
       if (s.y > 16) continue;
-      field.addStatic(s.x + s.nx * 1.2, Math.max(2.5, s.y - s.h / 2), s.z + s.nz * 1.2, rad, s.colour, 0.75);
+      this.statics.push({ x: s.x + s.nx * 1.2, y: Math.max(2.5, s.y - s.h / 2), z: s.z + s.nz * 1.2, r: rad, colour: s.colour, i: 0.75, on: true });
+    }
+  }
+
+  /** Load the static lights around (x, z) into the field (only when the camera has moved a little). */
+  private streamStatics(x: number, z: number): void {
+    if (Math.hypot(x - this.lastX, z - this.lastZ) < 10) return;
+    this.lastX = x;
+    this.lastZ = z;
+    const f = this.field;
+    f.clearStatic();
+    const r = f.extent * 0.75;
+    // Nearest first, so the static budget is spent where the camera is.
+    const near: { d: number; k: number }[] = [];
+    this.statics.forEach((s, k) => {
+      if (!s.on) return;
+      const d = Math.max(Math.abs(s.x - x), Math.abs(s.z - z));
+      if (d < r) near.push({ d, k });
+    });
+    near.sort((a, b) => a.d - b.d);
+    for (const { k } of near) {
+      const s = this.statics[k]!;
+      if (f.addStatic(s.x, s.y, s.z, s.r, s.colour, s.i) < 0) break;
     }
   }
 
@@ -56,9 +94,10 @@ export class SceneLights {
     this.fx[i * 5 + 4] = colour;
   }
 
-  update(world: World, alpha: number, dt: number): void {
+  update(world: World, alpha: number, dt: number, focusX = world.player.x, focusZ = world.player.z): void {
     const f = this.field;
     if (!f.enabled) return;
+    this.streamStatics(focusX, focusZ);
     f.begin();
     const t = world.time;
     const phase = Math.floor(t * 6) % 2 === 0;

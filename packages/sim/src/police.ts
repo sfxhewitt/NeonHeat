@@ -225,9 +225,9 @@ export class PoliceSystem {
     d.prevZ = d.z;
     if (want && (!d.active || d.leaving)) {
       if (!d.active) {
-        // Arrive from the map edge furthest from the player.
-        d.x = w.player.x > 0 ? -140 : 140;
-        d.z = w.player.z > 0 ? -140 : 140;
+        // Arrive from a little way off, out of view.
+        d.x = w.player.x + (w.player.x > 0 ? -140 : 140);
+        d.z = w.player.z + (w.player.z > 0 ? -140 : 140);
         d.prevX = d.x;
         d.prevZ = d.z;
         d.vx = d.vz = 0;

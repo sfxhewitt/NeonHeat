@@ -1,7 +1,8 @@
 export interface MinimapStatic {
   /** World size in metres (x, z), centred on the origin. */
   size: [number, number];
-  roads: { positions: number[]; width: number; extent: number };
+  roads: { segments: { x0: number; z0: number; x1: number; z1: number; width: number; kind: string }[] };
+  water?: { x: number; z: number; w: number; d: number }[];
   buildings: { x: number; z: number; w: number; d: number; h: number }[];
 }
 
@@ -43,17 +44,20 @@ export class Minimap {
     this.scale = this.px / SPAN;
     this.half = [map.size[0] / 2, map.size[1] / 2];
     this.layer = document.createElement('canvas');
-    this.layer.width = Math.ceil(map.size[0] * this.scale);
-    this.layer.height = Math.ceil(map.size[1] * this.scale);
+    // The static layer is painted at one pixel per metre and scaled when drawn (a big city would not fit a canvas otherwise).
+    this.layer.width = Math.ceil(map.size[0]);
+    this.layer.height = Math.ceil(map.size[1]);
     const g = this.layer.getContext('2d')!;
-    const s = this.scale;
+    const s = 1;
     g.fillStyle = '#0c0c1c';
     g.fillRect(0, 0, this.layer.width, this.layer.height);
     g.fillStyle = '#2a2850';
-    const { positions, width, extent } = map.roads;
-    for (const p of positions) {
-      g.fillRect((-extent + this.half[0]) * s, (p - width / 2 + this.half[1]) * s, extent * 2 * s, width * s);
-      g.fillRect((p - width / 2 + this.half[0]) * s, (-extent + this.half[1]) * s, width * s, extent * 2 * s);
+    g.fillStyle = '#0d2244';
+    for (const w of map.water ?? []) g.fillRect(w.x - w.w / 2 + this.half[0], w.z - w.d / 2 + this.half[1], w.w, w.d);
+    for (const r of map.roads.segments) {
+      const hw = r.width / 2;
+      g.fillStyle = r.kind === 'alley' ? '#211f3c' : '#2e2c58';
+      g.fillRect(r.x0 - hw + this.half[0], r.z0 - hw + this.half[1], r.x1 - r.x0 + hw * 2, r.z1 - r.z0 + hw * 2);
     }
     for (const b of map.buildings) {
       const t = Math.min(1, b.h / 40);
@@ -75,7 +79,7 @@ export class Minimap {
     c.beginPath();
     c.arc(n / 2, n / 2, n / 2, 0, Math.PI * 2);
     c.clip();
-    c.drawImage(this.layer, -(x + this.half[0]) * s + n / 2, -(z + this.half[1]) * s + n / 2);
+    c.drawImage(this.layer, -(x + this.half[0]) * s + n / 2, -(z + this.half[1]) * s + n / 2, this.layer.width * s, this.layer.height * s);
     const rim = n / 2 - 7;
     for (const d of dots) {
       let dx = (d.x - x) * s;

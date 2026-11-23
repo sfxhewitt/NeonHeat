@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { forwardSpeed, type World } from '@neonheat/sim';
-import { intents, loadContent, makeWorld, run } from './helpers';
+import { EW, NS, intents, loadContent, makeWorld, movePlayer, run } from './helpers';
 
 async function quietWorld(seed = 1, peds = 0): Promise<World> {
   const content = loadContent();
   content.traffic.count = 0;
   content.peds.count = peds;
-  return makeWorld(seed, content);
+  const w = await makeWorld(seed, content);
+  movePlayer(w, NS.x, NS.z);
+  return w;
 }
 
 describe('player on foot', () => {
@@ -74,7 +76,7 @@ describe('player on foot', () => {
       content.peds.count = 0;
       content.map.buildings = [];
       const w = await makeWorld(1, content);
-      const car = w.spawnVehicle(variant, -100, 0, Math.PI / 2, 'parked')!;
+      const car = w.spawnVehicle(variant, EW.x, EW.z, Math.PI / 2, 'parked')!;
       w.playerCtl.enter(car);
       run(w, 3, intents({ throttle: 1 }));
       speeds[variant] = forwardSpeed(car);
@@ -90,11 +92,11 @@ describe('pistol', () => {
   it('soft-locks the nearest hostile in a 60° cone and damages it', async () => {
     const w = await quietWorld(3);
     const p = w.playerCtl;
-    p.teleport(-60, 120);
+    p.teleport(EW.x, EW.z);
     // Facing east (+X). One cop ahead at 15 m, slightly off-axis; one behind.
     p.facing = Math.PI / 2;
-    const ahead = w.spawnVehicle('interceptor', -45, 123, 0, 'police')!;
-    const behind = w.spawnVehicle('interceptor', -70, 120, 0, 'police')!;
+    const ahead = w.spawnVehicle('interceptor', EW.x + 15, EW.z + 3, 0, 'police')!;
+    const behind = w.spawnVehicle('interceptor', EW.x - 10, EW.z, 0, 'police')!;
     for (const c of [ahead, behind]) {
       c.ai.mode = 'stunned';
       c.ai.timer = 100;
@@ -135,14 +137,15 @@ describe('pedestrians', () => {
     content.peds.count = 1;
     content.map.buildings = [];
     const w = await makeWorld(6, content);
-    const ped = w.peds.peds.find((p) => p.active)!;
-    ped.body!.setTranslation({ x: 0, y: 0, z: 0 }, true);
-    ped.x = 0;
-    ped.z = 0;
+    movePlayer(w, EW.x - 20, EW.z - 6);
+    const ped = w.peds.peds.find((p) => p.active) ?? w.peds.spawnPedAt(EW.x, EW.z)!;
+    ped.body!.setTranslation({ x: EW.x, y: 0, z: EW.z }, true);
+    ped.x = EW.x;
+    ped.z = EW.z;
     ped.state = 'cower';
     ped.timer = 100;
     // Already doing 25 m/s, 6 m away: too late to dive clear.
-    const car = w.spawnVehicle('kestrel', -8, 0, Math.PI / 2, 'parked')!;
+    const car = w.spawnVehicle('kestrel', EW.x - 8, EW.z, Math.PI / 2, 'parked')!;
     w.playerCtl.enter(car);
     car.vx = 25;
     let hit = false;
@@ -161,9 +164,9 @@ describe('pedestrians', () => {
     content.peds.count = 0;
     content.map.buildings = [];
     const w = await makeWorld(7, content);
-    w.playerCtl.teleport(0, 0);
+    movePlayer(w, EW.x, EW.z);
     // A hostile squad car that drives straight at the player.
-    w.spawnVehicle('brick', -40, 0, Math.PI / 2, 'squad')!.ai.mode = 'drive';
+    w.spawnVehicle('brick', EW.x - 40, EW.z, Math.PI / 2, 'squad')!.ai.mode = 'drive';
     let hurt = false;
     run(w, 8, () => {
       if (w.events.some((e) => e.type === 'playerHurt')) hurt = true;
