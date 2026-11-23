@@ -20,12 +20,13 @@ export async function runBenchmark(game: Game): Promise<TierName> {
   game.applyQuality('ultra');
   game.holdResolution = true;
   const cfg = game.content.quality.benchmark;
-  const start = game.frameTimes.length;
+  game.benchTimes.length = 0;
+  const start = 0;
   // Shader compilation can take seconds on first boot, so wait for real samples rather than a fixed
   // window: skip the first frames, then collect at least 40 (or give up after three windows).
   const skip = 10;
   const t0 = performance.now();
-  const samples = (): number[] => game.frameTimes.slice(start + skip);
+  const samples = (): number[] => game.benchTimes.slice(start + skip);
   for (;;) {
     await new Promise((r) => setTimeout(r, 100));
     const elapsed = (performance.now() - t0) / 1000;
@@ -36,8 +37,11 @@ export async function runBenchmark(game: Game): Promise<TierName> {
   let got = samples();
   // A very slow device may not even get past the warm-up frames: judge it on everything it did
   // render, and if it could not finish a single frame in that time it belongs on the lowest tier.
-  if (got.length < 5) got = game.frameTimes.slice(start);
-  const tier = got.length === 0 ? 'low' : tierFromFrameTimes(got, cfg);
+  if (got.length < 5) got = game.benchTimes.slice(start);
+  // Judge on the mean (wall time per frame), not the median: a browser can hand out runs of short
+  // frame intervals while GPU work queues up behind them, which a median would believe.
+  const mean = got.reduce((a, b) => a + b, 0) / Math.max(1, got.length);
+  const tier = got.length === 0 ? 'low' : tierFromFrameTimes([mean], cfg);
   if (got.length >= 5) {
     try {
       localStorage.setItem(KEY, tier);

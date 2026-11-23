@@ -384,8 +384,18 @@ export class Game {
     const pc = this.world.playerCtl;
     this.input.setMode(this.menu.isOpen ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
     this.render(alpha, dt);
+    if (this.holdResolution) {
+      // Benchmark only: wait for the GPU so the sample is the real cost of the frame, even where
+      // the browser would otherwise keep handing out frames while the work queues up.
+      const gl = this.renderer.getContext();
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, this.syncPixel);
+      this.benchTimes.push(Math.max(elapsedMs, performance.now() - now));
+    }
     this.debug?.update(now);
   };
+  private readonly syncPixel = new Uint8Array(4);
+  /** Frame costs measured during the first-boot benchmark (GPU work included). */
+  readonly benchTimes: number[] = [];
 
   /** One fixed 60 Hz step: input, sim, missions, events, autosave. */
   simStep(): void {
