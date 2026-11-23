@@ -15,12 +15,14 @@ export interface TouchState {
   interact: boolean;
   dodge: boolean;
   nextWeapon: boolean;
+  /** The side-activity button (taxi duty, race, end shift). */
+  activity: boolean;
 }
 
 const LAYOUT_KEY = 'neonheat.touchLayout.v1';
 const STICK_RADIUS = 64;
 
-type ButtonId = 'handbrake' | 'fire' | 'dodge' | 'context' | 'left' | 'right' | 'gas' | 'brake' | 'weapon' | 'driveby';
+type ButtonId = 'handbrake' | 'fire' | 'dodge' | 'context' | 'left' | 'right' | 'gas' | 'brake' | 'weapon' | 'driveby' | 'activity';
 
 interface ButtonDef {
   id: ButtonId;
@@ -47,6 +49,7 @@ const BUTTONS: ButtonDef[] = [
   { id: 'context', label: '', side: 'right', x: 6, y: 40, size: 76, modes: ['driving', 'foot'], tap: true },
   { id: 'weapon', label: 'WPN', side: 'right', x: 4, y: 58, size: 56, modes: ['driving', 'foot'], tap: true },
   { id: 'driveby', label: 'SHOOT', side: 'right', x: 30, y: 8, size: 64, modes: ['driving'] },
+  { id: 'activity', label: '', side: 'right', x: 17, y: 42, size: 60, modes: ['driving'], tap: true },
 ];
 
 /**
@@ -58,6 +61,7 @@ export class TouchControls {
   scheme: DriveScheme;
   private mode: ControlMode = 'driving';
   private context: string | null = null;
+  private activity: string | null = null;
   /** Weapon in hand (short name) and whether it can be fired from a car. */
   private weaponLabel = '';
   private driveBy = false;
@@ -238,6 +242,13 @@ export class TouchControls {
     this.refresh();
   }
 
+  /** The side-activity button's label (TAXI DUTY, RACE, END SHIFT), or null to hide it. */
+  setActivity(label: string | null): void {
+    if (label === this.activity) return;
+    this.activity = label;
+    this.refresh();
+  }
+
   /** Show the weapon in hand on the switch button; the drive-by button only appears for drive-by weapons. */
   setWeapon(label: string, driveBy: boolean): void {
     if (label === this.weaponLabel && driveBy === this.driveBy) return;
@@ -256,6 +267,9 @@ export class TouchControls {
       if (def.id === 'context') {
         visible = visible && (this.context !== null || this.editing);
         el.textContent = this.context ?? 'ACTION';
+      } else if (def.id === 'activity') {
+        visible = visible && (this.activity !== null || this.editing);
+        el.textContent = this.activity ?? 'ACTIVITY';
       } else if (def.id === 'weapon') {
         el.textContent = this.weaponLabel || def.label;
       } else if (def.id === 'driveby') {
@@ -282,6 +296,7 @@ export class TouchControls {
       interact: tap('context'),
       dodge: tap('dodge'),
       nextWeapon: tap('weapon'),
+      activity: tap('activity'),
     };
   }
 }
