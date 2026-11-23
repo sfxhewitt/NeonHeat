@@ -92,6 +92,11 @@
   background: var(--nh-panel); border: 1px solid var(--nh-magenta); padding: 10px 14px; font-size: 14px; line-height: 1.4;
 }
 .nh-dialogue b { color: var(--nh-magenta); display: block; font-size: 11px; letter-spacing: 0.15em; margin-bottom: 4px; }
+.nh-hint {
+  position: absolute; top: calc(80px + var(--nh-safe-t)); left: 50%; transform: translateX(-50%); max-width: min(520px, calc(0.7 * var(--app-w)));
+  background: var(--nh-panel); border: 1px dashed var(--nh-cyan); color: var(--nh-ink); padding: 6px 12px; font-size: 13px; text-align: center;
+}
+.nh-hint::before { content: '?'; display: inline-block; margin-right: 8px; color: var(--nh-cyan); font-weight: 700; }
 .nh-toast { position: absolute; top: 30%; left: 50%; transform: translateX(-50%); font-size: 28px; letter-spacing: 0.25em; color: var(--nh-magenta); text-shadow: 0 0 12px var(--nh-magenta); text-align: center; white-space: pre-line; }
 
 /* Menus */

@@ -1,5 +1,6 @@
 import {
   AdditiveBlending,
+  Color,
   CylinderGeometry,
   DoubleSide,
   InstancedMesh,
@@ -11,11 +12,13 @@ import {
 } from 'three';
 import { BLOOM_LAYER } from './layers';
 
-const MAX_GIVERS = 8;
+const MAX_GIVERS = 12;
 const tmp = new Object3D();
+const tmpColour = new Color();
 
 /**
- * Mission markers: a cyan light beam over each job payphone (instanced) and an
+ * Mission markers: a light beam over each job payphone in its crew's colour
+ * (instanced; cyan by default) and an
  * acid-yellow ground ring plus beam on the current objective target.
  * Beams and rings are different shapes, so colour is never the only cue.
  */
@@ -28,7 +31,7 @@ export class MarkersView {
     const beamGeo = new CylinderGeometry(0.6, 0.9, 30, 8, 1, true);
     beamGeo.translate(0, 15, 0);
     const giverMat = new MeshBasicMaterial({
-      color: 0x2bf0ff,
+      color: 0xffffff,
       transparent: true,
       opacity: 0.35,
       blending: AdditiveBlending,
@@ -36,6 +39,7 @@ export class MarkersView {
       side: DoubleSide,
     });
     this.givers = new InstancedMesh(beamGeo, giverMat, MAX_GIVERS);
+    for (let i = 0; i < MAX_GIVERS; i++) this.givers.setColorAt(i, tmpColour.set(0x2bf0ff));
     this.givers.count = 0;
     this.givers.frustumCulled = false;
     this.givers.name = 'giver-beams';
@@ -65,15 +69,18 @@ export class MarkersView {
     scene.add(this.beam);
   }
 
-  setGivers(points: readonly { x: number; z: number }[]): void {
+  setGivers(points: readonly { x: number; z: number; colour?: string }[]): void {
     const n = Math.min(MAX_GIVERS, points.length);
     for (let i = 0; i < n; i++) {
-      tmp.position.set(points[i]!.x, 0, points[i]!.z);
+      const p = points[i]!;
+      tmp.position.set(p.x, 0, p.z);
       tmp.updateMatrix();
       this.givers.setMatrixAt(i, tmp.matrix);
+      this.givers.setColorAt(i, tmpColour.set(p.colour ?? '#2bf0ff'));
     }
     this.givers.count = n;
     this.givers.instanceMatrix.needsUpdate = true;
+    if (this.givers.instanceColor) this.givers.instanceColor.needsUpdate = true;
   }
 
   /** Show the objective ring at a point (radius in metres), or hide it with null. */

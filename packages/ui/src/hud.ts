@@ -17,6 +17,8 @@ export class Hud {
   private readonly timerEl: HTMLElement;
   private readonly dialogueEl: HTMLElement;
   private readonly toastEl: HTMLElement;
+  private readonly hintEl: HTMLElement;
+  private hintUntil = 0;
   private last = { label: '', heat: -1, flash: false, speed: -1, health: -1, trace: -1, obj: '', timer: '', dialogue: '', toast: '' };
   private toastUntil = 0;
   private dialogueUntil = 0;
@@ -35,7 +37,8 @@ export class Hud {
         <div class="nh-speed">0<small>km/h</small></div>
       </div>
       <div class="nh-dialogue" hidden></div>
-      <div class="nh-toast" hidden></div>`;
+      <div class="nh-toast" hidden></div>
+      <div class="nh-hint" role="note" hidden></div>`;
     this.heatEl = this.root.querySelector('.nh-heat') as HTMLElement;
     for (let i = 0; i < maxChevrons; i++) {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -54,6 +57,7 @@ export class Hud {
     this.timerEl = this.root.querySelector('.nh-mission__timer') as HTMLElement;
     this.dialogueEl = this.root.querySelector('.nh-dialogue') as HTMLElement;
     this.toastEl = this.root.querySelector('.nh-toast') as HTMLElement;
+    this.hintEl = this.root.querySelector('.nh-hint') as HTMLElement;
     parent.appendChild(this.root);
   }
 
@@ -122,7 +126,15 @@ export class Hud {
     this.toastUntil = now + seconds * 1000;
   }
 
+  /** A tutorial hint line (how to do something), shown under the objective. */
+  showHint(text: string, now: number, seconds = 6): void {
+    this.hintEl.textContent = text;
+    this.hintEl.hidden = false;
+    this.hintUntil = now + seconds * 1000;
+  }
+
   tick(now: number): void {
+    if (!this.hintEl.hidden && now > this.hintUntil) this.hintEl.hidden = true;
     if (!this.toastEl.hidden && now > this.toastUntil) this.toastEl.hidden = true;
     if (!this.dialogueEl.hidden && now > this.dialogueUntil) this.dialogueEl.hidden = true;
   }
