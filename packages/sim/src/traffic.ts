@@ -1,13 +1,16 @@
 import { z } from 'zod';
-import { LaneLoop } from './nav';
+import type { NavNode } from './nav';
 import { driveTowards, handleStuck, resetAiState } from './ai';
 import { forwardSpeed } from './vehicle';
 import type { Vehicle, World } from './world';
 
 export const TrafficConfigSchema = z.object({
+  /** Moving traffic kept alive around the player. */
   count: z.number().int().nonnegative(),
   variants: z.array(z.string()).min(1),
+  /** Cruising speed on streets and on avenues (m/s); each driver varies it a little. */
   cruiseSpeed: z.number().positive(),
+  avenueSpeed: z.number().positive().default(16),
   cornerSpeed: z.number().positive(),
   cornerSlowDist: z.number().nonnegative(),
   minGap: z.number().positive(),
@@ -16,75 +19,123 @@ export const TrafficConfigSchema = z.object({
   lookAheadPerSpeed: z.number().nonnegative(),
   detectRange: z.number().positive(),
   laneHalfWidth: z.number().positive(),
+  /** Traffic appears between these distances from the player and vanishes beyond despawnDist. */
   respawnMinDist: z.number().nonnegative(),
+  spawnMaxDist: z.number().positive().default(190),
+  despawnDist: z.number().positive().default(250),
   stuckSec: z.number().positive(),
   /** Abandoned (stolen then left) cars out of range for this long are recycled. */
   abandonedDespawnSec: z.number().positive(),
   /** Most wrecks left in the world at once; the oldest beyond this is cleared even if nearby. */
   maxWrecks: z.number().int().nonnegative(),
   aiHz: z.number().positive(),
+  /** Traffic lights at junctions: seconds of green and amber per axis, and all-red between. */
+  lights: z.object({ green: z.number().positive(), amber: z.number().nonnegative(), allRed: z.number().nonnegative() }).default({ green: 9, amber: 2.5, allRed: 1.5 }),
+  /** Parked cars are streamed in within this distance of the player, out beyond parkedOutDist. */
+  parkedInDist: z.number().positive().default(120),
+  parkedOutDist: z.number().positive().default(170),
+  parkedMax: z.number().int().nonnegative().default(26),
 });
 export type TrafficConfig = z.infer<typeof TrafficConfigSchema>;
 
+export type LightState = 'green' | 'amber' | 'red';
+
+/** The signal facing traffic on an axis at a junction. Every junction runs its own offset cycle. */
+export function trafficLight(node: NavNode, alongX: boolean, time: number, cfg: TrafficConfig['lights']): LightState {
+  const half = cfg.green + cfg.amber + cfg.allRed;
+  const cycle = half * 2;
+  const t = (((time + ((node.id * 7.31) % cycle)) % cycle) + cycle) % cycle;
+  const local = alongX ? t : (t + half) % cycle;
+  if (local < cfg.green) return 'green';
+  if (local < cfg.green + cfg.amber) return 'amber';
+  return 'red';
+}
+
 /**
- * Civilian traffic: pooled cars following lane loops with car-following
- * (keep a gap, brake for obstacles). Decisions tick at aiHz, staggered by id.
+ * Civilian traffic on the road graph: cars keep to the right-hand lane, pick a
+ * turn at each junction, stop at red lights, follow the car in front and get
+ * out of the way of trouble. Only the streets around the player are populated:
+ * cars appear out of view and disappear far behind. Kerbside parked cars are
+ * streamed in and out the same way. Decisions tick at aiHz, staggered by id.
  */
 export class TrafficSystem {
-  readonly loops: LaneLoop[];
   /** Active traffic cap (quality tiers lower it). */
   cap: number;
   private respawnCooldown = 0;
-  private readonly tmp = { x: 0, z: 0 };
+  private parkTimer = 0;
+  /** Vehicle id parked at each parking spot, or -1. */
+  private readonly spotCar: Int32Array;
+  /** Spot whose car was driven away: left empty until the player is far off. */
+  private readonly spotGone: Uint8Array;
+  private readonly driveEdges: number[];
 
   constructor(
     private readonly world: World,
     public config: TrafficConfig,
   ) {
-    const map = world.content.map;
-    this.loops = map.traffic.loops.map((l) => new LaneLoop(l.id, l.points, map.roads.laneOffset));
     this.cap = config.count;
+    const n = world.content.map.parking.length;
+    this.spotCar = new Int32Array(n).fill(-1);
+    this.spotGone = new Uint8Array(n);
+    this.driveEdges = world.roads.edges.filter((e) => e.kind !== 'alley').map((e) => e.id);
   }
 
-  /** Spread the initial traffic evenly around the loops. */
+  /** Fill the streets around the player at the start. */
   populate(): void {
-    const n = this.cap;
-    for (let i = 0; i < n; i++) {
-      const loop = i % this.loops.length;
-      const L = this.loops[loop]!;
-      const s = ((Math.floor(i / this.loops.length) + this.world.rng.next()) / Math.ceil(n / this.loops.length)) * L.length;
-      this.spawnAt(loop, s, false);
-    }
-  }
-
-  private spawnAt(loopIdx: number, s: number, checkPlayer: boolean): Vehicle | null {
-    const w = this.world;
-    const L = this.loops[loopIdx]!;
-    const p = this.tmp;
-    L.pointAt(s, p);
-    if (checkPlayer && Math.hypot(p.x - w.player.x, p.z - w.player.z) < this.config.respawnMinDist) return null;
-    // Keep clear of moving cars; cars parked in the kerb lane only block the exact spot.
-    for (const v of w.vehicles) if (v.active && Math.hypot(v.x - p.x, v.z - p.z) < (v.role === 'parked' ? 2.4 : 9)) return null;
-    const ahead = { x: 0, z: 0 };
-    L.pointAt(s + 2, ahead);
-    const yaw = Math.atan2(ahead.x - p.x, ahead.z - p.z);
-    const variant = w.rng.pick(this.config.variants);
-    const v = w.spawnVehicle(variant, p.x, p.z, yaw, 'traffic');
-    if (!v) return null;
-    resetAiState(v.ai);
-    v.ai.mode = 'drive';
-    v.ai.loop = loopIdx;
-    v.ai.s = s;
-    // Start rolling so traffic does not all pull away at once.
-    v.vx = Math.sin(yaw) * this.config.cruiseSpeed * 0.6;
-    v.vz = Math.cos(yaw) * this.config.cruiseSpeed * 0.6;
-    return v;
+    this.streamParked(true);
+    for (let i = 0; i < this.cap * 3 && this.activeCount() < this.cap; i++) this.spawnNear(25, this.config.spawnMaxDist, false);
   }
 
   activeCount(): number {
     let n = 0;
     for (const v of this.world.vehicles) if (v.active && v.role === 'traffic') n++;
     return n;
+  }
+
+  /** Spawn one car on a random lane between rMin and rMax from the player. */
+  private spawnNear(rMin: number, rMax: number, outOfView: boolean): Vehicle | null {
+    const w = this.world;
+    const g = w.roads;
+    const px = w.player.x;
+    const pz = w.player.z;
+    for (let tries = 0; tries < 60; tries++) {
+      const e = g.edges[w.rng.pick(this.driveEdges)]!;
+      const forward = w.rng.next() < 0.5;
+      const a = g.nodes[forward ? e.a : e.b]!;
+      const b = g.nodes[forward ? e.b : e.a]!;
+      const t = w.rng.range(0.25, 0.75);
+      const dx = (b.x - a.x) / e.length;
+      const dz = (b.z - a.z) / e.length;
+      const off = e.width / 4;
+      const x = a.x + (b.x - a.x) * t - dz * off;
+      const z = a.z + (b.z - a.z) * t + dx * off;
+      const d = Math.hypot(x - px, z - pz);
+      if (d < rMin || d > rMax) continue;
+      // Out of view: the camera looks down on about 60 m around the player, further ahead.
+      if (outOfView && d < 140 && Math.abs(x - px) < 75 && z - pz > -95 && z - pz < 55) continue;
+      let blocked = false;
+      for (const v of w.vehicles) if (v.active && Math.hypot(v.x - x, v.z - z) < 12) blocked = true;
+      if (blocked) continue;
+      const yaw = Math.atan2(dx, dz);
+      const v = w.spawnVehicle(this.pickVariant(), x, z, yaw, 'traffic');
+      if (!v) return null;
+      resetAiState(v.ai);
+      v.ai.mode = 'drive';
+      v.ai.navFrom = a.id;
+      v.ai.navTo = b.id;
+      v.ai.navNext = -1;
+      const base = e.kind === 'avenue' || e.kind === 'bridge' ? this.config.avenueSpeed : this.config.cruiseSpeed;
+      v.ai.cruise = base * w.rng.range(0.82, 1.15);
+      v.vx = dx * v.ai.cruise * 0.7;
+      v.vz = dz * v.ai.cruise * 0.7;
+      v.body?.setLinvel({ x: v.vx, y: 0, z: v.vz }, true);
+      return v;
+    }
+    return null;
+  }
+
+  private pickVariant(): string {
+    return this.world.rng.pick(this.config.variants);
   }
 
   /** Pre-physics: choose controls for each traffic car. */
@@ -107,27 +158,32 @@ export class TrafficSystem {
       if (handleStuck(v, dt, cfg.stuckSec, 1.2)) continue;
       driveTowards(v, a.targetX, a.targetZ, a.targetSpeed, v.controls);
     }
-    // Keep the population topped up, away from the player.
+    // Keep the streets around the player busy.
     this.respawnCooldown -= dt;
     if (this.respawnCooldown <= 0 && this.activeCount() < this.cap) {
-      this.respawnCooldown = 0.5;
-      const loop = w.rng.int(0, this.loops.length - 1);
-      this.spawnAt(loop, w.rng.next() * this.loops[loop]!.length, true);
+      this.respawnCooldown = 0.25;
+      this.spawnNear(cfg.respawnMinDist, cfg.spawnMaxDist, true);
     }
-    // Recycle traffic that is wrecked and far away, and cars the player stole and left behind.
+    this.parkTimer -= dt;
+    if (this.parkTimer <= 0) {
+      this.parkTimer = 0.5;
+      this.streamParked(false);
+    }
+    // Recycle traffic left far behind, wrecks out of sight, and cars the player stole and left.
     for (const v of w.vehicles) {
-      if (!v.active) continue;
-      const far = w.distToPlayer(v.x, v.z) > cfg.respawnMinDist;
-      if (v.role === 'traffic' && v.destroyed && w.time - v.destroyedTime > 8 && far) {
+      if (!v.active || v.persistent) continue;
+      const d = w.distToPlayer(v.x, v.z);
+      const far = d > cfg.respawnMinDist;
+      if (v.role === 'traffic' && (d > cfg.despawnDist || (v.destroyed && w.time - v.destroyedTime > 8 && far))) {
         w.despawnVehicle(v);
-      } else if (v.role === 'parked' && !v.persistent) {
+      } else if (v.role === 'parked' && !this.isSpotCar(v)) {
         v.abandonedTime = far ? v.abandonedTime + dt : 0;
-        if (v.abandonedTime > cfg.abandonedDespawnSec) w.despawnVehicle(v);
+        if (v.abandonedTime > cfg.abandonedDespawnSec || d > cfg.despawnDist * 1.6) w.despawnVehicle(v);
       }
     }
     // Bound the wreck count (police wrecks pile up if a fight stays in one place).
     let wrecks = 0;
-    let oldest: (typeof w.vehicles)[number] | null = null;
+    let oldest: Vehicle | null = null;
     for (const v of w.vehicles) {
       if (!v.active || !v.destroyed || v.persistent || v === w.player.vehicle) continue;
       wrecks++;
@@ -136,20 +192,132 @@ export class TrafficSystem {
     if (wrecks > cfg.maxWrecks && oldest && w.time - oldest.destroyedTime > 3) w.despawnVehicle(oldest);
   }
 
+  private isSpotCar(v: Vehicle): boolean {
+    for (let i = 0; i < this.spotCar.length; i++) if (this.spotCar[i] === v.id) return true;
+    return false;
+  }
+
+  /** Bring parked cars into the streets near the player and take far ones away. */
+  private streamParked(initial: boolean): void {
+    const w = this.world;
+    const cfg = this.config;
+    const spots = w.content.map.parking;
+    let parked = 0;
+    for (let i = 0; i < spots.length; i++) {
+      const id = this.spotCar[i]!;
+      if (id < 0) continue;
+      const v = w.vehicles[id]!;
+      const s = spots[i]!;
+      // Still standing in its spot, as it was left?
+      const inPlace = v.active && v.role === 'parked' && Math.hypot(v.x - s.x, v.z - s.z) < 2.5 && !v.destroyed && v.hp >= v.params.maxHealth * 0.99;
+      if (!v.active || !inPlace) {
+        // Taken, wrecked or shoved: the car is on its own now; the spot stays empty for a while.
+        this.spotCar[i] = -1;
+        this.spotGone[i] = 1;
+        continue;
+      }
+      if (w.distToPlayer(s.x, s.z) > cfg.parkedOutDist) {
+        w.despawnVehicle(v);
+        this.spotCar[i] = -1;
+      } else parked++;
+    }
+    for (let i = 0; i < spots.length && parked < cfg.parkedMax; i++) {
+      const s = spots[i]!;
+      const d = w.distToPlayer(s.x, s.z);
+      if (this.spotGone[i]) {
+        if (d > cfg.parkedOutDist * 1.8) this.spotGone[i] = 0;
+        continue;
+      }
+      if (this.spotCar[i]! >= 0 || d > cfg.parkedInDist) continue;
+      // Do not pop a car in right under the player's nose (except at the start).
+      if (!initial && d < 70) continue;
+      let clear = true;
+      for (const v of w.vehicles) if (v.active && Math.hypot(v.x - s.x, v.z - s.z) < 5) clear = false;
+      if (!clear) continue;
+      const v = w.spawnVehicle(s.variant, s.x, s.z, s.yaw, 'parked');
+      if (!v) break;
+      this.spotCar[i] = v.id;
+      parked++;
+    }
+  }
+
   private decide(v: Vehicle): void {
     const w = this.world;
     const cfg = this.config;
+    const g = w.roads;
     const a = v.ai;
-    const L = this.loops[a.loop]!;
-    a.s = L.project(v.x, v.z);
-    const vf = forwardSpeed(v);
-    const look = cfg.lookAheadBase + Math.max(0, vf) * cfg.lookAheadPerSpeed;
-    L.pointAt(a.s + look, this.tmp);
-    a.targetX = this.tmp.x;
-    a.targetZ = this.tmp.z;
-    let speed = cfg.cruiseSpeed;
-    const corner = L.distanceToNextCorner(a.s);
-    if (corner < cfg.cornerSlowDist) speed = Math.min(speed, cfg.cornerSpeed + (cfg.cruiseSpeed - cfg.cornerSpeed) * (corner / cfg.cornerSlowDist));
+    if (a.navFrom < 0 || a.navTo < 0) {
+      // Lost (e.g. shoved off its road): rejoin at the nearest node.
+      const n = g.nearest(v.x, v.z);
+      a.navFrom = n.id;
+      a.navTo = n.links.find((l) => g.edgeBetween(n.id, l)?.kind !== 'alley') ?? n.links[0] ?? n.id;
+      a.navNext = -1;
+    }
+    const A = g.nodes[a.navFrom]!;
+    const B = g.nodes[a.navTo]!;
+    const e = g.edgeBetween(A.id, B.id);
+    const len = Math.max(0.01, Math.hypot(B.x - A.x, B.z - A.z));
+    const dx = (B.x - A.x) / len;
+    const dz = (B.z - A.z) / len;
+    const off = (e?.width ?? 13) / 4;
+    const vf = Math.max(0, forwardSpeed(v));
+    const look = cfg.lookAheadBase + vf * cfg.lookAheadPerSpeed;
+    // Distance left to the junction centre, and the half-width of the junction box there.
+    const toB = (B.x - v.x) * dx + (B.z - v.z) * dz;
+    let box = 0;
+    for (const id of B.edges) box = Math.max(box, g.edges[id]!.width / 2);
+    if (B.links.length <= 1) box = 0;
+    // Choose where to go after B.
+    if (a.navNext < 0) {
+      const options = B.links.filter((l) => l !== A.id && g.edgeBetween(B.id, l)?.kind !== 'alley');
+      a.navNext = options.length ? w.rng.pick(options) : A.id;
+    }
+    const N = g.nodes[a.navNext]!;
+    const nlen = Math.max(0.01, Math.hypot(N.x - B.x, N.z - B.z));
+    const ndx = (N.x - B.x) / nlen;
+    const ndz = (N.z - B.z) / nlen;
+    const ne = g.edgeBetween(B.id, N.id);
+    const noff = (ne?.width ?? 13) / 4;
+    const turning = Math.abs(ndx * dx + ndz * dz) < 0.7;
+    const uturn = ndx * dx + ndz * dz < -0.7;
+    let speed = a.cruise > 0 ? a.cruise : cfg.cruiseSpeed;
+    if (toB > box + look * 0.6) {
+      // Along the lane.
+      // Aim at a point on the lane line ahead of where the car is now.
+      const s = Math.min(toB - box, look);
+      const t = (v.x - A.x) * dx + (v.z - A.z) * dz + s;
+      a.targetX = A.x + dx * t - dz * off;
+      a.targetZ = A.z + dz * t + dx * off;
+      if (turning || uturn) {
+        const dist = toB - box;
+        if (dist < cfg.cornerSlowDist) speed = Math.min(speed, cfg.cornerSpeed + (speed - cfg.cornerSpeed) * (dist / cfg.cornerSlowDist));
+      }
+    } else {
+      // Through the junction into the next lane.
+      const tx = B.x + ndx * (box + 4) - ndz * noff;
+      const tz = B.z + ndz * (box + 4) + ndx * noff;
+      a.targetX = tx;
+      a.targetZ = tz;
+      if (turning || uturn) speed = Math.min(speed, cfg.cornerSpeed);
+      // Past the junction centre in the new direction: the next edge is now ours.
+      if ((v.x - B.x) * ndx + (v.z - B.z) * ndz > Math.min(box, 4) || (uturn && (v.x - B.x) * ndx + (v.z - B.z) * ndz > -1)) {
+        a.navFrom = B.id;
+        a.navTo = N.id;
+        a.navNext = -1;
+        if (ne) {
+          const base = ne.kind === 'avenue' || ne.kind === 'bridge' ? cfg.avenueSpeed : cfg.cruiseSpeed;
+          a.cruise = base * w.rng.range(0.85, 1.12);
+        }
+      }
+    }
+    // Lights: stop at the line unless already committed.
+    if (B.junction && toB > box) {
+      const light = trafficLight(B, e?.alongX ?? true, w.time, cfg.lights);
+      const toLine = toB - box - 1.5;
+      if (light === 'red' || (light === 'amber' && toLine > vf * 0.9)) {
+        if (toLine < 40) speed = Math.min(speed, Math.max(0, toLine - 1) / 1.6);
+      }
+    }
     // Car-following: nearest obstacle ahead in our lane.
     const gap = w.gapAhead(v, cfg.detectRange, cfg.laneHalfWidth);
     if (gap < Infinity) speed = Math.min(speed, Math.max(0, (gap - cfg.minGap) / cfg.timeHeadway));

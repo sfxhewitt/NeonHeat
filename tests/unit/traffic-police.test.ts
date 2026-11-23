@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { forwardSpeed, type Vehicle } from '@neonheat/sim';
-import { intents, loadContent, makeWorld, run } from './helpers';
+import { EW, buildingWithRoadSouth, intents, loadContent, makeWorld, run } from './helpers';
 
 const idle = intents();
 
@@ -81,7 +81,8 @@ describe('damage', () => {
     content.traffic.count = 0;
     content.peds.count = 0;
     const world = await makeWorld(1, content);
-    const car = world.spawnVehicle('kestrel', -14, 34, Math.PI, 'parked')!;
+    const { x, z } = buildingWithRoadSouth(world);
+    const car = world.spawnVehicle('kestrel', x, z, Math.PI, 'parked')!;
     world.playerCtl.enter(car);
     const hp: number[] = [];
     for (let i = 0; i < 30 && !car.destroyed; i++) {
@@ -142,9 +143,9 @@ describe('police and HEAT in the world', () => {
 
   it('ramming a police car raises HEAT', async () => {
     const w = await chaseWorld(8);
-    const car = w.spawnVehicle('kestrel', -110, 120, Math.PI / 2, 'player')!;
+    const car = w.spawnVehicle('kestrel', EW.x, EW.z, Math.PI / 2, 'player')!;
     w.playerCtl.enter(car);
-    const cop = w.spawnVehicle('interceptor', -60, 120, Math.PI / 2, 'police')!;
+    const cop = w.spawnVehicle('interceptor', EW.x + 50, EW.z, Math.PI / 2, 'police')!;
     // Hold the patrol car still so the test is about the ram, not the chase.
     cop.ai.mode = 'stunned';
     cop.ai.timer = 100;

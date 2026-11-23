@@ -26,6 +26,7 @@ import {
   createWetRoadMaterial,
   layoutSigns,
   type CityMeshes,
+  waterTime,
   type TierName,
 } from '@neonheat/engine';
 import {
@@ -75,6 +76,7 @@ export class Game {
   private propsView!: PropsView;
   private skids!: SkidMarks;
   private sceneLights!: SceneLights;
+  private signs!: { stream: (x: number, z: number) => void };
   private perfEl: HTMLElement | null = null;
   private perfTimer = 0;
   director!: MissionDirector;
@@ -226,7 +228,7 @@ export class Game {
     this.city = buildCity(s, map, this.roadMat);
     this.propsView = new PropsView(s, this.world.props.props);
     this.sceneLights = new SceneLights(this.lightField, this.city.lamps, signs, this.propsView.lights());
-    buildSignage(s, signs);
+    this.signs = buildSignage(s, signs);
     this.shadows = new BlobShadows(s);
     this.vehiclesView = new VehiclesView(s, this.content.sim.vehicles.variants);
     this.particles = new Particles(s);
@@ -262,6 +264,7 @@ export class Game {
     };
     lit(0.55, ...this.vehiclesView.bodies);
     lit(0.12, this.city.buildings, this.city.pavements, this.city.ground);
+    lit(0.7, this.city.water);
     lit(0, this.city.roofProps, this.city.lampPosts, this.vehiclesView.wheels, ...this.people.meshes, ...this.propsView.meshes, this.particles.debris.mesh);
   }
 
@@ -606,9 +609,14 @@ export class Game {
     this.renderer.getDrawingBufferSize(this.city.viewport);
     const fp = this.projected.copy(this.city.focus).project(this.rig.camera);
     this.city.focusScreen.set(fp.x * 0.5 + 0.5, fp.y * 0.5 + 0.5);
+    // Stream the city near the camera: buildings, lamps, props and signs.
+    this.city.stream(focus.x, focus.z - 20);
+    this.propsView.stream(focus.x, focus.z - 15);
+    this.signs.stream(focus.x, focus.z - 20);
+    waterTime.value = w.time;
     this.propsView.update();
     this.syncBrokenLights();
-    this.sceneLights.update(w, alpha, this.paused ? 0 : dt);
+    this.sceneLights.update(w, alpha, this.paused ? 0 : dt, focus.x, focus.z - 12);
     // Centre the light buffer a little ahead (north) of the focus: the camera sees further up the screen.
     this.lightField.render(this.renderer, focus.x, focus.z - 12);
     this.postfx.render(this.scene, this.rig.camera);

@@ -12,7 +12,7 @@ import { TrafficSystem } from './traffic';
 import { PoliceSystem } from './police';
 import { PedSystem } from './peds';
 import { PropSystem } from './props';
-import { kerbAngle, onPavement } from './street';
+import { Cell, cityGrid, kerbAngle, onPavement } from './street';
 import { PlayerController, type Interactable } from './player';
 
 export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad';
@@ -111,7 +111,7 @@ export class World {
     this.R = options.rapier;
     this.physics = new this.R.World({ x: 0, y: 0, z: 0 });
     this.physics.timestep = SIM_DT;
-    const pool = options.maxVehicles ?? 56;
+    const pool = options.maxVehicles ?? 96;
     for (let i = 0; i < pool; i++) this.vehicles.push(makeVehicle(i, this.content.vehicles.variants[this.content.vehicles.player]!));
     this.roads = new RoadGraph(this.content.map);
     this.traffic = new TrafficSystem(this, this.content.traffic);
@@ -141,10 +141,11 @@ export class World {
 
   /** True if (x, z) is inside (or within `margin` of) a building footprint. */
   insideBuilding(x: number, z: number, margin = 0): boolean {
-    for (const b of this.content.map.buildings) {
-      if (Math.abs(x - b.x) < b.w / 2 + margin && Math.abs(z - b.z) < b.d / 2 + margin) return true;
-    }
-    return false;
+    const g = cityGrid(this.content.map);
+    const solid = Cell.building | Cell.water;
+    if (g.at(x, z) & solid) return true;
+    if (margin <= 0) return false;
+    return ((g.at(x - margin, z - margin) | g.at(x + margin, z - margin) | g.at(x - margin, z + margin) | g.at(x + margin, z + margin)) & solid) !== 0;
   }
 
   addTrace(v: number): void {
@@ -262,6 +263,16 @@ export class World {
       [-sx / 2 - t / 2, 0, t / 2, sz / 2 + t],
       [sx / 2 + t / 2, 0, t / 2, sz / 2 + t],
     ];
+    // The river: cars and people stop at the bank (bridges are gaps between the water slabs).
+    for (const wtr of map.water) walls.push([wtr.x, wtr.z, wtr.w / 2, wtr.d / 2]);
+    // Bridge railings.
+    for (const sg of map.roads.segments) {
+      if (sg.kind !== 'bridge') continue;
+      const hw = sg.width / 2 + 0.3;
+      const cz = (sg.z0 + sg.z1) / 2;
+      const hz = (sg.z1 - sg.z0) / 2 + 4;
+      walls.push([sg.x0 - hw, cz, 0.3, hz], [sg.x0 + hw, cz, 0.3, hz]);
+    }
     for (const [x, z, hx, hz] of walls) {
       const c = physics.createCollider(
         R.ColliderDesc.cuboid(hx, 4, hz).setTranslation(x, 4, z).setCollisionGroups(groups).setFriction(0.1),

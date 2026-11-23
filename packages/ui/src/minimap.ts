@@ -95,7 +95,7 @@ export class Minimap {
     this.prepared = prepareMap(geom);
     // The static layer: sharp at rest, capped so a big city stays within mobile canvas limits.
     const maxDim = Math.max(geom.size[0], geom.size[1]);
-    this.layerScale = Math.min(this.px / this.spanMin, 3000 / maxDim);
+    this.layerScale = Math.min(this.px / this.spanMin, 2048 / maxDim);
     this.half = [geom.size[0] / 2, geom.size[1] / 2];
     this.layer = document.createElement('canvas');
     this.layer.width = Math.ceil(geom.size[0] * this.layerScale);

@@ -9,7 +9,7 @@ import {
   districtAt,
   distanceToRoute,
   emptyLiveState,
-  geometryFromBlockMap,
+  geometryFromMap,
   showTitle,
   storeSettings,
   straightRoute,
@@ -88,7 +88,10 @@ export class GameFlow {
 
   /** Call once the world exists (after Game.init has built the sim). */
   init(): void {
-    this.setGeometry(geometryFromBlockMap(this.game.content.sim.map));
+    this.setGeometry(geometryFromMap(this.game.content.sim.map as unknown as Parameters<typeof geometryFromMap>[0]));
+    // GPS along the road graph.
+    const roads = this.game.world.roads;
+    this.setRouteFn((ax, az, bx, bz) => roads.route(ax, az, bx, bz));
   }
 
   /** Swap in new map geometry (the generated city provides its own adapter). Rebuilds the minimap. */

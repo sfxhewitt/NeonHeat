@@ -2,6 +2,7 @@ import { BoxGeometry, CanvasTexture, Color, InstancedMesh, LinearFilter, MeshBas
 import { Rng, type MapContent } from '@neonheat/sim';
 import { BLOOM_LAYER } from './layers';
 import { NeonColours } from './palette';
+import { InstanceStream } from './stream';
 
 export interface Sign {
   x: number;
@@ -48,28 +49,31 @@ export function layoutSigns(map: MapContent, seed = 7): Sign[] {
   return signs;
 }
 
-export function buildSignage(scene: Scene, signs: Sign[]): InstancedMesh {
-  const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial({ toneMapped: false }), signs.length);
+/** Neon signs on the buildings, streamed so only those near the camera are drawn. */
+export function buildSignage(scene: Scene, signs: Sign[]): { mesh: InstancedMesh; stream: (x: number, z: number) => void } {
+  const mesh = new InstancedMesh(new BoxGeometry(1, 1, 1), new MeshBasicMaterial({ toneMapped: false }), Math.max(1, signs.length));
   const o = new Object3D();
   const c = new Color();
-  signs.forEach((s, i) => {
+  const items = signs.map((s) => {
     o.position.set(s.x, s.y, s.z);
     o.scale.set(s.w, s.h, s.d);
     o.updateMatrix();
-    mesh.setMatrixAt(i, o.matrix);
-    mesh.setColorAt(i, c.setHex(s.colour).multiplyScalar(1.6));
+    c.setHex(s.colour).multiplyScalar(1.6);
+    return { x: s.x, z: s.z, matrix: o.matrix.clone(), colour: { r: c.r, g: c.g, b: c.b } };
   });
+  mesh.setColorAt(0, c);
+  const st = new InstanceStream(mesh, items, 240);
   mesh.name = 'signage';
   mesh.layers.enable(BLOOM_LAYER);
   scene.add(mesh);
-  return mesh;
+  return { mesh, stream: (x, z) => st.update(x, z) };
 }
 
 /**
  * A tiny, blurred top-down map of where neon light falls, used by the wet-road
  * shader as a fake reflection. Painted once at load on a 2D canvas.
  */
-export function buildReflectionTexture(map: MapContent, signs: Sign[], size = 128): CanvasTexture {
+export function buildReflectionTexture(map: MapContent, signs: Sign[], size = Math.min(1024, Math.max(128, Math.round(map.size[0] / 2.4)))): CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d')!;

@@ -81,6 +81,65 @@ export function geometryFromBlockMap(map: BlockMapLike): MapGeometry {
   };
 }
 
+/** The generated city's shape (packages/sim citygen `GeneratedMap`), only the parts the map needs. */
+export interface CityMapLike {
+  size: [number, number];
+  roads: { segments: { x0: number; z0: number; x1: number; z1: number; width: number; kind: string }[] };
+  buildings: { x: number; z: number; w: number; d: number; h: number }[];
+  water: { x: number; z: number; w: number; d: number }[];
+  blocks: { x0: number; z0: number; x1: number; z1: number; kind: string }[];
+  districts: { id: string; name: string; colour: string; rects: [number, number, number, number][] }[];
+  markers: Record<string, { pos: [number, number, number] | number[] }>;
+}
+
+/** Named city markers shown as landmarks (others, like spawn points and bridges, stay off the map). */
+const CITY_LANDMARKS: Record<string, string> = {
+  central_tower: 'Central Tower',
+  plaza: 'The Plaza',
+  stadium: 'Stadium',
+  river_overlook: 'River Overlook',
+  rail_yard: 'Rail Yard',
+  junkyard: 'Junkyard',
+  market_square: 'Market Square',
+  dock_cranes: 'Dock Cranes',
+  gas_station_1: 'Fuel',
+  gas_station_2: 'Fuel',
+  rooftop_car_park: 'Rooftop Car Park',
+};
+
+/**
+ * Adapter for the generated city: road segments, water, parks from park
+ * blocks, one district entry per district rectangle, service markers as
+ * landmarks (clinic_north -> Clinic, armsshop_1 -> Arms dealer...).
+ */
+export function geometryFromCityMap(map: CityMapLike): MapGeometry {
+  const kinds: RoadKind[] = ['avenue', 'street', 'alley', 'bridge'];
+  const roads = map.roads.segments.map((r) => ({ ...r, kind: (kinds as string[]).includes(r.kind) ? (r.kind as RoadKind) : 'street' }));
+  const parks = map.blocks
+    .filter((b) => b.kind === 'park')
+    .map((b) => ({ x: (b.x0 + b.x1) / 2, z: (b.z0 + b.z1) / 2, w: b.x1 - b.x0, d: b.z1 - b.z0 }));
+  const districts: MapGeometry['districts'] = [];
+  for (const d of map.districts) {
+    for (const [x0, z0, x1, z1] of d.rects) {
+      districts.push({ id: d.id, name: d.name, colour: d.colour, x: (x0 + x1) / 2, z: (z0 + z1) / 2, w: x1 - x0, d: z1 - z0 });
+    }
+  }
+  const landmarks: MapGeometry['landmarks'] = [];
+  for (const [id, m] of Object.entries(map.markers)) {
+    const x = Number(m.pos[0]);
+    const z = Number(m.pos[2]);
+    const hit = MARKER_KINDS.find(([re]) => re.test(id));
+    if (hit) landmarks.push({ id, label: hit[2], kind: hit[1], x, z });
+    else if (CITY_LANDMARKS[id]) landmarks.push({ id, label: CITY_LANDMARKS[id], kind: 'landmark', x, z });
+  }
+  return { size: map.size, roads, buildings: map.buildings, water: map.water, parks, districts, landmarks };
+}
+
+/** Pick the adapter from the map's shape: the generated city has road segments, the old block a road grid. */
+export function geometryFromMap(map: CityMapLike | BlockMapLike): MapGeometry {
+  return 'segments' in map.roads ? geometryFromCityMap(map as CityMapLike) : geometryFromBlockMap(map as BlockMapLike);
+}
+
 /** Which district contains a point (first match), or null. */
 export function districtAt(geom: MapGeometry, x: number, z: number): MapGeometry['districts'][number] | null {
   for (const d of geom.districts) {
