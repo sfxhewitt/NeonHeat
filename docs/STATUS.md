@@ -1,5 +1,14 @@
 # Status
 
+## Vehicle roster (23 Nov 2026)
+
+- **23 variants** (17 new): hatchback, saloon, cab, estate, SUV, two sports cars, two supercars, muscle, pickup, van, box truck, hauler, bus, ambulance, fire tender, patrol car, patrol van, heavy interceptor, corporate enforcer, motorbike and sport bike. Every handling value is in `vehicles.json`. New optional fields (all defaulted): `class`, `model`, `twoWheel`, `traffic` (weight), `districts`, `paints`, `leanMax`, plus class paint palettes under `paints`.
+- **Roster helpers** in `packages/sim/src/roster.ts`: `variantsOfClass`, `pickTrafficVariant` (weighted, district-boosted, seeded) and `paintFor`. Traffic and police do not call them yet: `traffic.ts` still picks from `traffic.json` (now a wider civilian mix) and `police.ts` still spawns `interceptor` at every HEAT level.
+- **Bikes**: a two-wheeler only slides on the rear brake (handbrake); the view leans it into turns and seats a rider. They are light, so cars knock them about.
+- **Rendering**: all bodies and riders are one `BatchedMesh` (one draw call) with per-instance paint. A `paintMask` vertex attribute keeps trim untinted. Lamps (head, tail and brake, beacons, taxi sign, clearance lamps and accent strips) are one instanced mesh. The whole roster costs 4 draw calls. Parked cars go dark.
+- **Showroom**: `?garage=1` (add `&labels=1` for names, `&city=1` to keep the buildings) loads `apps/game/src/garage.ts` on demand.
+- **Open**: police escalation to the van and heavy interceptor at high HEAT; district-aware traffic; per-class engine audio; a sustained shove from a light car still moves a parked lorry (the arcade model's push ignores mass until the contact).
+
 ## Kerbs and street furniture (23 Nov 2026)
 
 Playing on the phone, hitting a kerb stopped the car dead. The kerb itself never had a collider. The problem was what stands on the pavement:

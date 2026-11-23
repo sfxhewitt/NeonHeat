@@ -188,10 +188,10 @@ class Kit {
   }
 
   /** A roof light bar: a dark housing with two beacon halves. */
-  lightBar(y: number, z: number, width: number, depth = 0.3): this {
-    this.slab(0, y, z, width + 0.08, 0.08, depth + 0.06, TRIM);
-    this.light('beaconA', width * 0.25, y + 0.14, z, width * 0.48, 0.14, depth);
-    this.light('beaconB', -width * 0.25, y + 0.14, z, width * 0.48, 0.14, depth);
+  lightBar(y: number, z: number, width: number, depth = 0.36): this {
+    this.slab(0, y, z, width + 0.1, 0.1, depth + 0.08, TRIM);
+    this.light('beaconA', width * 0.255, y + 0.18, z, width * 0.49, 0.18, depth);
+    this.light('beaconB', -width * 0.255, y + 0.18, z, width * 0.49, 0.18, depth);
     return this;
   }
 
@@ -322,7 +322,7 @@ function policeCar(k: Kit, suv: boolean): CarModel {
   k.slab(0, ride + 0.01, -hl + 0.07, W, 0.26, 0.14, TRIM);
   k.axle(hl * 0.66, suv ? 0.42 : 0.35, suv ? 0.36 : 0.3, true).axle(-hl * 0.64, suv ? 0.42 : 0.35, suv ? 0.36 : 0.3, false);
   k.lamps(ride + 0.36, ride + 0.4);
-  k.lightBar(roofY + 0.05, suv ? -0.45 : -0.2, 1.1);
+  k.lightBar(roofY + 0.05, suv ? -0.45 : -0.2, W * 0.66);
   return k.done(suv ? 'squad' : 'police');
 }
 

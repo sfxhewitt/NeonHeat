@@ -287,9 +287,9 @@ export class VehiclesView {
   ): number {
     switch (kind) {
       case 'head':
-        return parked ? 0x3a382c : 0xfff4d8;
+        return parked ? 0x4a4636 : 0xfff4d8;
       case 'tail':
-        return braking ? 0xff1a30 : parked ? 0x3a0610 : 0x8a0c1c;
+        return braking ? 0xff1a30 : parked ? 0x5a0a18 : 0x8a0c1c;
       case 'beaconA':
       case 'beaconB': {
         if (!scheme) return -1;
