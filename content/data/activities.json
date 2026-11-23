@@ -1,0 +1,95 @@
+{
+  "seed": 4417,
+  "rampages": {
+    "radius": 2.2,
+    "cooldownSec": 20,
+    "readySec": 2.5,
+    "countRange": 160,
+    "defs": [
+      { "id": "lantern_neon_wrecker", "title": "Neon Wrecker", "district": "lantern", "spot": "pavement", "kind": "wreck", "target": 6, "timeSec": 60, "weapon": "launcher", "ammo": 12, "reward": 1500, "repeatReward": 400 },
+      { "id": "lantern_market_sweep", "title": "Market Sweep", "district": "lantern", "spot": "pavement", "kind": "smash", "target": 15, "timeSec": 45, "reward": 900, "repeatReward": 250 },
+      { "id": "glass_hostile_takeover", "title": "Floor Clearance", "district": "glass", "spot": "park", "kind": "takedown", "target": 8, "timeSec": 90, "weapon": "smg", "ammo": 180, "reward": 1800, "repeatReward": 500, "gang": { "faction": "jackals", "hp": 2, "armed": true, "ring": [20, 36] } },
+      { "id": "ashgrove_kerb_appeal", "title": "Kerb Appeal", "district": "ashgrove", "spot": "pavement", "kind": "smash", "target": 18, "timeSec": 50, "reward": 1000, "repeatReward": 250 },
+      { "id": "undercroft_scrap_dogs", "title": "Scrap Dogs", "district": "undercroft", "spot": "lot", "kind": "takedown", "target": 10, "timeSec": 90, "weapon": "shotgun", "ammo": 24, "reward": 2000, "repeatReward": 500, "gang": { "faction": "jackals", "hp": 2, "armed": true, "ring": [18, 34] } },
+      { "id": "saltworks_dock_demolition", "title": "Dock Demolition", "district": "saltworks", "spot": "pavement", "kind": "wreck", "target": 5, "timeSec": 60, "weapon": "launcher", "ammo": 10, "reward": 1600, "repeatReward": 400 }
+    ]
+  },
+  "jumps": {
+    "gravity": 16,
+    "launchBoost": 1.2,
+    "clearHeight": 1.1,
+    "airDrag": 0.02,
+    "airYawDamp": 1.5,
+    "landing": { "speedKeep": 0.9, "hardSpeed": 9, "damagePerMs": 4 },
+    "ramp": { "width": 5, "up": 9, "deck": 2.5, "down": 5, "height": 1.8 },
+    "reward": { "minDistance": 12, "base": 50, "perMetre": 6, "perAirSecond": 60, "unique": 750 },
+    "slowMo": { "minAirSec": 1.0, "scale": 0.35, "sec": 0.8, "heightScale": 0.72 },
+    "perDistrict": { "lantern": 2, "ashgrove": 3, "glass": 3, "undercroft": 2, "saltworks": 2 },
+    "runUp": 40,
+    "landingRun": 60,
+    "spawnClear": 50,
+    "targetSpeed": 30,
+    "targetFraction": 0.85
+  },
+  "shards": {
+    "count": 50,
+    "radius": 1.6,
+    "milestone": 10,
+    "milestoneReward": 2500,
+    "reward": 50,
+    "minSpacing": 45,
+    "mix": { "pavement": 14, "alley": 12, "park": 10, "lot": 8, "edge": 6 },
+    "revealRange": 70
+  },
+  "fares": {
+    "taxi": {
+      "name": "Taxi",
+      "startLabel": "TAXI DUTY",
+      "classes": ["taxi"],
+      "cargo": "passenger",
+      "pickupDistance": [60, 260],
+      "dropDistance": [260, 750],
+      "pickupSec": 60,
+      "baseSec": 14,
+      "allowanceSpeed": 13,
+      "stopRadius": 8,
+      "stopSpeed": 3,
+      "pay": { "base": 60, "perMetre": 0.5, "tipMax": 0.5, "damagePenalty": 0 },
+      "streakEvery": 3,
+      "streakBonus": 250,
+      "leaveSec": 12
+    },
+    "courier": {
+      "name": "Courier",
+      "startLabel": "COURIER",
+      "classes": ["van", "bike"],
+      "cargo": "parcel",
+      "pickupDistance": [60, 240],
+      "dropDistance": [300, 800],
+      "pickupSec": 60,
+      "baseSec": 12,
+      "allowanceSpeed": 14,
+      "stopRadius": 7,
+      "stopSpeed": 3,
+      "pay": { "base": 80, "perMetre": 0.45, "tipMax": 0.4, "damagePenalty": 0.5 },
+      "streakEvery": 3,
+      "streakBonus": 250,
+      "leaveSec": 15
+    }
+  },
+  "races": {
+    "checkpointRadius": 12,
+    "checkpointSpacing": 140,
+    "countdownSec": 3,
+    "flagRadius": 9,
+    "abandonDistance": 500,
+    "leaveSec": 6,
+    "defs": [
+      { "id": "lantern_loop", "title": "Lantern Loop", "district": "lantern", "kind": "circuit", "laps": 2, "length": 900, "opponents": 3, "opponentVariants": ["vandal", "kestrel", "razorback"], "opponentSpeed": 27, "prizes": [1500, 600, 250], "colour": "#ff3fb4" },
+      { "id": "ashgrove_sprint", "title": "Ashgrove Sprint", "district": "ashgrove", "kind": "sprint", "laps": 1, "length": 1300, "opponents": 2, "opponentVariants": ["kestrel", "vandal"], "opponentSpeed": 26, "prizes": [1200, 500, 200], "colour": "#35e0ff" },
+      { "id": "glass_tower_run", "title": "Tower Run", "district": "glass", "kind": "circuit", "laps": 2, "length": 1100, "opponents": 3, "opponentVariants": ["razorback", "kestrel", "nightjar"], "opponentSpeed": 29, "prizes": [2000, 800, 300], "colour": "#e8ecff" },
+      { "id": "undercroft_rail_dash", "title": "Rail Yard Dash", "district": "undercroft", "kind": "sprint", "laps": 1, "length": 1300, "opponents": 2, "opponentVariants": ["vandal", "mule"], "opponentSpeed": 26, "prizes": [1300, 500, 200], "colour": "#4dff8a" },
+      { "id": "saltworks_dockside", "title": "Dockside Drag", "district": "saltworks", "kind": "sprint", "laps": 1, "length": 1500, "opponents": 3, "opponentVariants": ["razorback", "vandal", "kestrel"], "opponentSpeed": 28, "prizes": [1800, 700, 250], "colour": "#e8ff3a" }
+    ]
+  }
+}

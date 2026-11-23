@@ -1,0 +1,47 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "rustmouth_03_crane_game",
+  "faction": "rustmouth",
+  "title": "Crane Game",
+  "summary": "Somebody has wired the dock cranes to listen in on the Gaffer. Unplug them, then find out who is holding the headphones.",
+  "chain": 3,
+  "giver": { "type": "payphone", "at": "marker:saltworks_payphone_4" },
+  "prerequisites": { "missions": ["rustmouth_02_low_tide"] },
+  "budgetMinutes": 5,
+  "actors": {
+    "listener": { "faction": "kurogane", "at": "marker:saltworks_door_5", "behaviour": "flee", "role": "target" }
+  },
+  "objectives": [
+    {
+      "id": "crane_one",
+      "type": "hack",
+      "target": "marker:dock_cranes",
+      "minigame": "sequence",
+      "difficulty": 2,
+      "text": "Hack the bug on the crane",
+      "onStart": [{ "do": "dialogue", "line": "r03_intro" }],
+      "onFail": [{ "do": "addTrace", "value": 20 }]
+    },
+    {
+      "id": "crane_two",
+      "type": "hack",
+      "target": "marker:saltworks_door_2",
+      "minigame": "sequence",
+      "difficulty": 3,
+      "text": "Hack the relay in the harbour office",
+      "onStart": [{ "do": "dialogue", "line": "r03_second" }],
+      "onFail": [{ "do": "addTrace", "value": 20 }]
+    },
+    {
+      "id": "listener",
+      "type": "eliminate",
+      "targets": ["actor:listener"],
+      "text": "Catch the listener before he gets away",
+      "timeLimitSec": 120,
+      "onStart": [{ "do": "dialogue", "line": "r03_runner" }],
+      "onComplete": [{ "do": "dialogue", "line": "r03_done" }]
+    }
+  ],
+  "rewards": { "credits": 1600, "rep": { "rustmouth": 10, "kurogane": -5 } },
+  "failPolicy": "checkpoint"
+}

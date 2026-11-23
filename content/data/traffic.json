@@ -1,6 +1,6 @@
 {
   "count": 10,
-  "variants": ["kestrel", "kestrel", "vandal", "brick"],
+  "variants": ["kestrel", "kestrel", "vandal", "brick", "hatch", "hatch", "saloon", "saloon", "taxi", "estate", "bastion", "mule", "sparrow", "stacker"],
   "cruiseSpeed": 13,
   "cornerSpeed": 7,
   "cornerSlowDist": 22,
@@ -14,5 +14,6 @@
   "stuckSec": 3,
   "abandonedDespawnSec": 20,
   "maxWrecks": 3,
-  "aiHz": 15
+  "aiHz": 15,
+  "parkedMax": 40
 }

@@ -1,5 +1,217 @@
 # Status
 
+## Overnight build, 23 Nov 2026: decisions and state
+
+The owner asked for a full game overnight. The design is in docs/DESIGN.md. Decisions made without asking, so nobody had to be woken:
+
+- **City.** Vey City is generated from content/map/city.json at load (seeded, 1.6 km, five districts, river, three bridges) instead of hand-made Tiled maps. It is deterministic, so missions name its markers.
+  - Pavements are 6 m wide, so a car can mount a kerb without hitting a shop front.
+  - The road graph joins alleys to the road they meet, so GPS and AI can use every road.
+- **Never add draws to the main city RNG mid-generation.** Every later building would move and mission spots would break; mission-lint catches it. New features use their own Rng stream (see `lotRng` in citygen.ts).
+- **Traffic** picks from the full roster, weighted by vehicles.json `traffic` and the district's `trafficHint` in city.json.
+- **Signals** are drawn from the sim's own `trafficLight()`, so what you see is what the cars obey.
+- **Weather and time** live in the sim (weather.ts) and are graded in apps/game/src/sky.ts. They start at 22:00 in drizzle; one in-game hour takes 60 s.
+- **One HUD.** The combat HUD owns body, armour, weapon and score; the main HUD owns credits, hints and the mission line.
+- **Save v2** (missions branch) adds respect, unlocks and mission records. The front end's stats fields default to 0 inside v2.
+- **e2e** reads its port from E2E_PORT, so several checkouts can run at once.
+
+- **Save v3** carries the economy (loadout, armour, cyberware, export list) and side-activity progress together. v1 and v2 saves migrate.
+- **Pursuit crews ram like police.** Mission `squad` cars get the same capped, rate-limited ram damage as patrol cars (heat.json `ramDamage`), so a chase cannot write off a delivery in two hits.
+- **Touch stick has no idle timeout.** A thumb held perfectly still sends no touch events; the stick and pedals stay live until the finger lifts (the old 4 s timeout made the car stop mid-drive on phones).
+- **Mission retries** clear officers near the checkpoint and give back the weapons and ammo you had there.
+- **Bot soak.** `ALL_MISSIONS=1 npx vitest run tests/unit/all-missions.test.ts` (or a comma list of ids) has the bot play every mission from the giver.
+
+### Next
+
+Economy, living city and side activities are merged. Next: bot soak failures (mostly arrests and combat-heavy jobs), then real-phone feel.
+
+## Economy: shops, resprays, safehouses, cyberware, exports (23 Nov 2026)
+
+Done:
+- **Shop fronts in the world** (`packages/engine/src/services-view.ts`, 3 draw calls for all of them). Each kind has an original name, colour, icon and lit sign: MERCY LINE clinic, CITY WATCH precinct, HIDEOUT safehouse, FRESH COAT respray, LOUD GOODS arms and CHOP CHOP export yard. Each also has a glowing pad. Walk-in shops have a lit shopfront, a canopy and a kerbside sign. Drive-ins (respray, chop shop) have a garage building, a roller door, a roof sign and a drive pad with chevrons. Shop icons also show on the minimap and the full map.
+- **Respray** (FRESH COAT): drive onto the pad slowly. It costs `respray.price` (150 cr). You get a new paint, which is kept as `vehicle.paintSeed`, a repaired car and cleared HEAT under the police rules. It refuses with a message if the police can see you, you are too hot or you cannot pay. The police no longer respray for free.
+- **Arms shop** (LOUD GOODS): walk onto the pad and a touch panel opens with the game held. It sells weapons, ammo and armour at the prices in `economy.json`. FLATLINED or BOOKED takes your weapons. Anything you have bought before can be rebought at `rebuyFraction` of the price.
+- **Clinic** (MERCY LINE): sells healing and cyberware. Cyberware is permanent:
+  - Reflex: dodging slows time and gives i-frames.
+  - Plating: +50 maximum armour.
+  - Ghost: HEAT builds at 0.65×.
+- **Safehouses**: buy one at the door (the context button shows BUY). `safehouse_1` is owned from the start. Walking into an owned one heals you and autosaves.
+- **Respawn rule**: after FLATLINED you respawn at the nearest owned safehouse when it is nearer than the nearest clinic, otherwise at the clinic. After BOOKED you always respawn at the precinct.
+- **Export list**: 4 civilian variants, chosen by seed. Delivering one to a CHOP CHOP pad with at least 50% condition and no HEAT pays by class × condition, and a new car replaces it on the list. The list is shown in the pause menu's Jobs tab.
+- **While a job runs**, resprays are free ("on the crew's tab") and the chop shops do not buy, so a mission car cannot be sold.
+- **Save v3** (migration from v2 is tested). It adds the loadout, armour, cyberware, the export list, `creditsSpent` and `exportsDelivered`.
+- **Tests**: 21 rules in `tests/unit/economy.test.ts`, plus the save migration and round trip.
+
+Known gaps:
+- Reflex slows the whole fixed-step clock: the world, sound and timers all slow, not just the enemies.
+- The precinct front is decoration only: there is no interaction there yet.
+- Garage buildings are only placed for drive-in sites on open lots.
+- The sign posts have no colliders.
+- The chop shop's yard floodlight barely shows in the light field.
+## Living city (23 Nov 2026)
+
+All tuning is in `content/data/life.json` (Zod: `packages/sim/src/life-config.ts`); per-tier caps (`responders`, `gangMembers`, `gangCars`) are in `quality.json`.
+
+- **Emergency services** (`services.ts`). A ped knocked down near the player brings an ambulance; a wreck heavier than `wreckMinMass` catches fire and brings a fire tender. Units come from the nearest clinic marker or a road out of view, follow the road graph with sirens and beacons on, park at the kerb, and the crew walks round to the job. Paramedics kneel either side and revive the patient; firefighters hose the wreck until it goes out (flames, spray and steam in `apps/game/src/life-layer.ts`). Then the vehicle rejoins traffic with its lights off. Traffic pulls over and slows for any siren, including police with HEAT. Audio gets `siren` events, plus `v.siren` for the siren voices.
+- **Street crews** (`gangs.ts`). Five crews hang about in groups at spots in their home district, each with its colour and its own silhouette: a hood, a visor with pads, a hat with coat tails, a beanie with vest bands, or a crest with an antenna pack. Crew cars cruise their turf in crew colours. Respect: call `world.gangs.setRespect(crew, n)` (the director syncs mission progress). At +20 or more, members nod to you and fight police who come for you. In between, they ignore you unless attacked. At -20 or less, they shoot on sight on their own turf. Rival squads raid each other now and then: a stand-off, then a fight, and a crowd gathers. Hitting a crew member is a police crime only if police see it.
+- **Crowds** (`crowds.ts`).
+  - People walk in small groups and cross at junctions on the pedestrian phase of `trafficLight()`, queueing across the zebra.
+  - They put up umbrellas in rain and shelter in doorways in storms.
+  - They gather round wrecks and fights, then scatter at gunfire, and dive away from a car mounting the pavement.
+  - Density follows district style and time of day.
+- **Rendering** (`people-view.ts`, `people-gear.ts`). All kit and umbrellas are one `BatchedMesh` and every glowing detail one instanced mesh, so this adds 1 draw call (the glow mesh replaced the officers' shoulder-light mesh). New poses: kneel, nod, hose, film, shelter, aim, loiter. The people cap rose from 65 to 120.
+- **Performance**: a 60 s headless run with everything on (crews, crowds, responders, traffic, police) took 1.15 ms per tick on average. The three life systems account for about 0.05 ms of that.
+- **Tests**: `tests/unit/living-city.test.ts` (19). Screenshots are in `overnight/living-city/`.
+- **Open**:
+  - Police do not respond to crew fights, and officers do not shoot crew members.
+  - Hostile crew cars cruise but do not chase.
+  - Kneeling is approximate: the legs do not bend.
+  - A responder sometimes parks at an angle part-way into the lane.
+  - The first dispatch of a route runs a Dijkstra, which may cause a small hitch on a slow phone.
+  - Wrecks too light to burn (bikes) no longer smoke.
+## Side activities (23 Nov 2026)
+
+- **Sim** (`packages/sim/src/activities/`, tuned in `content/data/activities.json`): seeded placement of the ramps, havoc tokens, 50 data shards and race flags, with spawn and marker clearances. Placement also checks for clutter, so a fare never waits under a tree. Each activity is off while a story job runs.
+- **HAVOC runs** (the on-screen name for rampages): glowing bolt tokens start a timed challenge. The three kinds are wrecking cars, smashing props, or taking down a spawned hostile crew. Civilians never count. Each run has a countdown, a pass/fail card, a reward and a best time.
+- **Stunt jumps**: 12 ramps with hazard-striped decks and chevrons. The car has a real airtime state (sim `y`/`vy`), with pitch and scale in vehicles-view and a shadow on the ground. Rewards come from distance and airtime, plus a one-off unique-jump bonus. Slow motion and a lower camera kick in on big jumps. A ramp turns teal once its unique jump is done.
+- **Data shards**: 50 shards with a counter toast and 50 cr each, plus a bonus every 10.
+- **Taxi and courier duty**: T, the gamepad Y button or the touch pill. A fare waves at the kerb, with a timer, GPS arrow, tips and a streak bonus. Courier duty uses a van or bike and carries parcels.
+- **Street races**: flags lead to a countdown, checkpoints with chevrons and 2–3 AI racers. The HUD shows position, checkpoint and time, and best times are kept.
+- **UI**: shape-plus-colour icons on the minimap and the full map ("Side jobs" legend), eight new Stats tab counters, and the activity HUD panel (`packages/ui/src/activity-hud.ts`).
+- **Save v3** stores activity progress, with a v2→v3 migration and a test.
+- **Render cost**: the activity view is one solid mesh per nearby ramp plus three `BatchedMesh` draws. Measured at high tier, 956×440:
+
+  | Scene | Draw calls |
+  |---|---|
+  | Token | 93 |
+  | Race | 89 |
+  | Taxi | 87 |
+- **Open**:
+  - Jump height reads only subtly from the top-down camera.
+  - `phone.spec` "steal" step: it failed in 2 of 3 full-suite runs. The player was FLATLINED on foot after being teleported beside a traffic car, likely hit by traffic in the live lane. It passed 5 of 5 runs alone or with 4 workers. The cause is not pinned down yet.
+
+## Wanted, combat and survival (23 Nov 2026)
+
+- **HEAT 1-5, fairer.** A crime counts in full only when a police unit, the drone or a witness sees it. A witness is a pedestrian within 25 m with line of sight who phones it in after 4 s, unless they are knocked down first. Unwitnessed crime gives 20% of the points and is capped at HEAT 1, so a few shots fired in an empty street never bring a pursuit. Each level is distinct (`heat.json` `levels`):
+  - HEAT 1: one patrol investigates and tails you.
+  - HEAT 2: pursuit with flank, cut-off and PIT roles, plus box-in.
+  - HEAT 3: the drone arrives and officers shoot at a player on foot.
+  - HEAT 4: wardens (heavy interceptors), roadblocks and spike strips.
+  - HEAT 5: patrol vans with tactical officers.
+- **Escaping HEAT.** Break line of sight and it decays per level. Swapping cars unseen drops a level. A `respray*` marker, or `world.police.respray()`, clears HEAT up to 3 if you are unseen.
+- **The police stop you instead of killing you.** Ram damage is capped per hit, with a cooldown and knock-on capping, so a car comes out of a 60 s HEAT 2 chase with more than half its hull. A unit at the cut-off position eases off once it is ahead of you. Patrol cars pull up short of a player on foot and officers get out. Officers cuff a slow player (BOOKED) and, from HEAT 3, shoot with spread.
+- **FLATLINED / BOOKED.** You lose 10% or 15% of your credits and your weapons. You respawn at the nearest `clinic*` or `precinct*` marker (or `player_start`) with HEAT cleared, and a full-screen card shows what it cost.
+- **Weapons** (`weapons.json`): fists (three-hit combo), bat, pistol, SMG, shotgun, rifle, grenade launcher (arcing shot, area damage, throws cars over) and arc caster (chains to two more targets and stuns them). Ammo and an inventory come with a `nextWeapon` intent: the touch WPN button, Q/Tab, or the gamepad's left shoulder. The SMG and pistol can be fired from a car (drive-by). Wrecked cars explode; bikes crumple (`wreckMinMass`).
+- **Pickups** (`pickups.json`) are placed from `pickup_<kind>_*` markers; `grenade` and `taser` are aliases for the launcher and the arc caster. They respawn after 40 s and render as glowing, spinning icons, each with its own shape and colour.
+- **Street score** (`survival.json`): crimes earn credits on a chain multiplier. The pending credits bank once HEAT has been 0 for a short while. The score is kept in step with the save's credits.
+- **HUD**: BODY and ARMOUR bars, the weapon icon, its name and ammo, the score chain, credits, and a CUFFS meter under the HEAT chevrons. The hull bar only shows while driving.
+- **Open**: the vehicle flip is visual only (the sim keeps cars flat). Jobs do not fail on FLATLINED or BOOKED; you respawn and the job goes on. Respray is reachable only through markers or the API, and the city has no `respray*` markers yet. Arc bolt flicker uses `Math.random` (visual only). Officers do not show a getting-out animation.
+
+## Vehicle roster (23 Nov 2026)
+
+- **23 variants** (17 new): hatchback, saloon, cab, estate, SUV, two sports cars, two supercars, muscle, pickup, van, box truck, hauler, bus, ambulance, fire tender, patrol car, patrol van, heavy interceptor, corporate enforcer, motorbike and sport bike. Every handling value is in `vehicles.json`. New optional fields (all defaulted): `class`, `model`, `twoWheel`, `traffic` (weight), `districts`, `paints`, `leanMax`, plus class paint palettes under `paints`.
+- **Roster helpers** in `packages/sim/src/roster.ts`: `variantsOfClass`, `pickTrafficVariant` (weighted, district-boosted, seeded) and `paintFor`. Police escalate to `warden` (HEAT 4) and `patrolvan` (HEAT 5) through `heat.json`.
+- **Bikes**: a two-wheeler only slides on the rear brake (handbrake); the view leans it into turns and seats a rider. They are light, so cars knock them about.
+- **Rendering**: all bodies and riders are one `BatchedMesh` (one draw call) with per-instance paint. A `paintMask` vertex attribute keeps trim untinted. Lamps (head, tail and brake, beacons, taxi sign, clearance lamps and accent strips) are one instanced mesh. The whole roster costs 4 draw calls. Parked cars go dark.
+- **Showroom**: `?garage=1` (add `&labels=1` for names, `&city=1` to keep the buildings) loads `apps/game/src/garage.ts` on demand.
+- **Open**: district-aware traffic; per-class engine audio; a sustained shove from a light car still moves a parked lorry (the arcade model's push ignores mass until the contact).
+## Sound (23 Nov 2026)
+
+The game had no sound. It now has a fully procedural sound layer (`packages/audio`, tuned in `content/data/audio.json`). Nothing is shipped as an audio file: one-shots are rendered from code at runtime, in a frame-budgeted queue after the first tap.
+- **Engine**: one AudioContext, created and unlocked on the first gesture. It resumes after iOS interruptions and suspends when the tab is hidden. Buses: music, world, ambience and UI, then a high-pass, a compressor and a limiter. One generated reverb is shared. Pausing mutes world sounds and puts the music behind a low-pass. One-shots play on a pool of 24 channel strips.
+- **Cars**: the nearest 6 cars get engine voices. Each of the six classes (coupé, muscle, van, police, motorbike, sports) has its own harmonic spectrum. Rpm comes from speed, gear and load, with a throttle cut on upshifts. There is doppler, tyre squeal from lateral slip and handbrake, exhaust pops on lift-off, and traffic horns after a shunt.
+- **Impacts**: metal crunches in three sizes, plus glass, explosions and kerb thumps. Smashed props sound by material (wood, plastic, metal, glass with electrical fizz, hydrant spray). Body hits are soft thuds.
+- **Weapons**: pistol, SMG, shotgun and rifle each have their own sound, with street slap-back echoes. There are also a launcher thump, taser crackle, fist and bat swings and hits, a dry click and a reload, plus ricochets and bullet hits.
+- **Police**: up to 3 sirens (wail far off, yelp close, doppler), drone rotor hum at HEAT 3 and above, and scanner chatter (garbled formant voice).
+- **City**: rain (darker inside a car), the low hum of the city and distant traffic. Far-off sirens and horns play while not wanted. Crowd murmur rises near people. Short formant screams and shouts play when people scatter. Wrecks crackle with fire, and footsteps land on the wet street.
+- **UI and stings**: menu blips, pickup, cash, HEAT up and down tones, and hack-panel notes per node. Mission start, complete and fail stings, plus flatline and busted stings; all stings duck the radio.
+- **Radio**: four stations of generated music: NIGHTDRIVE 88.1 (synthwave), STATIC CHAPEL 101.9 (dark techno), SOFT RAIN FM 92.4 (lo-fi) and RUSH HOUR 174.0 (drum and bass). A seeded composer builds 6 tracks per station, each with its own tempo, key, progression, bass line, motif and arrangement. Stations run live, so coming back resumes mid-song. Tuning plays static, then the station's jingle. The radio plays only in a car: press **R** or the **FM** button to change station. The pause menu has a Sound section with master, music and effects volume and a station choice.
+- **Tests**: `tests/unit/audio.test.ts` (19 tests) covers the content schema, sequencer determinism and form, scale correctness, the timeline, the ident, distance gain, engine pitch and gear mapping, voice allocation caps and hysteresis, doppler, siren range and DSP sanity. A new e2e test unlocks audio with a tap and fires every cue, checking for no errors.
+- **Open**: the mix was checked by level and spectrum analysis of captured output, not by ear on a phone; levels may need a listening pass. There is no player horn input yet (`horn` events are supported). New weapon and pickup events are handled by name in `GameAudio.handle` (weapon from `e.weapon`).
+## Front end and flow (23 Nov 2026)
+
+The game now has a proper front end, all in `packages/ui` with the wiring in `apps/game/src/flow.ts` (game.ts only calls into it).
+
+- **Title screen**: original NEON HEAT logotype drawn as SVG paths (neon-tube NEON, solid HEAT whose A is the double HEAT chevron), rain, light sweep and scanlines over the paused city. Tap to start is the first user gesture: it calls `flow.audio.onFirstGesture` (audio unlock) and requests full screen. Then Continue (with a save summary) / New game (two-tap confirm when a save exists) / Settings / Credits. The first-boot benchmark still runs behind it.
+- **Pause menu** (menu button, Esc, or M for the map): tab rail with Map, Jobs (active job with Restart job / Walk away, respect bars for the five crews, payphone list), Stats (lifetime stats from the save) and Settings (steering scheme, touch layout, vibration, graphics, frame rate, minimap north-up or turning, Sound section with master / radio / effects volumes and a test-sound hook). Resume.
+- **Full map** (Map tab or tap the minimap): pan, pinch, wheel, zoom buttons, centre on me, map key; districts tinted and labelled, roads, water, parks, landmarks (shape + colour badges), crew payphones, police with vision cones at HEAT 3+, the objective, tap to set a waypoint (tap the pin to clear) and the GPS route with its length.
+- **Minimap**: static layer pre-rendered once, a window blitted at 30 Hz; zooms out with speed; optional heading-up rotation with a compass N; route line, police with cones at HEAT 3+, crew payphones, waypoint and objective clamped to the rim; district name underneath.
+- **GPS**: `flow.setRouteFn(route)` takes the road graph's `route(fromX, fromZ, toX, toZ)`; until then a straight line. Routes refresh when the target moves or the player strays more than 10 m.
+- **Map data**: everything draws from the `MapGeometry` interface (`packages/ui/src/map-geometry.ts`); `geometryFromBlockMap` adapts the current block. The new city calls `flow.setGeometry(geom)`.
+- **Cards**: job start banner (crew icon and title), job done (time, damage, pay roll-up, respect changes, Continue; pauses the game), FLATLINED and BOOKED (`{ title, subtitle, lines[] }`; shown for `playerDied` now and for `playerWasted` / `playerBusted` with an optional `penalty` once those events exist), HEAT level-change flashes (chevron banner up, HEAT LOST when clear), "Entering <district>" banner.
+- **HUD**: credits with a rolling count-up and +/- pop, weapon/ammo slot (`hud.setWeapon`) and armour bar (`hud.setArmour`) ready for combat, onboarding hint line `hud.showHint(text, controlId?)` with the named control pulsing, urgent timer, restyled objective, dialogue and toasts. Type is Chakra Petch (OFL, bundled).
+- **Save**: new lifetime stats default to 0, so existing v1 saves load unchanged.
+- **Tests**: e2e start flow updated (tap to start, New game), job-done card checked, and a new phone test opens the map from the minimap, sets a waypoint by touch, zooms, visits Jobs and Stats and resumes. Unit tests for the map geometry adapter, routes and crew icons, and the stats defaults.
+
+### Next
+
+- Swap in the generated city: `flow.setGeometry(cityGeometry)` and `flow.setRouteFn(world.route)`.
+- Hook the AudioEngine to `flow.audio.onFirstGesture` / `onTestSound` and read the volume settings.
+- Combat: call `hud.setWeapon` and `hud.setArmour` each frame (they only write on change).
+- Tutorial mission `hint` event: call `game.hud.showHint(text, controlId)`.
+## Missions and campaign (23 Nov 2026)
+
+There is now a campaign: 26 missions across five crews, with a six-part story thread, all running on the generated Vey City.
+
+- **Crews.** Each crew's payphones ring in its colour, and each colour is paired with a shape (`content/data/crews.json`):
+
+  | Crew | Contact | Colour | Shape |
+  |---|---|---|---|
+  | Glasshounds | Vesper | cyan | diamond |
+  | Kurogane | Mr Sato-Reyes | red | square |
+  | Velvet Choir | Mother Lune | magenta | circle |
+  | Rustmouth | Gaffer Odge | acid yellow | triangle |
+  | Null Saints | Litany | green | hexagon |
+
+  Several payphones ring at once, but only for jobs whose prerequisites are met. A payphone rings for one job at a time.
+- **Story.** `story_01_first_call` is the tutorial. It shows hint lines for touch and keyboard controls, and is the only job a new game offers. The thread then runs through Cold Boot, Paper Trail, Salt and Iron and Dead Air to the finale, `story_06_lattice_fall`. Each crew has a chain of four jobs. The later jobs in a chain are gated by crew respect.
+- **Objective types.** There are 16, all data-driven:
+  - reach, hack (a vehicle or an on-foot terminal), deliverVehicle, stealVehicle, destroyVehicle (can have an escape point), eliminate;
+  - protect (escort or defend), tail, chase (disable or wreck), escape, race (with AI opponents), collect;
+  - wait, dropOff (with passengers), photograph, perform (dodge, fire, enter, exit).
+  
+  Any objective can have `timeLimitSec` and `failOn` conditions:
+  - vehicle destroyed;
+  - actor killed;
+  - HEAT or TRACE at a level;
+  - player on foot;
+  - player too far away.
+- **Schema.**
+  - The giver takes `at: "marker:<id>"`; the old `pos` form still works.
+  - Missions can declare their own `spawns` and `actors`. A `spawn:` ref looks in the mission's own spawns first, then in the map's.
+  - An offset that lands inside a building is nudged out (`freeSpot` in `packages/missions/src/refs.ts`).
+  - New mission fields: `prerequisites` (missions and/or crew respect), `chain`, `story`, and `rewards` (credits, respect per crew, unlocks, time bonus).
+- **Actors.** `packages/sim/src/actors.ts` handles scripted people (guards, followers, fleeing targets, armed hostiles) and drivers (route, flee, ram, hold).
+- **Main road network.** `packages/sim/src/road-main.ts` keeps routing on the main road network. The generated city has dead-end stubs that are islands in the road graph.
+- **Save v2.** Adds respect per crew, unlocks and each mission's best time and number of passes. A migration converts v1 saves.
+- **Results.** The director reports each completed job's time, damage, pay (with any time bonus), respect and unlocks. The game shows the time and pay, and writes the result to the save.
+- **mission-lint.** It now also checks:
+  - refs and objective fields;
+  - squads, crews and HEAT levels;
+  - whether targets can be reached on foot or by car;
+  - a rough duration estimate against the budget;
+  - for the whole campaign: unknown prerequisites, cycles, whether every job can be reached from a new game, chain order and the story start.
+  
+  Warnings do not fail the run unless you pass `--strict`. `--map <file>` checks against another map.
+
+### Tests
+
+- `mission-runner.test.ts` covers every objective type against a fake host.
+- `missions.test.ts` covers:
+  - content checks (counts, types, squads, a clean lint on the real city);
+  - the schema;
+  - lint and campaign errors;
+  - payphones and progress;
+  - tutorial hints;
+  - Hot Chrome in the world (checkpoint, shunted target, completion result).
+- `mission-bot.test.ts`: the bot plays Hot Chrome, Scrap Value, Handshake, Test Drive and the tutorial headlessly in the city.
+
+### Open questions
+
+- HEAT tops out at 3 in `heat.json`. The finale was written for 4, and now uses 3 until police work raises the cap.
+- Auto-aim only targets police and squad cars. Hostile mission actors are hit by a segment test along the player's shots. Auto-aim should also consider `world.actors.nearestHostile`.
+- Mission durations are estimated from straight-line distances. They need checking by playing each job on a phone.
+
 ## Kerbs and street furniture (23 Nov 2026)
 
 Playing on the phone, hitting a kerb stopped the car dead. The kerb itself never had a collider. The problem was what stands on the pavement:

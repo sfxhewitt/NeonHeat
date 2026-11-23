@@ -14,12 +14,15 @@ export interface TouchState {
   fire: boolean;
   interact: boolean;
   dodge: boolean;
+  nextWeapon: boolean;
+  /** The side-activity button (taxi duty, race, end shift). */
+  activity: boolean;
 }
 
 const LAYOUT_KEY = 'neonheat.touchLayout.v1';
 const STICK_RADIUS = 64;
 
-type ButtonId = 'handbrake' | 'fire' | 'dodge' | 'context' | 'left' | 'right' | 'gas' | 'brake';
+type ButtonId = 'handbrake' | 'fire' | 'dodge' | 'context' | 'left' | 'right' | 'gas' | 'brake' | 'weapon' | 'driveby' | 'activity';
 
 interface ButtonDef {
   id: ButtonId;
@@ -44,6 +47,9 @@ const BUTTONS: ButtonDef[] = [
   { id: 'fire', label: 'FIRE', side: 'right', x: 4, y: 8, size: 92, modes: ['foot'] },
   { id: 'dodge', label: 'ROLL', side: 'right', x: 18, y: 6, size: 64, modes: ['foot'], tap: true },
   { id: 'context', label: '', side: 'right', x: 6, y: 40, size: 76, modes: ['driving', 'foot'], tap: true },
+  { id: 'weapon', label: 'WPN', side: 'right', x: 4, y: 58, size: 56, modes: ['driving', 'foot'], tap: true },
+  { id: 'driveby', label: 'SHOOT', side: 'right', x: 30, y: 8, size: 64, modes: ['driving'] },
+  { id: 'activity', label: '', side: 'right', x: 17, y: 42, size: 60, modes: ['driving'], tap: true },
 ];
 
 /**
@@ -55,6 +61,10 @@ export class TouchControls {
   scheme: DriveScheme;
   private mode: ControlMode = 'driving';
   private context: string | null = null;
+  private activity: string | null = null;
+  /** Weapon in hand (short name) and whether it can be fired from a car. */
+  private weaponLabel = '';
+  private driveBy = false;
   private readonly stickZone: HTMLElement;
   private readonly stickBase: HTMLElement;
   private readonly stickKnob: HTMLElement;
@@ -65,7 +75,6 @@ export class TouchControls {
   private readonly taps = new Set<ButtonId>();
   private readonly els = new Map<ButtonId, HTMLElement>();
   private layout: Partial<Record<ButtonId, { x: number; y: number }>> = {};
-  private lastTouch = -1e9;
   editing = false;
 
   constructor(parent: HTMLElement, scheme: DriveScheme) {
@@ -130,7 +139,6 @@ export class TouchControls {
 
   private markTouch(e: PointerEvent): void {
     if (e.pointerType !== 'mouse') {
-      this.lastTouch = performance.now();
       this.root.classList.add('is-touch');
     }
   }
@@ -232,6 +240,21 @@ export class TouchControls {
     this.refresh();
   }
 
+  /** The side-activity button's label (TAXI DUTY, RACE, END SHIFT), or null to hide it. */
+  setActivity(label: string | null): void {
+    if (label === this.activity) return;
+    this.activity = label;
+    this.refresh();
+  }
+
+  /** Show the weapon in hand on the switch button; the drive-by button only appears for drive-by weapons. */
+  setWeapon(label: string, driveBy: boolean): void {
+    if (label === this.weaponLabel && driveBy === this.driveBy) return;
+    this.weaponLabel = label;
+    this.driveBy = driveBy;
+    this.refresh();
+  }
+
   private refresh(): void {
     this.root.classList.toggle('is-menu', this.mode === 'menu');
     const classic = this.mode === 'driving' && this.scheme === 'classic';
@@ -242,6 +265,13 @@ export class TouchControls {
       if (def.id === 'context') {
         visible = visible && (this.context !== null || this.editing);
         el.textContent = this.context ?? 'ACTION';
+      } else if (def.id === 'activity') {
+        visible = visible && (this.activity !== null || this.editing);
+        el.textContent = this.activity ?? 'ACTIVITY';
+      } else if (def.id === 'weapon') {
+        el.textContent = this.weaponLabel || def.label;
+      } else if (def.id === 'driveby') {
+        visible = visible && (this.driveBy || this.editing);
       }
       el.style.display = visible ? '' : 'none';
     }
@@ -252,7 +282,8 @@ export class TouchControls {
     const tap = (id: ButtonId): boolean => this.taps.delete(id);
     const classic = this.mode === 'driving' && this.scheme === 'classic';
     return {
-      active: performance.now() - this.lastTouch < 4000 && (this.stickId !== null || this.held.size > 0),
+      // A thumb held still sends no events, so a held stick or button stays live however long it is held.
+      active: this.stickId !== null || this.held.size > 0,
       scheme: this.scheme,
       moveX: classic ? 0 : this.stick.x,
       moveY: classic ? 0 : this.stick.y,
@@ -260,9 +291,11 @@ export class TouchControls {
       throttle: h('gas') ? 1 : 0,
       brake: h('brake') ? 1 : 0,
       handbrake: h('handbrake'),
-      fire: h('fire'),
+      fire: h('fire') || h('driveby'),
       interact: tap('context'),
       dodge: tap('dodge'),
+      nextWeapon: tap('weapon'),
+      activity: tap('activity'),
     };
   }
 }

@@ -1,7 +1,23 @@
 {
+  "s01_hello": { "speaker": "VESPER · GLASSHOUNDS", "text": "You picked up. Good start. I'm Vesper, and I need someone who can drive, walk and duck, ideally in that order. There's a Kestrel in the yard. It's open. Don't make it weird." },
+  "s01_drive": { "speaker": "VESPER · GLASSHOUNDS", "text": "Lovely. Now take it up the road. Gently. It's not stolen yet, technically." },
+  "s01_spotter": { "speaker": "VESPER · GLASSHOUNDS", "text": "See the suit by the stadium with the camera? Kurogane spotter. He's been photographing my garage for a week. Warm up first. He shoots like he's paid by the bullet." },
+  "s01_wheels": { "speaker": "VESPER · GLASSHOUNDS", "text": "Someone will have heard that. Back to the car, please. Loitering next to a scuffle is a look, and not a good one." },
+  "s01_heat": { "speaker": "VESPER · GLASSHOUNDS", "text": "And that's HEAT. One chevron means a patrol is curious. Get out of sight and stay out of sight until they lose interest." },
+  "s01_done": { "speaker": "VESPER · GLASSHOUNDS", "text": "Not bad for a nobody. The garage is yours to sleep in. Keep the burner on. When it rings in cyan, it's me." },
+
+  "gh01_intro": { "speaker": "VESPER · GLASSHOUNDS", "text": "Buyer wants a Vandal. Doesn't care whose. There's usually one sulking in a Lantern Row car park, but traffic's fair game too." },
+  "gh01_alarm": { "speaker": "VESPER · GLASSHOUNDS", "text": "That's the owner shouting at a lamppost. Fresh Coat will respray it and the description goes in the bin." },
+  "gh01_fresh": { "speaker": "VESPER · GLASSHOUNDS", "text": "New colour, new car, no HEAT. Funny how that works. Chop shop next." },
+  "gh01_done": { "speaker": "VESPER · GLASSHOUNDS", "text": "Buyer's thrilled. He asked if it came in orange. It does now." },
+
+  "gh02_intro": { "speaker": "VESPER · GLASSHOUNDS", "text": "The buyer wants proof the Kestrel's quick. Deck says it's only quick when he drives it. The Kestrel's in the yard. Deck's already in his." },
+  "gh02_go": { "speaker": "DECK · GLASSHOUNDS", "text": "Checkpoints through the Quarter and back. Loser buys noodles. I like extra chilli and winning." },
+  "gh02_done": { "speaker": "VESPER · GLASSHOUNDS", "text": "Deck's sulking and the buyer's paid. Two of my favourite things." },
+
   "gh_03_intro": {
     "speaker": "VESPER · GLASSHOUNDS",
-    "text": "Kurogane parked their new prototype in the lot off Third. Unguarded, apparently. Crack the lock and bring it to the chop shop, and keep the paintwork in one piece, yeah?"
+    "text": "Kurogane parked their new prototype in a Glass Quarter car park. Unguarded, apparently. Crack the lock and bring it to the chop shop, and keep the paintwork in one piece, yeah?"
   },
   "gh_03_alarm": {
     "speaker": "VESPER · GLASSHOUNDS",
@@ -9,6 +25,122 @@
   },
   "gh_03_done": {
     "speaker": "VESPER · GLASSHOUNDS",
-    "text": "Lovely bit of chrome. Credits are on your chip."
-  }
+    "text": "Lovely bit of chrome. Credits are on your chip. Something's rattling in the boot, mind. Leave that with me."
+  },
+
+  "gh04_intro": { "speaker": "VESPER · GLASSHOUNDS", "text": "Some Rustmouth chancer drove off in one of my Vandals. He's doing laps of the Saltworks like he owns it. He doesn't." },
+  "gh04_spotted": { "speaker": "VESPER · GLASSHOUNDS", "text": "He's seen you. Lean on him until he gives up, but leave me something to sell." },
+  "gh04_stopped": { "speaker": "VESPER · GLASSHOUNDS", "text": "And he's legged it. Typical. The car's open. Bring it home." },
+  "gh04_done": { "speaker": "VESPER · GLASSHOUNDS", "text": "Dented, but mine. The Gaffer sent an apology. It was mostly swearing." },
+
+  "k01_intro": { "speaker": "SATO-REYES · KUROGANE", "text": "We have not been introduced. That was deliberate. An analyst of ours is selling to the Null Saints. Follow his car. Do not let him see you." },
+  "k01_tail": { "speaker": "SATO-REYES · KUROGANE", "text": "Keep a respectful distance. Too close and he panics. Too far and you have wasted my afternoon." },
+  "k01_photo": { "speaker": "SATO-REYES · KUROGANE", "text": "He is meeting someone. I would like their face, in focus, for the file." },
+  "k01_done": { "speaker": "SATO-REYES · KUROGANE", "text": "Excellent. His severance package will reflect his contribution. Yours too." },
+
+  "k02_intro": { "speaker": "SATO-REYES · KUROGANE", "text": "Kurogane purchased a yard in the Saltworks on Tuesday. Rustmouth did not receive the memo. Please deliver it." },
+  "k02_fight": { "speaker": "SATO-REYES · KUROGANE", "text": "They appear to be armed. That is regrettable for them." },
+  "k02_truck": { "speaker": "SATO-REYES · KUROGANE", "text": "Their truck too. We prefer our assets uncluttered." },
+  "k02_done": { "speaker": "SATO-REYES · KUROGANE", "text": "The yard is vacant. Accounting will be delighted, in their way." },
+
+  "k03_intro": { "speaker": "SATO-REYES · KUROGANE", "text": "An armoured car is carrying this quarter's figures to the stadium vault. The figures are excellent. Others would like to read them first." },
+  "k03_go": { "speaker": "SATO-REYES · KUROGANE", "text": "Stay with it. If anything approaches the car, discourage it." },
+  "k03_raiders": { "speaker": "SATO-REYES · KUROGANE", "text": "Freelancers, closing fast. Remove them from the equation." },
+  "k03_done": { "speaker": "SATO-REYES · KUROGANE", "text": "Delivered, and ahead of forecast. You may find Kurogane a generous employer. Briefly." },
+
+  "k04_intro": { "speaker": "SATO-REYES · KUROGANE", "text": "A vice-president resigned this morning and took a prototype and our drive keys with him. Find him before he reaches the tunnel." },
+  "k04_chase": { "speaker": "SATO-REYES · KUROGANE", "text": "He has seen you. The prototype is insured. He is not. Wreck it." },
+  "k04_keys": { "speaker": "SATO-REYES · KUROGANE", "text": "You have the keys. The police have your description. Lose them, then bring the keys to the Quarter." },
+  "k04_done": { "speaker": "SATO-REYES · KUROGANE", "text": "His resignation is accepted. Do try not to resign, yourself." },
+
+  "v01_intro": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "Darling, Seraphine is headlining tonight and her driver has gone missing. You are her driver now. Collect her at the stadium." },
+  "v01_aboard": { "speaker": "SERAPHINE · VELVET CHOIR", "text": "You're new. Lovely. Don't speak, don't crash, don't take the bridge, it does terrible things to my voice." },
+  "v01_rules": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "And darling, no sirens. Seraphine does not arrive with a police escort. It's vulgar." },
+  "v01_done": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "On time and unruffled. The Choir remembers its friends." },
+
+  "v02_intro": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "A promoter in the Glass Quarter borrowed our ledger and forgot to return it. Two of my singers are going backstage to remind him. You drive." },
+  "v02_wait": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "Engine running, lights low. Do not draw attention. They'll be out when they're out." },
+  "v02_midway": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "I'm told there is shouting. That's normally a good sign." },
+  "v02_go": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "They're in, he's called the police, and the ledger is in a handbag. Go, darling. Go." },
+  "v02_done": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "A standing ovation from the Choir. Well, a seated one. They're exhausted." },
+
+  "v03_intro": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "A rival promoter has three vans touring the city with posters of me. Unflattering posters. Cancel the tour, darling. All three dates." },
+  "v03_heavies": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "He's sent his heavies after you. How very dull of him." },
+  "v03_done": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "Tour cancelled due to unforeseen circumstances. That would be you." },
+
+  "v04_intro": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "Seraphine sings in the plaza tonight and Kurogane wants her contract. They are not bringing a pen. Stand by the stage." },
+  "v04_suits": { "speaker": "SERAPHINE · VELVET CHOIR", "text": "There are men in suits in the crowd and none of them are clapping. Keep them off me until the set's over." },
+  "v04_done": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "She hit the high note and you hit everything else. The Choir is in your debt, which is a dangerous place for us to be." },
+
+  "r01_intro": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Oi. The tide's brought salvage in all along the Saltworks. My van's in the yard. Fill it before the gulls get ideas." },
+  "r01_salvage": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Five drops. Any order. Clock's running, because I'm paying by the hour and I don't like hours." },
+  "r01_done": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Good haul. You'd make a decent scrapper if you weren't so clean." },
+
+  "r02_intro": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Kurogane parked an armoured hauler on my quay. On my quay. I want it. They've left a few lads to mind it." },
+  "r02_guards": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Get in the hauler however you like. Quietly if you can, loudly if you must." },
+  "r02_alarm": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "There's the siren. Lose the coppers before you bring it to my chop shop, or don't bother bringing it." },
+  "r02_done": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Lovely. That's ten tonnes of armour plate, that is. I'll have it in teaspoons by Thursday." },
+
+  "r03_intro": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Somebody's wired my cranes to listen in on the docks. I can hear the hum in my fillings. Hack the bug off the big crane." },
+  "r03_second": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "That's one. There's a relay in the harbour office feeding it on. Kill that too." },
+  "r03_runner": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "And there's the eavesdropper, legging it with his headphones on. Don't let him reach a phone." },
+  "r03_done": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Kurogane, was it? Course it was. Those cranes have never been so quiet." },
+
+  "r04_intro": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Every year the crews race for the right to tax the bridges. I've entered you. Don't thank me. Your car's in the yard." },
+  "r04_go": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "All three bridges, back to the cranes. No rules, except winning. That one's important." },
+  "r04_done": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "The bridges are ours for a year. Everybody pays the toll. Except you. Probably." },
+
+  "n01_intro": { "speaker": "LITANY · NULL SAINTS", "text": "Four data shards, hidden around the Undercroft. On foot. Cars are loud and the shards are shy." },
+  "n01_node": { "speaker": "LITANY · NULL SAINTS", "text": "Now the test node. Watch the pattern. Repeat the pattern. It's the whole job, really." },
+  "n01_done": { "speaker": "LITANY · NULL SAINTS", "text": "Handshake accepted. Mind your TRACE. It goes down on its own, unlike most things." },
+
+  "n02_intro": { "speaker": "LITANY · NULL SAINTS", "text": "Kurogane's got a sniffer van mapping our network. Before we kill it, I want to know where it reports. Find it." },
+  "n02_tail": { "speaker": "LITANY · NULL SAINTS", "text": "Stay on it, but not on top of it. The driver's paranoid. Professionally." },
+  "n02_wreck": { "speaker": "LITANY · NULL SAINTS", "text": "Got the address. It's heading to the central tower with everything it heard. It can't arrive." },
+  "n02_done": { "speaker": "LITANY · NULL SAINTS", "text": "Signal's dead. Kurogane's map of us now has a big hole shaped like you." },
+
+  "n03_intro": { "speaker": "LITANY · NULL SAINTS", "text": "Three Kurogane junction boxes, three districts. Each hack raises your TRACE. Hit a hundred per cent and they own your face. Pace yourself." },
+  "n03_one": { "speaker": "LITANY · NULL SAINTS", "text": "One down. A patrol's sniffing about. Keep moving." },
+  "n03_two": { "speaker": "LITANY · NULL SAINTS", "text": "Two. Your TRACE is glowing. That's normal. Ish." },
+  "n03_three": { "speaker": "LITANY · NULL SAINTS", "text": "Root access. Kurogane has noticed. Shake the patrols and I'll scrub you off the grid." },
+  "n03_done": { "speaker": "LITANY · NULL SAINTS", "text": "You're a ghost again. Enjoy it, it never lasts." },
+
+  "n04_intro": { "speaker": "LITANY · NULL SAINTS", "text": "Kurogane's sending two relay trucks to patch the hole we made. One from the north, one over the bridge. Neither arrives." },
+  "n04_escort": { "speaker": "LITANY · NULL SAINTS", "text": "They've sent enforcers to babysit. Go round them, or through them." },
+  "n04_wrecked": { "speaker": "LITANY · NULL SAINTS", "text": "Both relays are scrap. The patrols are cross about it. Lose them." },
+  "n04_done": { "speaker": "LITANY · NULL SAINTS", "text": "The Saints owe you. We don't say that often. We don't say much at all, on an open line." },
+
+  "s02_intro": { "speaker": "LITANY · NULL SAINTS", "text": "Vesper found a data core in your Hot Chrome's boot and had the sense to ring me. It's at the chop shop. Fetch it on foot, nice and quiet." },
+  "s02_core": { "speaker": "LITANY · NULL SAINTS", "text": "Heavier than it looks, isn't it? Bring it to the rail yard. Any car. Don't drop it." },
+  "s02_rig": { "speaker": "LITANY · NULL SAINTS", "text": "Plug it into the rig and crack it open. Kurogane encryption, so it'll fight back." },
+  "s02_lattice": { "speaker": "LITANY · NULL SAINTS", "text": "Oh, that's nasty. They call it the Lattice: a net of trace nodes across the whole city. Every face, every car, every second. And they just felt us open it." },
+  "s02_done": { "speaker": "VESPER · GLASSHOUNDS", "text": "Litany told me. A city where every car is watched is a city with no Glasshounds. This is personal now." },
+
+  "s03_intro": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "Vesper says you're fighting the Lattice. Good. A Kurogane courier carries its contracts to the signings, and he drinks in my clubs. His car's in Lantern Row." },
+  "s03_tail": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "Follow him, darling, but discreetly. He's nervous, and nervous men drive straight to the police." },
+  "s03_photo": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "He's handing over. I want a clear picture of whoever signs. Faces are currency." },
+  "s03_made": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "Ah. His minders have spotted the flash. Leave, darling. Quickly." },
+  "s03_done": { "speaker": "MOTHER LUNE · VELVET CHOIR", "text": "That's the Lattice project lead. And the hardware lands at the docks tonight. You'll want the Gaffer." },
+
+  "s04_intro": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Kurogane's landing their trace hardware on my docks and they didn't pay the toll. Come down to the cranes. Bring a car you don't love." },
+  "s04_convoy": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Two trucks heading for the tower, one each way, and an outrider who thinks he's hard. Wreck the trucks." },
+  "s04_wrecked": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Beautiful. My lads have pulled the cores out of the wreckage and stashed them on the quay." },
+  "s04_crates": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Three crates. Grab them. They're not heavy, they're just expensive." },
+  "s04_heat": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Every copper in the Saltworks is coming. Lose them, then the chop shop on the front." },
+  "s04_done": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "Cores are under a tonne of scrap. Kurogane won't find them. I can barely find them." },
+
+  "s05_intro": { "speaker": "LITANY · NULL SAINTS", "text": "They found the rig. They're coming. I'm loading the van now. Get here with a car, and fast." },
+  "s05_go": { "speaker": "VESPER · GLASSHOUNDS", "text": "Bring her to my other place across town. I'll leave the door open. Don't let anything touch that van." },
+  "s05_hunters": { "speaker": "LITANY · NULL SAINTS", "text": "Kurogane hunters, coming for the van. Get in their way. Ideally hard." },
+  "s05_cleaners": { "speaker": "VESPER · GLASSHOUNDS", "text": "Bad news: they guessed where we were going. Kurogane cleaners at the safehouse. Clear them out." },
+  "s05_done": { "speaker": "LITANY · NULL SAINTS", "text": "We're in. And while you were busy I found something: the Lattice uplink. One truck at the central tower. Kill that and the whole net goes dark." },
+
+  "s06_intro": { "speaker": "VESPER · GLASSHOUNDS", "text": "This is it. The Choir's blocked the Quarter's cameras, Rustmouth's jammed the bridges for everyone but us, and the Saints are in Kurogane's radios. All you have to do is steal a truck. You're good at that." },
+  "s06_guards": { "speaker": "LITANY · NULL SAINTS", "text": "Tower guards. Armoured, so they'll need more than one hit each." },
+  "s06_hack": { "speaker": "LITANY · NULL SAINTS", "text": "The uplink's lock is the best Kurogane makes. I'll feed you the pattern. Don't blink." },
+  "s06_alarm": { "speaker": "SATO-REYES · KUROGANE", "text": "I did say you might find us a generous employer. Briefly. That was the brief part." },
+  "s06_bridges": { "speaker": "LITANY · NULL SAINTS", "text": "It's got a tracker that only burns out under load. Across the bridges, fast, and it'll go blind." },
+  "s06_heat": { "speaker": "VESPER · GLASSHOUNDS", "text": "Tracker's dead and every patrol in Vey City wants a word. Lose them. All of them." },
+  "s06_overlook": { "speaker": "GAFFER ODGE · RUSTMOUTH", "text": "River overlook. Drive it to the edge and get out. The Sable's had worse things in it." },
+  "s06_done": { "speaker": "VESPER · GLASSHOUNDS", "text": "Splash. The Lattice is fish food and the city's gone dark again. Every crew owes you, Kurogane hates you, and the burner's still ringing. Welcome to Vey City, properly this time." }
 }

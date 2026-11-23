@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { forwardSpeed } from '@neonheat/sim';
-import { intents, loadContent, makeWorld, run } from './helpers';
+import { EW, buildingWithRoadSouth, intents, loadContent, makeWorld, movePlayer, run } from './helpers';
 
 /** Spawn the player in a car on an empty map (no buildings), facing east. */
 async function onOpenRoad(seed = 1, variant = 'kestrel') {
@@ -9,7 +9,7 @@ async function onOpenRoad(seed = 1, variant = 'kestrel') {
   content.map.props = [];
   content.traffic.count = 0;
   const world = await makeWorld(seed, content);
-  const car = world.spawnVehicle(variant, -110, 0, Math.PI / 2, 'player')!;
+  const car = world.spawnVehicle(variant, EW.x, EW.z, Math.PI / 2, 'player')!;
   world.playerCtl.enter(car);
   return { world, car };
 }
@@ -20,8 +20,8 @@ describe('arcade vehicle', () => {
     run(world, 6, intents({ throttle: 1 }));
     expect(forwardSpeed(car)).toBeGreaterThan(car.params.topSpeed * 0.97);
     expect(forwardSpeed(car)).toBeLessThanOrEqual(car.params.topSpeed * 1.001);
-    expect(car.x).toBeGreaterThan(-110 + 80);
-    expect(Math.abs(car.z)).toBeLessThan(0.5);
+    expect(car.x).toBeGreaterThan(EW.x + 80);
+    expect(Math.abs(car.z - EW.z)).toBeLessThan(0.5);
   });
 
   it('stops under braking', async () => {
@@ -81,7 +81,7 @@ describe('arcade vehicle', () => {
     run(world, 1.2, intents({ scheme: 'direction', moveY: 1 }));
     const heading = Math.atan2(Math.sin(car.yaw), Math.cos(car.yaw));
     expect(Math.abs(Math.abs(heading) - Math.PI)).toBeLessThan(0.5);
-    expect(car.z).toBeLessThan(0);
+    expect(car.z).toBeLessThan(EW.z);
   });
 
   it('cannot snap round faster than its tyres allow at speed (weight)', async () => {
@@ -121,11 +121,12 @@ describe('arcade vehicle', () => {
     const content = loadContent();
     content.traffic.count = 0;
     const world = await makeWorld(1, content);
-    // Centre building spans x -29..1, z -27..3. Drive north into it from the road at z = 40.
-    const car = world.spawnVehicle('kestrel', -14, 34, Math.PI, 'player')!;
+    // Drive north into a building from the road south of it.
+    const { b, x, z } = buildingWithRoadSouth(world);
+    const car = world.spawnVehicle('kestrel', x, z, Math.PI, 'player')!;
     world.playerCtl.enter(car);
     run(world, 3, intents({ throttle: 1 }));
-    expect(car.z).toBeGreaterThan(3);
+    expect(car.z).toBeGreaterThan(b.z + b.d / 2);
     expect(car.hp).toBeLessThan(car.params.maxHealth);
   });
 
@@ -146,9 +147,10 @@ describe('parked cars', () => {
     content.traffic.count = 0;
     content.peds.count = 0;
     const w = await makeWorld(1, content);
-    const cars = Object.keys(content.vehicles.variants).map((id, i) => w.spawnVehicle(id, -200 + i * 12, -200, -Math.PI / 2, 'parked')!);
+    movePlayer(w, EW.x, EW.z - 8);
+    const cars = Object.keys(content.vehicles.variants).map((id, i) => w.spawnVehicle(id, EW.x + i * 12, EW.z, -Math.PI / 2, 'parked')!);
     run(w, 4, intents());
-    for (const v of cars) expect(Math.hypot(v.x - (-200 + cars.indexOf(v) * 12), v.z + 200), v.variantId).toBeLessThan(0.2);
+    for (const v of cars) expect(Math.hypot(v.x - (EW.x + cars.indexOf(v) * 12), v.z - EW.z), v.variantId).toBeLessThan(0.2);
     const v = cars[0]!;
     v.vx = 12;
     run(w, 3, intents());

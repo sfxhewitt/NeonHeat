@@ -1,6 +1,6 @@
 import type RAPIER_NS from '@dimforge/rapier3d-simd-compat';
 import type { Intents } from './intents';
-import { Groups, clamp, interactionGroups, wrapAngle } from './physics';
+import { Groups, clamp, interactionGroups } from './physics';
 import { forwardSpeed } from './vehicle';
 import type { Vehicle, World } from './world';
 
@@ -29,8 +29,9 @@ const FOOT_GROUPS = interactionGroups(Groups.player, Groups.static | Groups.vehi
 const NO_GROUPS = interactionGroups(Groups.ghost, 0);
 
 /**
- * The player: on foot (floating-stick movement, pistol with soft-lock, dodge
- * roll) or driving. Owns entering, stealing and leaving vehicles.
+ * The player: on foot (floating-stick movement, dodge roll, weapons through
+ * the combat system) or driving (drive-bys). Owns entering, stealing and
+ * leaving vehicles, health and armour.
  */
 export class PlayerController {
   mode: PlayerMode = 'foot';
@@ -43,17 +44,17 @@ export class PlayerController {
   facing = Math.PI;
   prevFacing = Math.PI;
   hp: number;
+  /** Body armour: soaks damage before health does. */
+  armour: number;
   dead = false;
   deadTime = 0;
+  /** Cuffed: frozen until the respawn at the precinct. */
+  busted = false;
   dodgeTime = 0;
   dodgeCooldown = 0;
-  fireCooldown = 0;
-  /** Vehicle id currently soft-locked by the pistol, or -1. */
-  aimTarget = -1;
   context: ContextAction | null = null;
   body: RAPIER_NS.RigidBody;
   collider: RAPIER_NS.Collider;
-  private readonly ray: RAPIER_NS.Ray;
   private readonly ctx: ContextAction = { kind: 'exit', label: '', vehicleId: -1, interactableId: '' };
 
   constructor(
@@ -63,6 +64,7 @@ export class PlayerController {
   ) {
     const cfg = world.content.peds.player;
     this.hp = cfg.maxHealth;
+    this.armour = world.content.survival.player.startArmour;
     const { R, physics } = world;
     this.body = physics.createRigidBody(
       R.RigidBodyDesc.dynamic().setTranslation(x, 0, z).enabledTranslations(true, false, true).lockRotations().setCanSleep(false).setCcdEnabled(true),
@@ -74,11 +76,20 @@ export class PlayerController {
     world.registerCollider(this.collider, 'player', 0);
     this.x = this.prevX = x;
     this.z = this.prevZ = z;
-    this.ray = new R.Ray({ x: 0, y: 1, z: 0 }, { x: 1, y: 0, z: 0 });
   }
 
   get maxHp(): number {
     return this.world.content.peds.player.maxHealth;
+  }
+
+  /** Armour capacity: the survival base plus Plating cyberware. */
+  get maxArmour(): number {
+    return this.world.content.survival.player.maxArmour + this.world.economy.armourBonus;
+  }
+
+  /** Flatlined or booked: no control until the respawn. */
+  get incapacitated(): boolean {
+    return this.dead || this.busted;
   }
 
   get vehicle(): Vehicle | null {
@@ -88,7 +99,7 @@ export class PlayerController {
   /** Put the player in a vehicle (ejecting any AI driver). */
   enter(v: Vehicle): void {
     const w = this.world;
-    if (v.role === 'traffic' || v.role === 'police' || v.role === 'squad') {
+    if (v.role === 'traffic' || v.role === 'police' || v.role === 'squad' || v.role === 'service') {
       // Carjacking: the driver is thrown out and runs.
       const side = this.sidePoint(v, 1);
       const ped = w.peds.spawnPedAt(side.x, side.z);
@@ -98,8 +109,7 @@ export class PlayerController {
         ped.threatX = v.x;
         ped.threatZ = v.z;
       }
-      if (v.role === 'police') w.heat.addPoints(w.heat.config.points.ramPolice, v.x, v.z);
-      else w.heat.civCarHit(w.time, v.x, v.z);
+      w.police.crime(v.role === 'police' ? 'carjackPolice' : 'carjack', w.player.x, w.player.z);
     }
     this.mode = 'driving';
     this.collider.setCollisionGroups(NO_GROUPS);
@@ -107,7 +117,7 @@ export class PlayerController {
     w.setPlayerVehicle(v);
     v.ai.mode = 'idle';
     this.dodgeTime = 0;
-    this.aimTarget = -1;
+    w.police.onPlayerEnteredVehicle(v);
     w.events.push({ type: 'enteredVehicle', x: v.x, z: v.z, vehicleId: v.id, amount: 0 });
   }
 
@@ -155,7 +165,7 @@ export class PlayerController {
     const w = this.world;
     const c = this.ctx;
     this.context = null;
-    if (this.dead) return;
+    if (this.incapacitated) return;
     if (this.mode === 'driving') {
       const v = w.player.vehicle;
       if (v && Math.abs(forwardSpeed(v)) <= w.content.peds.player.exitMaxSpeed) {
@@ -224,11 +234,11 @@ export class PlayerController {
     this.prevZ = this.z;
     this.prevFacing = this.facing;
     this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
-    this.fireCooldown = Math.max(0, this.fireCooldown - dt);
 
-    if (this.dead) {
+    if (this.incapacitated) {
+      // The survival system respawns the player after the fate card.
+      this.vx = this.vz = 0;
       this.body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      if (w.time - this.deadTime >= cfg.respawnSec) this.respawn();
       return;
     }
 
@@ -249,6 +259,7 @@ export class PlayerController {
         this.x = this.prevX = v.x;
         this.z = this.prevZ = v.z;
         this.facing = this.prevFacing = v.yaw;
+        w.combat.driveStep(intents, v, dt);
       }
       return;
     }
@@ -271,6 +282,7 @@ export class PlayerController {
       this.vz = dirZ * cfg.dodgeSpeed;
       this.facing = Math.atan2(dirX, dirZ);
       w.events.push({ type: 'dodge', x: this.x, z: this.z, vehicleId: -1, amount: 0 });
+      w.economy.onDodge();
     }
 
     if (this.dodgeTime > 0) {
@@ -288,73 +300,10 @@ export class PlayerController {
       }
     }
 
-    // Soft-lock aim: nearest hostile in a cone around where we face.
-    this.aimTarget = this.findTarget();
-    if (intents.fire && this.aimTarget >= 0 && this.dodgeTime <= 0) {
-      const t = w.vehicles[this.aimTarget]!;
-      this.facing = Math.atan2(t.x - this.x, t.z - this.z);
-    }
-    if (intents.fire && this.fireCooldown <= 0 && this.dodgeTime <= 0) this.fire();
+    // Weapons: soft-lock, switching and firing live in the combat system; it turns us to face the target.
+    const turn = w.combat.footStep(intents, this.x, this.z, this.facing, dt, this.dodgeTime <= 0);
+    if (turn !== null && this.dodgeTime <= 0) this.facing = turn;
     this.body.setLinvel({ x: this.vx, y: 0, z: this.vz }, true);
-  }
-
-  private findTarget(): number {
-    const w = this.world;
-    const wp = w.content.weapons.pistol;
-    const halfCone = (wp.lockConeDeg * Math.PI) / 360;
-    let best = -1;
-    let bd = Infinity;
-    for (const v of w.vehicles) {
-      if (!v.active || v.destroyed || (v.role !== 'police' && v.role !== 'squad')) continue;
-      const dx = v.x - this.x;
-      const dz = v.z - this.z;
-      const d = Math.hypot(dx, dz);
-      if (d > wp.range) continue;
-      const ang = Math.abs(wrapAngle(Math.atan2(dx, dz) - this.facing));
-      if (ang > halfCone) continue;
-      if (d < bd) {
-        bd = d;
-        best = v.id;
-      }
-    }
-    return best;
-  }
-
-  private fire(): void {
-    const w = this.world;
-    const wp = w.content.weapons.pistol;
-    this.fireCooldown = wp.fireIntervalSec;
-    const spread = ((w.rng.next() - 0.5) * wp.spreadDeg * Math.PI) / 180;
-    const ang = this.facing + spread;
-    const dx = Math.sin(ang);
-    const dz = Math.cos(ang);
-    const r = this.ray;
-    r.origin.x = this.x + dx * 0.6;
-    r.origin.y = 1.0;
-    r.origin.z = this.z + dz * 0.6;
-    r.dir.x = dx;
-    r.dir.y = 0;
-    r.dir.z = dz;
-    const hit = w.physics.castRay(r, wp.range, true, undefined, interactionGroups(0xffff, Groups.static | Groups.vehicle | Groups.ped), this.collider);
-    let kind: 'none' | 'static' | 'vehicle' | 'ped' = 'none';
-    let dist = wp.range;
-    if (hit) {
-      dist = hit.timeOfImpact;
-      const owner = w.colliderOwner(hit.collider.handle);
-      if (owner?.kind === 'vehicle') {
-        kind = 'vehicle';
-        w.damageVehicle(w.vehicles[owner.id]!, wp.damageVehicle);
-      } else if (owner?.kind === 'ped') {
-        kind = 'ped';
-        const ped = w.peds.peds[owner.id]!;
-        w.peds.knockDown(ped, dx * 3, dz * 3, true);
-      } else {
-        kind = 'static';
-      }
-    }
-    w.heat.addPoints(w.heat.config.points.fireWeapon, this.x, this.z);
-    w.peds.alarm(this.x, this.z, w.content.peds.gunshotAlertRadius);
-    w.events.push({ type: 'shot', x: this.x + dx * 0.6, z: this.z + dz * 0.6, hx: this.x + dx * dist, hz: this.z + dz * dist, hit: kind });
   }
 
   /** Post-physics: read back position and check for being run over. */
@@ -364,7 +313,7 @@ export class PlayerController {
     const t = this.body.translation();
     this.x = t.x;
     this.z = t.z;
-    if (this.dead || this.dodgeTime > 0) return;
+    if (this.incapacitated || this.dodgeTime > 0) return;
     const cfg = w.content.peds.player;
     let hitBy: Vehicle | null = null;
     w.physics.contactPairsWith(this.collider, (c) => {
@@ -375,33 +324,50 @@ export class PlayerController {
     if (!v) return;
     const rel = Math.hypot(v.setVx - this.vx, v.setVz - this.vz);
     if (rel < cfg.hitMinSpeed) return;
-    const dmg = (rel - cfg.hitMinSpeed) * cfg.hitDamagePerMs;
+    // Police drivers brake for you: a clip from a patrol car hurts far less than being run down.
+    const mul = v.role === 'police' ? w.content.heat.footHitMul : 1;
+    const dmg = (rel - cfg.hitMinSpeed) * cfg.hitDamagePerMs * mul;
     this.hurt(dmg, v.id);
     this.body.setLinvel({ x: v.setVx * 0.8, y: 0, z: v.setVz * 0.8 }, true);
   }
 
+  /** Take damage: armour soaks its share first. */
   hurt(amount: number, by: number): void {
-    if (this.dead) return;
+    if (this.incapacitated || amount <= 0) return;
     const w = this.world;
-    this.hp = Math.max(0, this.hp - amount);
+    // Reflex cyberware: untouchable for a moment from the start of a dodge.
+    if (w.economy.invulnerable) return;
+    const soak = Math.min(this.armour, amount * w.content.survival.player.armourAbsorb);
+    this.armour -= soak;
+    this.hp = Math.max(0, this.hp - (amount - soak));
     w.events.push({ type: 'playerHurt', x: this.x, z: this.z, vehicleId: by, amount });
     if (this.hp <= 0) {
       this.dead = true;
       this.deadTime = w.time;
       w.events.push({ type: 'playerDied', x: this.x, z: this.z, vehicleId: by, amount: 0 });
+      w.survival.flatline();
     }
   }
 
-  /** Back on your feet at the clinic, HEAT cleared. */
+  /** Respawn now (mission checkpoints call this after a death). */
   respawn(): void {
+    if (!this.world.survival.alive) this.world.survival.respawn();
+    else this.respawnAt(this.world.content.survival.flatlined.marker);
+  }
+
+  /** Back on your feet at the nearest marker whose id starts with `prefix` (or at `spot`), HEAT cleared. */
+  respawnAt(prefix: string, spot?: { x: number; z: number } | null): void {
     const w = this.world;
-    const clinic = w.content.map.markers['clinic']?.pos ?? [0, 0, 0];
     if (this.mode === 'driving') this.exit();
+    const at = spot ?? w.survival.nearestMarker(prefix, this.x, this.z);
     this.dead = false;
+    this.busted = false;
     this.hp = this.maxHp;
-    this.teleport(clinic[0], clinic[2]);
+    this.armour = w.content.survival.player.startArmour;
+    this.dodgeTime = 0;
+    this.teleport(at.x, at.z);
     this.collider.setCollisionGroups(FOOT_GROUPS);
-    w.heat.clear();
+    w.police.clearHeat('clear');
     w.events.push({ type: 'playerRespawned', x: this.x, z: this.z, vehicleId: -1, amount: 0 });
   }
 }

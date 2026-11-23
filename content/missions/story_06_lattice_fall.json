@@ -1,0 +1,86 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "story_06_lattice_fall",
+  "faction": "glasshounds",
+  "title": "Lattice Fall",
+  "summary": "Every crew in Vey City owes you a favour. Tonight you steal the Lattice uplink from the central tower and drown it in the Sable.",
+  "story": true,
+  "giver": { "type": "payphone", "at": "marker:ashgrove_payphone_4" },
+  "prerequisites": { "missions": ["story_05_dead_air"], "respect": { "glasshounds": 25 } },
+  "budgetMinutes": 8,
+  "spawns": {
+    "uplink": { "variant": "prototype", "at": "marker:central_tower", "offset": [0, 6], "locked": true, "role": "target" }
+  },
+  "actors": {
+    "tower_guard_1": { "faction": "kurogane", "at": "marker:central_tower", "offset": [7, 2], "behaviour": "guard", "hostile": true, "hp": 2, "group": "tower" },
+    "tower_guard_2": { "faction": "kurogane", "at": "marker:central_tower", "offset": [-7, 3], "behaviour": "guard", "hostile": true, "hp": 2, "group": "tower" },
+    "tower_guard_3": { "faction": "kurogane", "at": "marker:central_tower", "offset": [3, 12], "behaviour": "wander", "hostile": true, "hp": 2, "group": "tower" }
+  },
+  "onStart": [{ "do": "dialogue", "line": "s06_intro" }],
+  "objectives": [
+    {
+      "id": "tower",
+      "type": "reach",
+      "target": "marker:central_tower",
+      "radius": 30,
+      "text": "Get to the central tower",
+      "onStart": [{ "do": "spawn", "refs": ["spawn:uplink", "actor:tower_guard_1", "actor:tower_guard_2", "actor:tower_guard_3"] }]
+    },
+    {
+      "id": "guards",
+      "type": "eliminate",
+      "targets": ["actor:tower_guard_1", "actor:tower_guard_2", "actor:tower_guard_3"],
+      "text": "Take down the tower guards",
+      "onStart": [{ "do": "dialogue", "line": "s06_guards" }]
+    },
+    {
+      "id": "crack",
+      "type": "hack",
+      "target": "spawn:uplink",
+      "minigame": "sequence",
+      "difficulty": 4,
+      "text": "Hack the uplink truck",
+      "onStart": [{ "do": "dialogue", "line": "s06_hack" }],
+      "onFail": [{ "do": "addTrace", "value": 25 }],
+      "onComplete": [{ "do": "setHeat", "value": 3 }, { "do": "dialogue", "line": "s06_alarm" }]
+    },
+    {
+      "id": "bridges",
+      "type": "race",
+      "checkpoints": ["marker:bridge_central", "marker:saltworks_road_6", "marker:bridge_east", "marker:ashgrove_road_5"],
+      "radius": 14,
+      "vehicle": "spawn:uplink",
+      "timeLimitSec": 180,
+      "text": "Shake the tracker: hit the bridges",
+      "failOn": [{ "if": "vehicleDestroyed", "target": "spawn:uplink", "message": "The uplink was wrecked" }],
+      "onStart": [
+        { "do": "dialogue", "line": "s06_bridges" },
+        { "do": "spawnSquad", "squad": "kurogane_response", "delaySec": 10 }
+      ]
+    },
+    {
+      "id": "shake",
+      "type": "escape",
+      "text": "Lose every last patrol",
+      "failOn": [{ "if": "vehicleDestroyed", "target": "spawn:uplink", "message": "The uplink was wrecked" }],
+      "onStart": [{ "do": "setHeat", "value": 3 }, { "do": "dialogue", "line": "s06_heat" }]
+    },
+    {
+      "id": "drown",
+      "type": "deliverVehicle",
+      "vehicle": "spawn:uplink",
+      "target": "marker:river_overlook",
+      "radius": 10,
+      "minHealth": 0.2,
+      "text": "Drive the uplink to the river overlook",
+      "onStart": [{ "do": "dialogue", "line": "s06_overlook" }],
+      "onComplete": [{ "do": "dialogue", "line": "s06_done" }]
+    }
+  ],
+  "rewards": {
+    "credits": 6000,
+    "rep": { "glasshounds": 20, "null_saints": 10, "velvet_choir": 10, "rustmouth": 10, "kurogane": -30 },
+    "unlocks": ["shop:armsshop_2", "weapon:smg", "safehouse:safehouse_3"]
+  },
+  "failPolicy": "checkpoint"
+}

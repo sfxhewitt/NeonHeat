@@ -41,6 +41,8 @@ export class CameraRig {
   shakeFrequency = 28;
   shakeDecay = 7;
   shakeMax = 1.4;
+  /** Multiplies the target height (a big jump pulls the camera in); eased like the height itself. */
+  heightScale = 1;
 
   constructor(public config: CameraConfig) {
     this.camera = new PerspectiveCamera(config.fovDeg, 16 / 9, 2, 600);
@@ -71,7 +73,7 @@ export class CameraRig {
     }
     const k = (rate: number): number => 1 - Math.exp(-rate * dt);
     const targetH = t.onFoot ? c.heightOnFoot : c.heightMin + (c.heightMax - c.heightMin) * Math.min(1, t.speedT);
-    this.height += (targetH - this.height) * k(c.heightLerp);
+    this.height += (targetH * this.heightScale - this.height) * k(c.heightLerp);
 
     let ax = t.vx * c.lookAheadSec;
     let az = t.vz * c.lookAheadSec;

@@ -23,6 +23,10 @@ export interface Intents {
   /** Edge-triggered: true for exactly one step per press. */
   interact: boolean;
   dodge: boolean;
+  /** Edge-triggered: cycle to the next owned weapon. */
+  nextWeapon: boolean;
+  /** Edge-triggered: the side-activity button (taxi duty, start a race). */
+  activity: boolean;
 }
 
 export function emptyIntents(): Intents {
@@ -37,6 +41,8 @@ export function emptyIntents(): Intents {
     fire: false,
     interact: false,
     dodge: false,
+    nextWeapon: false,
+    activity: false,
   };
 }
 
@@ -51,5 +57,7 @@ export function copyIntents(src: Intents, dst: Intents): Intents {
   dst.fire = src.fire;
   dst.interact = src.interact;
   dst.dodge = src.dodge;
+  dst.nextWeapon = src.nextWeapon;
+  dst.activity = src.activity;
   return dst;
 }

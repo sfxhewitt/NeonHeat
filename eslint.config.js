@@ -5,7 +5,7 @@ import globals from 'globals';
 const browserGlobals = Object.keys(globals.browser).filter((g) => !(g in globals.es2021));
 
 export default tseslint.config(
-  { ignores: ['**/dist/**', '**/node_modules/**', 'test-results/**', 'playwright-report/**'] },
+  { ignores: ['**/dist/**', '**/node_modules/**', 'test-results/**', 'playwright-report/**', '.claude/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

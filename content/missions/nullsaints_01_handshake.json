@@ -1,0 +1,36 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "nullsaints_01_handshake",
+  "faction": "null_saints",
+  "title": "Handshake",
+  "summary": "Litany scattered data shards around the Undercroft as a test. Find them on foot, then prove you can talk to a machine.",
+  "chain": 1,
+  "giver": { "type": "payphone", "at": "marker:undercroft_payphone_2" },
+  "prerequisites": { "missions": ["story_01_first_call"] },
+  "budgetMinutes": 5,
+  "objectives": [
+    {
+      "id": "shards",
+      "type": "collect",
+      "pickups": ["marker:undercroft_lot_1", "marker:undercroft_road_5", "marker:undercroft_door_5", "marker:junkyard"],
+      "radius": 3.5,
+      "vehicle": "none",
+      "text": "Find the data shards on foot",
+      "timeLimitSec": 240,
+      "onStart": [{ "do": "dialogue", "line": "n01_intro" }]
+    },
+    {
+      "id": "node",
+      "type": "hack",
+      "target": "marker:undercroft_road_2",
+      "minigame": "sequence",
+      "difficulty": 2,
+      "text": "Hack the Saints' test node",
+      "onStart": [{ "do": "dialogue", "line": "n01_node" }],
+      "onFail": [{ "do": "addTrace", "value": 15 }],
+      "onComplete": [{ "do": "addTrace", "value": 20 }, { "do": "dialogue", "line": "n01_done" }]
+    }
+  ],
+  "rewards": { "credits": 900, "rep": { "null_saints": 8 } },
+  "failPolicy": "checkpoint"
+}

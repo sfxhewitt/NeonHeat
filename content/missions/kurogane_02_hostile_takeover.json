@@ -1,0 +1,47 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "kurogane_02_hostile_takeover",
+  "faction": "kurogane",
+  "title": "Hostile Takeover",
+  "summary": "Rustmouth scrappers are squatting in a yard Kurogane bought on Tuesday. Serve the eviction notice.",
+  "chain": 2,
+  "giver": { "type": "payphone", "at": "marker:glass_payphone_2" },
+  "prerequisites": { "missions": ["kurogane_01_severance"] },
+  "budgetMinutes": 5,
+  "spawns": {
+    "scrap_truck": { "variant": "brick", "at": "marker:saltworks_lot_3", "yaw": 1.5708, "locked": true, "role": "target" }
+  },
+  "actors": {
+    "scrapper_1": { "faction": "rustmouth", "at": "marker:saltworks_lot_3", "offset": [-6, -5], "behaviour": "guard", "hostile": true, "group": "squatters" },
+    "scrapper_2": { "faction": "rustmouth", "at": "marker:saltworks_lot_3", "offset": [6, -6], "behaviour": "guard", "hostile": true, "group": "squatters" },
+    "scrapper_3": { "faction": "rustmouth", "at": "marker:saltworks_lot_3", "offset": [-7, 6], "behaviour": "wander", "hostile": true, "group": "squatters" },
+    "scrapper_4": { "faction": "rustmouth", "at": "marker:saltworks_lot_3", "offset": [5, 7], "behaviour": "guard", "hostile": true, "hp": 2, "group": "squatters" }
+  },
+  "objectives": [
+    {
+      "id": "arrive",
+      "type": "reach",
+      "target": "marker:saltworks_lot_3",
+      "radius": 40,
+      "text": "Get to the yard in the Saltworks",
+      "onStart": [{ "do": "dialogue", "line": "k02_intro" }, { "do": "spawn", "refs": ["actor:scrapper_1", "actor:scrapper_2", "actor:scrapper_3", "actor:scrapper_4", "spawn:scrap_truck"] }]
+    },
+    {
+      "id": "evict",
+      "type": "eliminate",
+      "targets": ["actor:scrapper_1", "actor:scrapper_2", "actor:scrapper_3", "actor:scrapper_4"],
+      "text": "Clear out the squatters",
+      "onStart": [{ "do": "dialogue", "line": "k02_fight" }]
+    },
+    {
+      "id": "truck",
+      "type": "destroyVehicle",
+      "targets": ["spawn:scrap_truck"],
+      "text": "Wreck their scrap truck",
+      "onStart": [{ "do": "dialogue", "line": "k02_truck" }],
+      "onComplete": [{ "do": "dialogue", "line": "k02_done" }]
+    }
+  ],
+  "rewards": { "credits": 1500, "rep": { "kurogane": 12, "rustmouth": -10 } },
+  "failPolicy": "checkpoint"
+}

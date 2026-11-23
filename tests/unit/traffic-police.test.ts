@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { forwardSpeed, type Vehicle } from '@neonheat/sim';
-import { intents, loadContent, makeWorld, run } from './helpers';
+import { EW, buildingWithRoadSouth, intents, loadContent, makeWorld, movePlayer, run } from './helpers';
 
 const idle = intents();
 
@@ -22,8 +22,18 @@ describe('traffic', () => {
     const content = loadContent();
     content.traffic.count = 1;
     content.map.traffic.loops = [content.map.traffic.loops[0]!];
+    content.traffic.parkedMax = 0;
     const world = await makeWorld(4, content);
     const car = world.vehicles.find((v) => v.active && v.role === 'traffic')!;
+    // Put it in the eastbound lane of a straight 78 m stretch of avenue between two junctions.
+    const a = world.roads.nearest(-173, EW.z);
+    const b = world.roads.nearest(-95, EW.z);
+    movePlayer(world, -150, EW.z - 20);
+    world.teleportVehicle(car, a.x + 8, EW.z + 4.5, Math.PI / 2);
+    car.ai.mode = 'drive';
+    car.ai.navFrom = a.id;
+    car.ai.navTo = b.id;
+    car.ai.navNext = -1;
     // Park a van 40 m ahead in its lane.
     const yaw = car.yaw;
     const block = world.spawnVehicle('brick', car.x + Math.sin(yaw) * 40, car.z + Math.cos(yaw) * 40, yaw, 'parked')!;
@@ -81,7 +91,8 @@ describe('damage', () => {
     content.traffic.count = 0;
     content.peds.count = 0;
     const world = await makeWorld(1, content);
-    const car = world.spawnVehicle('kestrel', -14, 34, Math.PI, 'parked')!;
+    const { x, z } = buildingWithRoadSouth(world);
+    const car = world.spawnVehicle('kestrel', x, z, Math.PI, 'parked')!;
     world.playerCtl.enter(car);
     const hp: number[] = [];
     for (let i = 0; i < 30 && !car.destroyed; i++) {
@@ -107,15 +118,15 @@ describe('police and HEAT in the world', () => {
 
   const police = (w: Awaited<ReturnType<typeof chaseWorld>>): Vehicle[] => w.vehicles.filter((v) => v.active && v.role === 'police');
 
-  it('spawns one to three patrol cars by level and a drone at level 3', async () => {
+  it('spawns more patrol cars by level and a drone at level 3', async () => {
     const w = await chaseWorld();
     w.heat.setLevel(1, w.player.x, w.player.z);
     run(w, 1, idle);
     expect(police(w).length).toBe(1);
     expect(w.police.drone.active).toBe(false);
     w.heat.setLevel(3, w.player.x, w.player.z);
-    run(w, 4, idle);
-    expect(police(w).length).toBe(3);
+    run(w, 6, idle);
+    expect(police(w).length).toBe(w.content.heat.levels[3]!.units);
     expect(w.police.drone.active).toBe(true);
   });
 
@@ -127,7 +138,8 @@ describe('police and HEAT in the world', () => {
       for (const p of police(w)) closest = Math.min(closest, w.distToPlayer(p.x, p.z));
       return idle;
     });
-    expect(closest).toBeLessThan(8);
+    // An on-foot player: units pull up short and send officers in.
+    expect(closest).toBeLessThan(w.content.heat.pursuit.footStopDist + 2);
   });
 
   it('the drone keeps line of sight over buildings and holds HEAT', async () => {
@@ -142,9 +154,9 @@ describe('police and HEAT in the world', () => {
 
   it('ramming a police car raises HEAT', async () => {
     const w = await chaseWorld(8);
-    const car = w.spawnVehicle('kestrel', -110, 120, Math.PI / 2, 'player')!;
+    const car = w.spawnVehicle('kestrel', EW.x, EW.z, Math.PI / 2, 'player')!;
     w.playerCtl.enter(car);
-    const cop = w.spawnVehicle('interceptor', -60, 120, Math.PI / 2, 'police')!;
+    const cop = w.spawnVehicle('interceptor', EW.x + 50, EW.z, Math.PI / 2, 'police')!;
     // Hold the patrol car still so the test is about the ram, not the chase.
     cop.ai.mode = 'stunned';
     cop.ai.timer = 100;

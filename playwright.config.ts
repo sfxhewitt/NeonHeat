@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const port = 4173;
+/** Override with E2E_PORT when several checkouts run e2e at once. */
+const port = Number(process.env.E2E_PORT ?? 4173);
 
 /** iPhone 17 Pro Max as a home-screen app: 440 × 956 CSS pixels at DPR 3, touch only. */
 const proMax = { ...devices['iPhone 13'], viewport: { width: 440, height: 956 }, screen: { width: 440, height: 956 }, deviceScaleFactor: 3 };
@@ -41,7 +42,7 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm build && pnpm preview --port 4173 --strictPort',
+    command: `pnpm build && pnpm preview --port ${port} --strictPort`,
     port,
     reuseExistingServer: false, // always test the current build; a stale preview server hid fixes once
     timeout: 180_000,

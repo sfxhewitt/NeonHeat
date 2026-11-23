@@ -1,5 +1,12 @@
 /** Events the simulation emits each step, for rendering, audio, haptics and missions. */
-export type ImpactOther = 'static' | 'prop' | 'vehicle' | 'ped' | 'player';
+import type { CombatEvent } from './combat-events';
+import type { EconomyEvent } from './economy';
+import type { LifeEvent } from './life-events';
+export type { CombatEvent } from './combat-events';
+export type { LifeEvent } from './life-events';
+import type { ActivityEvent } from './activities/events';
+export type { ActivityEvent } from './activities/events';
+export type ImpactOther = 'static' | 'prop' | 'vehicle' | 'ped' | 'player' | 'officer';
 
 export interface ImpactEvent {
   type: 'impact';
@@ -27,7 +34,9 @@ export interface ShotEvent {
   /** Where the round ended (hit point or max range). */
   hx: number;
   hz: number;
-  hit: 'none' | 'static' | 'vehicle' | 'ped';
+  hit: 'none' | 'static' | 'vehicle' | 'ped' | 'player' | 'officer';
+  /** False for police fire. */
+  byPlayer: boolean;
 }
 
 export interface PedHitEvent {
@@ -85,6 +94,10 @@ export interface KerbEvent {
 }
 
 export type SimEvent =
+  | CombatEvent
+  | EconomyEvent
+  | LifeEvent
+  | ActivityEvent
   | PropBrokenEvent
   | KerbEvent
   | ImpactEvent

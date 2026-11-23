@@ -1,0 +1,17 @@
+{
+  "startHour": 22,
+  "secondsPerHour": 60,
+  "spell": [150, 330],
+  "blendSec": 25,
+  "dryRate": 0.004,
+  "wetRate": 0.05,
+  "weights": { "clear": 2, "drizzle": 3, "rain": 3, "storm": 1, "fog": 1.5 },
+  "kinds": {
+    "clear": { "rain": 0, "fog": 0.1 },
+    "drizzle": { "rain": 0.35, "fog": 0.25 },
+    "rain": { "rain": 0.75, "fog": 0.35 },
+    "storm": { "rain": 1, "fog": 0.5 },
+    "fog": { "rain": 0.05, "fog": 1 }
+  },
+  "wetGrip": 0.9
+}

@@ -31,17 +31,25 @@ export class BlobShadows {
     let n = 0;
     const cap = this.mesh.instanceMatrix.count;
     const map = world.content.map;
-    const put = (x: number, z: number, yaw: number, w: number, l: number): void => {
+    const put = (x: number, z: number, yaw: number, w: number, l: number, y = groundHeight(map, x, z)): void => {
       if (n >= cap) return;
       // Sit on the pavement where there is one, not under it.
-      o.position.set(x, 0.04 + groundHeight(map, x, z), z);
+      o.position.set(x, 0.04 + y, z);
       o.rotation.set(0, yaw, 0);
       o.scale.set(w, 1, l);
       o.updateMatrix();
       this.mesh.setMatrixAt(n++, o.matrix);
     };
     for (const v of world.vehicles) {
-      if (v.active) put(lerp(v.prevX, v.x, alpha), lerp(v.prevZ, v.z, alpha), v.yaw, v.params.width * 1.5, v.params.length * 1.3);
+      if (!v.active) continue;
+      const x = lerp(v.prevX, v.x, alpha);
+      const z = lerp(v.prevZ, v.z, alpha);
+      if (v.y > 0.05) {
+        // On a ramp or in the air: the shadow stays on the ground below and shrinks with height.
+        const g = Math.max(0, world.activities.jumps.surface(x, z));
+        const k = 1 / (1 + Math.max(0, v.y - g) * 0.25);
+        put(x, z, v.yaw, v.params.width * 1.5 * k, v.params.length * 1.3 * k, g);
+      } else put(x, z, v.yaw, v.params.width * 1.5, v.params.length * 1.3);
     }
     for (const p of world.peds.peds) if (p.active) put(lerp(p.prevX, p.x, alpha), lerp(p.prevZ, p.z, alpha), 0, 1.3, 1.3);
     const pc = world.playerCtl;

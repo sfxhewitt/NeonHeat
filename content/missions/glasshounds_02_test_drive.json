@@ -1,0 +1,45 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "glasshounds_02_test_drive",
+  "faction": "glasshounds",
+  "title": "Test Drive",
+  "summary": "A buyer wants proof the Kestrel is quick. Deck thinks he's quicker. Settle it on the streets.",
+  "chain": 2,
+  "giver": { "type": "payphone", "at": "marker:ashgrove_payphone_3" },
+  "prerequisites": { "missions": ["glasshounds_01_window_shopping"] },
+  "budgetMinutes": 5,
+  "spawns": {
+    "test_car": { "variant": "kestrel", "at": "marker:ashgrove_lot_2", "yaw": 0, "role": "target" },
+    "deck": { "variant": "vandal", "at": "marker:ashgrove_lot_2", "offset": [6, 0], "yaw": 0, "locked": true, "role": "racer" }
+  },
+  "objectives": [
+    {
+      "id": "get_car",
+      "type": "stealVehicle",
+      "vehicle": "spawn:test_car",
+      "text": "Get in the Kestrel",
+      "onStart": [{ "do": "dialogue", "line": "gh02_intro" }, { "do": "spawn", "refs": ["spawn:deck"] }]
+    },
+    {
+      "id": "race",
+      "type": "race",
+      "checkpoints": [
+        "marker:ashgrove_road_2",
+        "marker:glass_road_4",
+        "marker:plaza",
+        "marker:glass_road_7",
+        "marker:ashgrove_road_6",
+        "marker:ashgrove_lot_4"
+      ],
+      "radius": 12,
+      "vehicle": "spawn:test_car",
+      "opponents": ["spawn:deck"],
+      "opponentSpeed": 21,
+      "timeLimitSec": 210,
+      "onStart": [{ "do": "dialogue", "line": "gh02_go" }],
+      "onComplete": [{ "do": "dialogue", "line": "gh02_done" }]
+    }
+  ],
+  "rewards": { "credits": 1000, "rep": { "glasshounds": 8 }, "timeBonus": { "underSec": 150, "credits": 300 } },
+  "failPolicy": "checkpoint"
+}

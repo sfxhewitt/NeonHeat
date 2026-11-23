@@ -70,8 +70,9 @@ export function stepArcade(s: ArcadeState, p: VehicleParams, c: DriveControls, d
   // Lateral grip and drift state.
   const slip = Math.abs(vl);
   if (c.handbrake && Math.abs(vf) > 3) s.drifting = true;
-  else if (s.drifting && slip < p.driftExitSlip) s.drifting = false;
-  else if (!s.drifting && slip > p.driftEnterSlip) s.drifting = true;
+  else if (s.drifting && (slip < p.driftExitSlip || (p.twoWheel && !c.handbrake))) s.drifting = false;
+  // A two-wheeler leans instead of sliding: only the rear brake (handbrake) breaks it loose.
+  else if (!s.drifting && slip > p.driftEnterSlip && !p.twoWheel) s.drifting = true;
   const grip = c.handbrake ? p.grip * p.handbrakeGripMul : s.drifting ? p.driftGrip : p.grip;
   // Tyres can only pull the car sideways so hard: a fast, sharp turn slides
   // (and past driftEnterSlip becomes a drift) instead of snapping round on rails.

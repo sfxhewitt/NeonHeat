@@ -1,5 +1,4 @@
 import '@neonheat/ui/ui.css';
-import { showTitle } from '@neonheat/ui';
 import type { TierName } from '@neonheat/engine';
 import { Game } from './game';
 import { installTestHooks } from './test-hooks';
@@ -38,16 +37,30 @@ export async function boot(): Promise<void> {
     status = `Graphics: ${game.tier}`;
   })();
 
+  if (params.has('garage')) {
+    // Dev-only vehicle showroom; loaded on demand so it never touches the normal boot path.
+    await benchmark;
+    const { setupGarage } = await import('./garage');
+    setupGarage(game, { labels: params.has('labels'), city: params.has('city') });
+    window.__neon!.ready = true;
+    return;
+  }
   if (params.has('autostart')) {
     await benchmark;
     window.__neon!.ready = true;
     return;
   }
   game.setPaused(true);
-  await showTitle(overlay, () => status);
+  // The title's first tap is the first user gesture: audio unlocks there (flow.audio.onFirstGesture,
+  // set by the audio engine) and full screen is requested from the same gesture.
+  game.flow.firstGestureHooks.push(enterFullscreen);
+  const choice = await game.flow.title(() => status);
   await benchmark;
-  enterFullscreen();
   game.setPaused(false);
+  if (choice === 'new') {
+    game.economy.applySave(game.saves.current);
+    game.flow.welcome();
+  }
   window.__neon!.ready = true;
 }
 

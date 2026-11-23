@@ -2,6 +2,15 @@ import type RAPIER_NS from '@dimforge/rapier3d-simd-compat';
 import type { PedsConfig } from './content';
 import { Groups, interactionGroups } from './physics';
 import type { World } from './world';
+import { onPavement } from './street';
+import { PedTags } from './ped-tags';
+
+/**
+ * Who moves a ped. `ambient` peds are driven here; the others are steered by
+ * another system (crowds, gangs, emergency services), which sets their velocity
+ * each step. Gang and service peds sit outside the ambient population count.
+ */
+export type PedOwner = 'ambient' | 'crowd' | 'gang' | 'service';
 
 export type PedState = 'wander' | 'flee' | 'cower' | 'down';
 
@@ -23,6 +32,8 @@ export interface Ped {
   threatX: number;
   threatZ: number;
   colour: number;
+  hp: number;
+  owner: PedOwner;
   body: RAPIER_NS.RigidBody | null;
   collider: RAPIER_NS.Collider | null;
 }
@@ -38,13 +49,23 @@ export class PedSystem {
   readonly peds: Ped[] = [];
   /** Active cap (quality tiers lower it). */
   cap: number;
+  /** Extra (or, negative, fewer) people to keep around: district and time-of-day density (crowds.ts). */
+  extra = 0;
+  /** Looks, poses and grouping per ped (renderer and crowd systems). */
+  readonly tags: PedTags;
+  /** Called whenever a ped is spawned (ambient spawns pass true). */
+  readonly spawnHooks: ((p: Ped, ambient: boolean) => void)[] = [];
+  /** Optional veto on wander targets (crowds use it so people mostly cross at junctions). */
+  targetFilter: ((x0: number, z0: number, x1: number, z1: number) => boolean) | null = null;
 
   constructor(
     private readonly world: World,
     public config: PedsConfig,
   ) {
     this.cap = config.count;
-    for (let i = 0; i < Math.max(config.count, 40); i++) {
+    const pool = Math.max(config.count, config.pool);
+    this.tags = new PedTags(pool);
+    for (let i = 0; i < pool; i++) {
       this.peds.push({
         id: i,
         active: false,
@@ -63,6 +84,8 @@ export class PedSystem {
         threatX: 0,
         threatZ: 0,
         colour: 0,
+        hp: 0,
+        owner: 'ambient',
         body: null,
         collider: null,
       });
@@ -73,15 +96,16 @@ export class PedSystem {
     for (let i = 0; i < this.cap; i++) this.spawnSomewhere(false);
   }
 
-  /** A random walkable point: inside the map, outside buildings, off the road centre. */
-  private randomPoint(nearX: number, nearZ: number, radius: number, out: { x: number; z: number }): boolean {
+  /** A random walkable point: inside the map, on a pavement, park or yard (not the road, water or a building). */
+  private randomPoint(nearX: number, nearZ: number, radius: number, out: { x: number; z: number }, minRadius = 0): boolean {
     const w = this.world;
     const half = w.content.map.size[0] / 2 - 3;
-    for (let tries = 0; tries < 12; tries++) {
+    for (let tries = 0; tries < 16; tries++) {
       const x = nearX + w.rng.range(-radius, radius);
       const z = nearZ + w.rng.range(-radius, radius);
       if (Math.abs(x) > half || Math.abs(z) > half) continue;
-      if (w.insideBuilding(x, z, 1)) continue;
+      if (minRadius > 0 && Math.hypot(x - nearX, z - nearZ) < minRadius) continue;
+      if (!onPavement(w.content.map, x, z) || w.insideBuilding(x, z, 1)) continue;
       out.x = x;
       out.z = z;
       return true;
@@ -95,10 +119,12 @@ export class PedSystem {
     const p = this.peds.find((q) => !q.active);
     if (!p) return null;
     const w = this.world;
+    // People live around the player: a ring out of view, or anywhere close at the start.
+    const outer = this.config.respawnMinDist + 50;
     for (let tries = 0; tries < 8; tries++) {
-      if (!this.randomPoint(0, 0, w.content.map.size[0] / 2, this.tmp)) continue;
-      if (awayFromPlayer && w.distToPlayer(this.tmp.x, this.tmp.z) < this.config.respawnMinDist) continue;
+      if (!this.randomPoint(w.player.x, w.player.z, awayFromPlayer ? outer : outer * 0.8, this.tmp, awayFromPlayer ? this.config.respawnMinDist : 6)) continue;
       this.spawnAt(p, this.tmp.x, this.tmp.z);
+      for (const h of this.spawnHooks) h(p, true);
       return p;
     }
     return null;
@@ -109,6 +135,7 @@ export class PedSystem {
     const p = this.peds.find((q) => !q.active);
     if (!p) return null;
     this.spawnAt(p, x, z);
+    for (const h of this.spawnHooks) h(p, false);
     return p;
   }
 
@@ -122,6 +149,9 @@ export class PedSystem {
     p.timer = rng.range(0, 2);
     p.facing = p.prevFacing = rng.range(-Math.PI, Math.PI);
     p.colour = rng.int(0, this.config.colours.length - 1);
+    p.hp = this.config.hp;
+    p.owner = 'ambient';
+    this.tags.reset(p.id);
     const body = physics.createRigidBody(
       R.RigidBodyDesc.dynamic()
         .setTranslation(x, 0, z)
@@ -148,17 +178,29 @@ export class PedSystem {
     p.active = false;
   }
 
+  /** People in the ambient population (gang members and emergency crews are counted by their own systems). */
   activeCount(): number {
     let n = 0;
-    for (const p of this.peds) if (p.active) n++;
+    for (const p of this.peds) if (p.active && p.owner !== 'gang' && p.owner !== 'service') n++;
     return n;
+  }
+
+  /** Paramedics got them back on their feet: full hit points, solid again, wandering off. */
+  revive(p: Ped): void {
+    if (!p.active || p.state !== 'down') return;
+    p.state = 'wander';
+    p.hp = this.config.hp;
+    p.timer = 0;
+    p.targetX = p.x;
+    p.targetZ = p.z;
+    p.collider?.setCollisionGroups(PED_GROUPS);
   }
 
   /** Make every ped within `radius` of (x, z) react to a threat there. */
   alarm(x: number, z: number, radius: number): void {
     const w = this.world;
     for (const p of this.peds) {
-      if (!p.active || p.state === 'down') continue;
+      if (!p.active || p.state === 'down' || p.owner === 'gang') continue;
       if (Math.hypot(p.x - x, p.z - z) > radius) continue;
       p.threatX = x;
       p.threatZ = z;
@@ -172,15 +214,47 @@ export class PedSystem {
     }
   }
 
-  knockDown(p: Ped, vx: number, vz: number, byPlayer: boolean): void {
+  /**
+   * Knock a ped flat (hit by a car, shot dead). A car hit by the player is a
+   * crime; weapons report their own crimes, so they pass `carHit` false.
+   */
+  knockDown(p: Ped, vx: number, vz: number, byPlayer: boolean, carHit = true): void {
     if (p.state === 'down') return;
+    const w = this.world;
     p.state = 'down';
+    p.hp = 0;
     p.timer = this.config.downSec;
     p.collider?.setCollisionGroups(DOWN_GROUPS);
     p.body?.setLinvel({ x: vx * 0.6, y: 0, z: vz * 0.6 }, true);
-    this.world.events.push({ type: 'pedHit', pedId: p.id, x: p.x, z: p.z, byPlayer });
-    if (byPlayer) this.world.heat.pedHit(this.world.time, this.world.player.x, this.world.player.z);
+    w.events.push({ type: 'pedHit', pedId: p.id, x: p.x, z: p.z, byPlayer });
+    if (byPlayer && carHit && w.gangs.reportAttack(p.id) && w.heat.pedHit(w.time)) w.police.crime('hitPed', w.player.x, w.player.z);
     this.alarm(p.x, p.z, this.config.crashAlertRadius);
+  }
+
+  /** Weapon or fist damage. Returns true if this put the ped down. */
+  damage(p: Ped, amount: number, kx: number, kz: number, byPlayer: boolean): boolean {
+    if (!p.active || p.state === 'down') return false;
+    p.hp -= amount;
+    if (p.hp <= 0) {
+      this.knockDown(p, kx, kz, byPlayer, false);
+      return true;
+    }
+    // Hurt: stagger back, then run from whoever did it.
+    p.body?.setLinvel({ x: kx, y: 0, z: kz }, true);
+    p.state = 'flee';
+    p.timer = this.world.rng.range(this.config.fleeSecMin, this.config.fleeSecMax);
+    p.threatX = this.world.player.x;
+    p.threatZ = this.world.player.z;
+    return false;
+  }
+
+  /** Arc caster: rooted to the spot, twitching, for `sec`. */
+  stun(p: Ped, sec: number): void {
+    if (!p.active || p.state === 'down') return;
+    p.state = 'cower';
+    p.timer = sec;
+    p.threatX = this.world.player.x;
+    p.threatZ = this.world.player.z;
   }
 
   /** Pre-physics: decide and set velocities. */
@@ -203,6 +277,8 @@ export class PedSystem {
         }
         continue;
       }
+      // Steered by crowds, gangs or services: they set the velocity.
+      if (p.owner !== 'ambient') continue;
       if ((w.tick + p.id) % period === 0) this.decide(p);
       let speed = 0;
       let dx = 0;
@@ -225,10 +301,15 @@ export class PedSystem {
       p.vz = vz;
       if (speed > 0 && len > 0.01) p.facing = Math.atan2(dx, dz);
     }
-    // Top up the population away from the player.
-    if (w.tick % 30 === 0 && this.activeCount() < this.cap) this.spawnSomewhere(true);
-    while (this.activeCount() > this.cap) {
-      const far = this.peds.find((p) => p.active && w.distToPlayer(p.x, p.z) > cfg.respawnMinDist);
+    // Top up the population away from the player, and let people far behind go.
+    const want = this.cap + this.extra;
+    if (w.tick % 10 === 0 && this.activeCount() < want) this.spawnSomewhere(true);
+    if (w.tick % 20 === 0) {
+      for (const p of this.peds) if (p.active && p.owner !== 'gang' && p.owner !== 'service' && w.distToPlayer(p.x, p.z) > cfg.respawnMinDist + 90) this.despawn(p);
+    }
+    const limit = Math.max(this.cap, want);
+    while (this.activeCount() > limit) {
+      const far = this.peds.find((p) => p.active && p.owner !== 'gang' && p.owner !== 'service' && w.distToPlayer(p.x, p.z) > cfg.respawnMinDist);
       if (!far) break;
       this.despawn(far);
     }
@@ -260,9 +341,12 @@ export class PedSystem {
       return;
     }
     if (p.state === 'wander' && (p.timer <= 0 || Math.hypot(p.targetX - p.x, p.targetZ - p.z) < 1.2)) {
-      if (this.randomPoint(p.x, p.z, cfg.wanderRadius, this.tmp)) {
+      for (let k = 0; k < 3; k++) {
+        if (!this.randomPoint(p.x, p.z, cfg.wanderRadius, this.tmp)) break;
+        if (this.targetFilter && !this.targetFilter(p.x, p.z, this.tmp.x, this.tmp.z)) continue;
         p.targetX = this.tmp.x;
         p.targetZ = this.tmp.z;
+        break;
       }
       p.timer = w.rng.range(4, 10);
     }
@@ -291,7 +375,8 @@ export class PedSystem {
       if (hitBy < 0) continue;
       const v = w.vehicles[hitBy]!;
       const rel = Math.hypot(v.setVx - walkVx, v.setVz - walkVz);
-      if (rel > this.config.knockdownSpeed) this.knockDown(p, v.vx, v.vz, v === w.player.vehicle);
+      // Walking or running into a car that is barely moving bumps them; it does not floor them.
+      if (rel > this.config.knockdownSpeed && Math.hypot(v.setVx, v.setVz) > this.config.knockdownSpeed * 0.5) this.knockDown(p, v.vx, v.vz, v === w.player.vehicle);
     }
   }
 }

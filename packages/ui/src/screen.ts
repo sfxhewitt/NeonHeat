@@ -29,3 +29,10 @@ export function appPoint(clientX: number, clientY: number): { x: number; y: numb
   // rotate(90deg) then translateX(100vw): screen = (W - y, x), so x = screenY, y = W - screenX.
   return { x: clientY, y: window.innerWidth - clientX };
 }
+
+/** An element's box in app (landscape) coordinates. */
+export function appRect(el: Element): { x: number; y: number; width: number; height: number } {
+  const r = el.getBoundingClientRect();
+  if (!isRotated()) return { x: r.left, y: r.top, width: r.width, height: r.height };
+  return { x: r.top, y: window.innerWidth - r.right, width: r.height, height: r.width };
+}

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
+import { SkyGrade } from './sky';
 import { FixedStepLoop, SIM_DT, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type Prop, type SimEvent } from '@neonheat/sim';
-import { MissionBot, MissionDirector } from '@neonheat/missions';
+import { MissionBot, MissionDirector, type MissionResult } from '@neonheat/missions';
 import { IndexedDbStorage, MemoryStorage, SaveManager, applyMissionResult } from '@neonheat/save';
 import {
   BlobShadows,
@@ -14,6 +15,7 @@ import {
   PeopleView,
   PostFx,
   PropsView,
+  SignalsView,
   Rain,
   SceneLights,
   SkidMarks,
@@ -26,6 +28,7 @@ import {
   createWetRoadMaterial,
   layoutSigns,
   type CityMeshes,
+  waterTime,
   type TierName,
 } from '@neonheat/engine';
 import {
@@ -34,16 +37,18 @@ import {
   HackOverlay,
   Hud,
   InputManager,
-  Minimap,
-  SettingsMenu,
   loadSettings,
   showFailScreen,
-  storeSettings,
-  type MinimapDot,
   type Settings,
 } from '@neonheat/ui';
 import { loadGameContent, type GameContent } from './content';
+import { GameFlow } from './flow';
 import { setupTuning } from './tuning';
+import { CombatLayer } from './combat-layer';
+import { LifeLayer } from './life-layer';
+import { ActivitiesLayer } from './activities-layer';
+import { SoundBridge } from './sound';
+import { EconomyLayer } from './economy-layer';
 
 export interface GameStats {
   fps: number;
@@ -78,10 +83,17 @@ export class Game {
   private propsView!: PropsView;
   private skids!: SkidMarks;
   private sceneLights!: SceneLights;
+  private combat!: CombatLayer;
+  /** Shops, resprays, safehouses, cyberware, exports (apps/game/src/economy-layer.ts). */
+  economy!: EconomyLayer;
+  private life!: LifeLayer;
+  private activities!: ActivitiesLayer;
+  private signs!: { stream: (x: number, z: number) => void };
+  private signals!: SignalsView;
+  private readonly hemi = new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8);
+  private readonly key = new THREE.DirectionalLight(0xc0b0ff, 0.85);
+  private readonly sky = new SkyGrade();
   private perfEl: HTMLElement | null = null;
-  private minimap!: Minimap;
-  private readonly mapDots: MinimapDot[] = [];
-  private mapTarget: { x: number; z: number } | null = null;
   private perfTimer = 0;
   director!: MissionDirector;
   /** Set with ?bot=1: the mission bot plays through the intent layer (demo and soak test). */
@@ -93,6 +105,8 @@ export class Game {
   private hackHideTimer = 0;
   private freeRoamSaveTimer = 0;
   private giversShown = false;
+  /** The last completed job (time, damage, pay, respect), for the result card and tests. */
+  lastResult: MissionResult | null = null;
   private readonly projected = new THREE.Vector3();
   readonly postfx: PostFx;
   tier: TierName = 'mid';
@@ -100,16 +114,20 @@ export class Game {
   /** Set while the first-boot benchmark runs, so dynamic resolution does not flatter the result. */
   holdResolution = false;
   readonly hud: Hud;
+  /** Sound layer: engines, guns, sirens, ambience, radio, UI. */
+  readonly sound: SoundBridge;
   /** Remaining hit-stop, seconds of frozen simulation. */
   private hitStop = 0;
   private smokeTimer = 0;
+  private smokeN = 0;
   private readonly intents: Intents = emptyIntents();
   private paused = false;
   private last = 0;
   readonly stats: GameStats = { fps: 0, frameMs: 0, tickMs: 0, drawCalls: 0, triangles: 0, frames: 0 };
   /** Rolling frame times for tests (ms). */
   readonly frameTimes: number[] = [];
-  private readonly menu: SettingsMenu;
+  /** Front end: title, pause menu, maps, cards, stats (apps/game/src/flow.ts). */
+  readonly flow: GameFlow;
   debug: DebugPanel | null = null;
   /** Hook for the app shell (quality changes need the benchmark result). */
   onSettingsChanged: ((s: Settings) => void) | null = null;
@@ -136,55 +154,48 @@ export class Game {
     this.hud = new Hud(overlay);
     this.arrow = new EdgeArrow(overlay);
     this.hackUi = new HackOverlay(overlay);
+    this.sound = new SoundBridge(this.content.audio, this.settings);
     this.saves = new SaveManager(typeof indexedDB === 'undefined' ? new MemoryStorage() : new IndexedDbStorage());
-    this.menu = new SettingsMenu(overlay, {
-      settings: this.settings,
-      onChange: (s) => {
-        storeSettings(s);
-        this.input.touch.setScheme(s.scheme);
-        this.onSettingsChanged?.(s);
-      },
-      onEditLayout: (on) => this.input.touch.setEditing(on),
-      onResetLayout: () => this.input.touch.resetLayout(),
-      onOpen: () => this.setPaused(true),
-      onClose: () => {
-        if (!this.closeFail) this.setPaused(false);
-      },
-      info: () => this.perfLine(),
-      extra: () =>
-        this.director?.active
-          ? [
-              { label: 'Restart job', run: () => this.restartJob() },
-              { label: 'Walk away from the job', run: () => this.walkAway() },
-            ]
-          : [],
-    });
+    this.flow = new GameFlow(this, () => !this.closeFail);
   }
 
   async init(seed = 1): Promise<void> {
     const rapier = await initPhysics();
     this.world = new World({ seed, content: this.content.sim, rapier });
     this.buildScene();
-    this.minimap = new Minimap(this.hud.root, this.content.sim.map);
+    this.flow.init();
     const params = new URLSearchParams(location.search);
     this.setupMissions(params.has('bot'));
+    this.sound.attach(this);
     const p = this.world.player;
     this.rig.snap({ x: p.x, z: p.z, vx: 0, vz: 0, speedT: 0, onFoot: !p.vehicle });
     if (import.meta.env.DEV || params.has('debug')) this.setupDebug();
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) this.setPaused(true);
-      else if (!this.menu.isOpen && !this.closeFail) this.setPaused(false);
+      else if (!this.flow.blocking && !this.closeFail) this.setPaused(false);
     });
     await this.saves.load().catch((err: unknown) => console.warn('Save unavailable', err));
+    const save = this.saves.current;
+    this.director.setProgress({ completed: save.completedMissions, respect: save.respect });
+    this.world.score.credits = this.saves.current.credits;
+    this.economy.applySave(save);
+    this.saves.beforeSave = (s) => this.economy.capture(s);
+    this.activities.load(save.activities);
   }
 
   private setupMissions(bot: boolean): void {
     const mc = this.content.missions;
-    const d = new MissionDirector(this.world, mc.missions, mc.squads, mc.dialogue, { autoRetry: bot });
+    this.world.actors.configure(mc.actors);
+    const d = new MissionDirector(this.world, mc.missions, mc.squads, mc.dialogue, { autoRetry: bot, crews: mc.crews });
     this.director = d;
+    d.onWarning = (msg) => console.warn(`Missions: ${msg}`);
+    for (const msg of d.warnings) console.warn(`Missions: ${msg}`);
+    d.onGiversChanged = () => (this.giversShown = false);
+    const coarse = matchMedia('(pointer: coarse)').matches;
+    d.host.onHint = (text, desktop, seconds) => this.hud.showHint(!coarse && desktop ? desktop : text, undefined, seconds);
     if (bot) this.bot = new MissionBot(this.world, d);
     d.host.onDialogue = (speaker, text) => this.hud.showDialogue(speaker, text, performance.now(), 6);
-    d.onStart = (m) => this.hud.toast(m.title.toUpperCase(), performance.now(), 2.5);
+    d.onStart = (m) => this.flow.missionStarted(m);
     d.onHackStart = () => {
       this.hackHideTimer = 0;
       this.hackUi.show((n) => d.hackTap(n));
@@ -204,9 +215,13 @@ export class Game {
       ]);
     };
     d.onComplete = (r) => {
-      this.hud.toast(`JOB DONE\n+${r.mission.rewards.credits.toLocaleString('en-GB')} cr`, performance.now(), 3.5);
-      this.saves.current = applyMissionResult(this.saves.current, r.mission.id, r.mission.rewards);
+      this.lastResult = r;
+      const mins = `${Math.floor(r.seconds / 60)}:${String(Math.floor(r.seconds % 60)).padStart(2, '0')}`;
+      this.hud.toast(`JOB DONE  ${mins}\n+${r.pay.total.toLocaleString('en-GB')} cr`, performance.now(), 3.5, 2);
+      this.saves.current = applyMissionResult(this.saves.current, r.missionId, { credits: r.pay.total, rep: r.respect, unlocks: r.unlocks }, r.seconds);
+      this.world.score.credits = this.saves.current.credits;
       this.autosave('mission end');
+      this.flow.missionCompleted(r);
     };
   }
 
@@ -214,7 +229,7 @@ export class Game {
     this.closeFail = null;
     action();
     this.snapCamera();
-    this.setPaused(this.menu.isOpen);
+    this.setPaused(this.flow.blocking);
   }
 
   restartJob(): void {
@@ -231,7 +246,7 @@ export class Game {
     this.rig.snap({ x: p.x, z: p.z, vx: 0, vz: 0, speedT: 0, onFoot: !p.vehicle });
   }
 
-  private autosave(why: string): void {
+  autosave(why: string): void {
     this.freeRoamSaveTimer = 0;
     this.saves.save().catch((err: unknown) => console.warn(`Autosave (${why}) failed`, err));
   }
@@ -240,35 +255,73 @@ export class Game {
     const s = this.scene;
     s.background = new THREE.Color(Palette.bg);
     s.fog = new THREE.Fog(Palette.fog, 90, 260);
-    s.add(new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8));
-    const key = new THREE.DirectionalLight(0xc0b0ff, 0.85);
-    key.position.set(-40, 100, 30);
-    s.add(key);
+    s.add(this.hemi);
+    this.key.position.set(-40, 100, 30);
+    s.add(this.key);
     const map = this.content.sim.map;
-    const signs = layoutSigns(map);
+    this.economy = new EconomyLayer(this, s);
+    const signs = this.economy.view.clearSigns(layoutSigns(map));
+    // Shop fronts light the street and show in the wet road like the other signs.
+    const litSigns = [...signs, ...this.economy.view.lights()];
     this.lightField = new LightField(map);
-    this.roadMat = createWetRoadMaterial(map, buildReflectionTexture(map, signs), buildNoiseTexture(), this.lightField.uniforms);
+    this.roadMat = createWetRoadMaterial(map, buildReflectionTexture(map, litSigns), buildNoiseTexture(), this.lightField.uniforms);
     this.city = buildCity(s, map, this.roadMat);
     this.propsView = new PropsView(s, this.world.props.props);
-    this.sceneLights = new SceneLights(this.lightField, this.city.lamps, signs, this.propsView.lights());
-    buildSignage(s, signs);
+    this.signals = new SignalsView(s, this.world.roads, this.world.content.traffic.lights);
+    this.sceneLights = new SceneLights(this.lightField, this.city.lamps, litSigns, this.propsView.lights());
+    this.signs = buildSignage(s, signs);
     this.shadows = new BlobShadows(s);
     this.vehiclesView = new VehiclesView(s, this.content.sim.vehicles.variants);
-    this.particles = new Particles(s);
+    this.particles = new Particles(s, 384);
     this.skids = new SkidMarks(s);
     this.people = new PeopleView(s, this.content.sim.peds.colours);
     this.markers = new MarkersView(s);
     this.droneView = new DroneView(s, this.content.sim.heat.droneSightRange);
+    this.life = new LifeLayer(this.particles);
+    this.combat = new CombatLayer(this.world, {
+      scene: s,
+      overlay: this.overlay,
+      hud: this.hud,
+      input: this.input,
+      particles: this.particles,
+      lights: this.sceneLights,
+      rig: this.rig,
+      vibrate: (ms) => {
+        if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(ms);
+      },
+    });
+    this.activities = new ActivitiesLayer(this.world, {
+      scene: s,
+      overlay: this.overlay,
+      hud: this.hud,
+      input: this.input,
+      rig: this.rig,
+      audio: this.sound.audio,
+      vibrate: (ms) => {
+        if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(ms);
+      },
+      persist: (p) => {
+        this.saves.current.activities = p;
+        this.autosave('activity');
+      },
+      jobActive: () => this.director.active,
+    });
+    this.flow.activities = this.activities;
     const top = this.content.quality.tiers.ultra;
     this.rain = new Rain(s, top.rainStreaks, top.rainSplashes, this.lightField.uniforms);
+    // Bloom occluders cost a draw call each in the bloom pass, so only things big enough to hide a glow
+    // from the top-down camera: buildings, cars, kiosks, dumpsters and trees. People and kerbside clutter
+    // (bins, benches, bollards...) are too small to matter.
+    const bigProps = new Set(['props-kiosk', 'props-dumpster', 'props-tree']);
     this.postfx.addOccluder(
       this.city.buildings,
       this.city.roofProps,
       this.city.lampPosts,
       ...this.vehiclesView.bodies,
       this.vehiclesView.wheels,
-      ...this.people.meshes,
-      ...this.propsView.meshes,
+      ...this.propsView.meshes.filter((m) => bigProps.has(m.name)),
+      this.economy.view.structure,
+      ...this.activities.view.solids,
     );
     // Everything solid receives the real-time light field; paint and glass also pick up a wet sheen.
     const lf = this.lightField;
@@ -286,7 +339,8 @@ export class Game {
         }
     };
     lit(0.55, ...this.vehiclesView.bodies);
-    lit(0.12, this.city.buildings, this.city.pavements, this.city.ground);
+    lit(0.12, this.city.buildings, this.city.pavements, this.city.ground, this.economy.view.structure, ...this.activities.view.solids.slice(0, 1));
+    lit(0.7, this.city.water);
     lit(0, this.city.roofProps, this.city.lampPosts, this.vehiclesView.wheels, ...this.people.meshes, ...this.propsView.meshes, this.particles.debris.mesh);
   }
 
@@ -310,6 +364,9 @@ export class Game {
     this.world.peds.cap = q.peds;
     this.world.traffic.cap = q.traffic;
     this.world.police.cap = q.police;
+    this.world.services.cap = q.responders;
+    this.world.gangs.cap = q.gangMembers;
+    this.world.gangs.carCap = q.gangCars;
     this.dynRes = q.dynamicResolution ? new DynamicResolution(this.content.quality.dynamicResolution) : null;
   }
 
@@ -328,7 +385,12 @@ export class Game {
 
   setPaused(p: boolean): void {
     this.paused = p;
+    this.sound.audio.setPaused(p);
     this.loop.reset();
+  }
+
+  get isPaused(): boolean {
+    return this.paused;
   }
 
   onVehicleParamsChanged(_variant: string): void {
@@ -379,11 +441,13 @@ export class Game {
       this.hitStop -= dt;
       alpha = 1;
     } else if (!this.paused) {
-      alpha = this.loop.advance(dt, () => this.simStep());
+      // Reflex cyberware slows the whole clock for a moment after a dodge; so does a big stunt jump.
+      alpha = this.loop.advance(dt * Math.min(this.economy.timeScale, this.activities.timeScale), () => this.simStep());
     }
     const pc = this.world.playerCtl;
-    this.input.setMode(this.menu.isOpen ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
+    this.input.setMode(this.flow.blocking ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
     this.render(alpha, dt);
+    this.sound.frame(dt);
     if (this.holdResolution) {
       // Benchmark only: wait for the GPU so the sample is the real cost of the frame, even where
       // the browser would otherwise keep handing out frames while the work queues up.
@@ -408,7 +472,11 @@ export class Game {
     this.world.step(this.intents);
     this.director.tick(SIM_DT);
     this.stats.tickMs = performance.now() - t0;
-    for (const e of this.world.events) this.onSimEvent(e);
+    for (const e of this.world.events) {
+      this.onSimEvent(e);
+      this.flow.onSimEvent(e);
+    }
+    this.saves.current.credits = Math.max(0, Math.floor(this.world.score.credits));
     this.saves.current.stats.playSeconds += SIM_DT;
     if (!this.director.active) {
       this.freeRoamSaveTimer += SIM_DT;
@@ -442,7 +510,6 @@ export class Game {
       const o = r.objective;
       const radius = o && 'radius' in o ? o.radius : 3;
       this.markers.setTarget(v.targetX, v.targetZ, radius, this.world.time);
-      this.mapTarget = { x: v.targetX, z: v.targetZ };
       const p = this.projected.set(v.targetX, 0, v.targetZ).project(this.rig.camera);
       this.arrow.setTone(false);
       this.arrow.set(p.x, p.y, p.z > 1);
@@ -451,45 +518,35 @@ export class Game {
     } else {
       this.hud.setObjective(null, null);
       this.markers.setTarget(null);
-      this.mapTarget = null;
       // Free roam: point at the nearest job payphone.
       let best = Infinity;
       let gx = 0;
       let gz = 0;
       const pl = this.world.player;
-      for (const m of d.missions) {
-        const dist = Math.hypot(m.giver.pos[0] - pl.x, m.giver.pos[2] - pl.z);
+      for (const g of d.givers) {
+        const dist = Math.hypot(g.x - pl.x, g.z - pl.z);
         if (dist < best) {
           best = dist;
-          gx = m.giver.pos[0];
-          gz = m.giver.pos[2];
+          gx = g.x;
+          gz = g.z;
         }
       }
-      if (best < Infinity && !d.active) {
+      // A side activity's next stop (race checkpoint, fare) takes the arrow over from the payphones.
+      const at = this.activities.target();
+      if (at && !d.active) {
+        const p = this.projected.set(at.x, 0, at.z).project(this.rig.camera);
+        this.arrow.setTone(false);
+        this.arrow.set(p.x, p.y, p.z > 1);
+      } else if (best < Infinity && !d.active && !this.world.activities.current) {
         const p = this.projected.set(gx, 0, gz).project(this.rig.camera);
         this.arrow.setTone(true);
         this.arrow.set(p.x, p.y, p.z > 1);
       } else this.arrow.set(null);
       if (!d.active && !this.giversShown) {
-        this.markers.setGivers(d.missions.map((m) => ({ x: m.giver.pos[0], z: m.giver.pos[2] })));
+        this.markers.setGivers(d.givers);
         this.giversShown = true;
       }
     }
-  }
-
-  private updateMinimap(dt: number): void {
-    const w = this.world;
-    const dots = this.mapDots;
-    dots.length = 0;
-    for (const v of w.vehicles) {
-      if (!v.active || v === w.player.vehicle) continue;
-      if (v.role === 'police' || v.role === 'squad') dots.push({ x: v.x, z: v.z, kind: 'police' });
-    }
-    if (this.mapTarget) dots.push({ x: this.mapTarget.x, z: this.mapTarget.z, kind: 'target' });
-    else if (!this.director.active) for (const m of this.director.missions) dots.push({ x: m.giver.pos[0], z: m.giver.pos[2], kind: 'giver' });
-    const pv = w.player.vehicle;
-    const pc = w.playerCtl;
-    this.minimap.update(dt, pv ? pv.x : pc.x, pv ? pv.z : pc.z, pv ? pv.yaw : pc.facing, dots, w.time);
   }
 
   /** Tier and frame-rate readout (pause menu line, and an optional corner overlay). */
@@ -536,6 +593,11 @@ export class Game {
   }
 
   private onSimEvent(e: SimEvent): void {
+    this.sound.audio.onEvent(e);
+    this.life.onEvent(e);
+    if (this.economy.onEvent(e)) return;
+    if (this.combat.onEvent(e)) return;
+    if (this.activities.onEvent(e)) return;
     const feel = this.content.feel;
     if (e.type === 'impact') {
       const n = Math.min(feel.sparksMax, Math.round(e.strength * feel.sparksPerStrength));
@@ -584,8 +646,6 @@ export class Game {
     } else if (e.type === 'playerHurt') {
       this.rig.addShake(Math.min(1.2, e.amount * 0.03));
       if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(40);
-    } else if (e.type === 'playerDied') {
-      this.hud.toast('FLATLINED', performance.now(), 3);
     } else if (e.type === 'playerRespawned') {
       this.rig.snap({ x: e.x, z: e.z, vx: 0, vz: 0, speedT: 0, onFoot: true });
       this.hud.toast('PATCHED UP', performance.now(), 2);
@@ -600,14 +660,20 @@ export class Game {
     this.smokeTimer -= dt;
     if (this.smokeTimer <= 0) {
       this.smokeTimer = 0.08;
+      this.smokeN++;
       const sm = this.skids.smoke;
       for (let i = 0; i < sm.length; i += 2) this.particles.puffSmoke(sm[i]!, sm[i + 1]!, false);
       for (const v of w.vehicles) {
         if (!v.active) continue;
         const h = v.hp / v.params.maxHealth;
-        if (v.destroyed || h < 0.35) this.particles.puffSmoke(v.x, v.z, v.destroyed);
+        // Wrecks smoke while they burn (black, greying as the fire is fought); damaged cars smoke from the engine.
+        if (v.destroyed) {
+          const burn = w.services.burnOf(v.id);
+          if (burn > 0.01 && (this.smokeN & 1) === 0) this.particles.wreckSmoke(v.x, v.z, burn);
+        } else if (h < 0.35) this.particles.puffSmoke(v.x, v.z, false);
       }
     }
+    this.life.update(w, dt);
     this.particles.update(dt);
     this.rig.shakeMax = this.content.feel.shakeMax;
     this.rig.shakeDecay = this.content.feel.shakeDecay;
@@ -618,9 +684,11 @@ export class Game {
     this.hud.setHealth(pv0 ? w.vehicleHealth(pv0) : w.playerCtl.hp / w.playerCtl.maxHp, pv0 ? 'HULL' : 'BODY');
     this.hud.setTrace(w.trace);
     this.updateMissionHud(dt);
-    this.updateMinimap(dt);
+    this.flow.update(dt);
     this.hud.tick(performance.now());
     this.people.update(w, alpha, dt, w.time);
+    this.combat.update(alpha, dt);
+    this.economy.update();
     const pv = w.player.vehicle;
     if (pv) {
       const x = pv.prevX + (pv.x - pv.prevX) * alpha;
@@ -637,15 +705,24 @@ export class Game {
     this.renderer.info.reset();
     this.shadows.update(w, alpha);
     const focus = this.rig.focus;
+    this.activities.update(alpha, dt, focus.x, focus.z - 12);
     this.rain.update(w.time, focus.x, focus.z);
     this.roadMat.uniforms.uTime!.value = w.time;
     (this.city.lampCones.material as THREE.ShaderMaterial).uniforms.uTime!.value = w.time;
     this.renderer.getDrawingBufferSize(this.city.viewport);
     const fp = this.projected.copy(this.city.focus).project(this.rig.camera);
     this.city.focusScreen.set(fp.x * 0.5 + 0.5, fp.y * 0.5 + 0.5);
+    // Stream the city near the camera: buildings, lamps, props and signs.
+    this.city.stream(focus.x, focus.z - 20);
+    this.propsView.stream(focus.x, focus.z - 15);
+    this.signs.stream(focus.x, focus.z - 20);
+    this.signals.update(focus.x, focus.z - 15, w.time);
+    this.sky.apply(w.weather, this.scene, this.hemi, this.key, this.rain, this.roadMat);
+    waterTime.value = w.time;
     this.propsView.update();
     this.syncBrokenLights();
-    this.sceneLights.update(w, alpha, this.paused ? 0 : dt);
+    this.sceneLights.update(w, alpha, this.paused ? 0 : dt, focus.x, focus.z - 12);
+    this.activities.light(this.lightField);
     // Centre the light buffer a little ahead (north) of the focus: the camera sees further up the screen.
     this.lightField.render(this.renderer, focus.x, focus.z - 12);
     this.postfx.render(this.scene, this.rig.camera);

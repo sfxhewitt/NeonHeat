@@ -1,0 +1,62 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "story_04_salt_and_iron",
+  "faction": "rustmouth",
+  "title": "Salt and Iron",
+  "summary": "The Lattice hardware lands at the docks tonight. The Gaffer will lend you the quay if you lend him the scrap.",
+  "story": true,
+  "giver": { "type": "payphone", "at": "marker:saltworks_payphone_2" },
+  "prerequisites": { "missions": ["story_03_paper_trail"], "respect": { "rustmouth": 8 } },
+  "budgetMinutes": 8,
+  "spawns": {
+    "convoy_lead": { "variant": "enforcer", "at": "marker:saltworks_road_8", "locked": true, "role": "target" },
+    "convoy_tail": { "variant": "brick", "at": "marker:saltworks_road_4", "locked": true, "role": "target" },
+    "outrider": { "variant": "interceptor", "at": "marker:saltworks_road_6", "locked": true, "role": "hostile" }
+  },
+  "objectives": [
+    {
+      "id": "quay",
+      "type": "reach",
+      "target": "marker:dock_cranes",
+      "radius": 25,
+      "vehicle": "any",
+      "text": "Get to the cranes with a car",
+      "onStart": [{ "do": "dialogue", "line": "s04_intro" }]
+    },
+    {
+      "id": "convoy",
+      "type": "destroyVehicle",
+      "targets": ["spawn:convoy_lead", "spawn:convoy_tail"],
+      "escapeAt": "marker:central_tower",
+      "escapeRadius": 20,
+      "text": "Wreck the Lattice convoy",
+      "onStart": [
+        { "do": "dialogue", "line": "s04_convoy" },
+        { "do": "drive", "vehicle": "spawn:convoy_lead", "mode": "route", "route": ["marker:bridge_east", "marker:central_tower"], "speed": 9 },
+        { "do": "drive", "vehicle": "spawn:convoy_tail", "mode": "route", "route": ["marker:bridge_central", "marker:central_tower"], "speed": 9 },
+        { "do": "drive", "vehicle": "spawn:outrider", "mode": "ram", "target": "player", "speed": 24, "delaySec": 8 }
+      ],
+      "onComplete": [{ "do": "despawn", "refs": ["spawn:outrider"] }, { "do": "dialogue", "line": "s04_wrecked" }]
+    },
+    {
+      "id": "crates",
+      "type": "collect",
+      "pickups": ["marker:saltworks_road_5", "marker:saltworks_door_5", "marker:saltworks_door_6"],
+      "radius": 6,
+      "text": "Grab the Lattice cores the lads stashed",
+      "onStart": [{ "do": "dialogue", "line": "s04_crates" }],
+      "onComplete": [{ "do": "setHeat", "value": 3 }, { "do": "dialogue", "line": "s04_heat" }]
+    },
+    { "id": "lose_heat", "type": "escape" },
+    {
+      "id": "stash",
+      "type": "reach",
+      "target": "marker:chopshop_2",
+      "radius": 10,
+      "text": "Stash the cores at the chop shop",
+      "onComplete": [{ "do": "dialogue", "line": "s04_done" }]
+    }
+  ],
+  "rewards": { "credits": 2600, "rep": { "rustmouth": 12, "kurogane": -15 } },
+  "failPolicy": "checkpoint"
+}

@@ -52,7 +52,6 @@ export function createWetRoadMaterial(
   noise: Texture,
   lightUniforms: Record<string, { value: unknown }> = {},
 ): ShaderMaterial {
-  const p = map.roads.positions;
   return new ShaderMaterial({
     fog: true,
     uniforms: {
@@ -65,10 +64,9 @@ export function createWetRoadMaterial(
           uBase: { value: new Color(Palette.road) },
           uLine: { value: new Color(0x8a86c8) },
           uExtent: { value: map.size[0] },
-          uRoads: { value: [p[0] ?? 0, p[1] ?? 0, p[2] ?? 0, p[3] ?? 0] },
-          uHalfWidth: { value: map.roads.width / 2 },
           uWetness: { value: 1 },
           uFakeRefl: { value: 1 },
+          uAmbient: { value: new Color(0x000000) },
         },
       ]),
       // Shared by reference so the light field can update them every frame.
@@ -80,10 +78,16 @@ export function createWetRoadMaterial(
     vertexShader: /* glsl */ `
       #include <common>
       #include <fog_pars_vertex>
+      attribute vec4 aLane;
+      attribute vec3 aInfo;
       varying vec2 vXZ;
       varying vec3 vW;
+      varying vec4 vLane;
+      varying vec3 vInfo;
       void main() {
         vXZ = uv;
+        vLane = aLane;
+        vInfo = aInfo;
         vec4 w = modelMatrix * vec4(position, 1.0);
         vW = w.xyz;
         vec4 mvPosition = viewMatrix * w;
@@ -100,33 +104,33 @@ export function createWetRoadMaterial(
       uniform vec3 uBase;
       uniform vec3 uLine;
       uniform float uExtent;
-      uniform float uRoads[4];
-      uniform float uHalfWidth;
       uniform float uWetness;
       uniform float uFakeRefl;
+      uniform vec3 uAmbient;
       varying vec2 vXZ;
       varying vec3 vW;
+      varying vec4 vLane;
+      varying vec3 vInfo;
 
-      // Nearest road centre to v, and the distance to it.
-      vec2 nearestRoad(float v) {
-        float best = 1e5; float c = 0.0;
-        for (int i = 0; i < 4; i++) {
-          float o = abs(v - uRoads[i]);
-          if (o < best) { best = o; c = uRoads[i]; }
-        }
-        return vec2(c, best);
-      }
-
-      // Markings on a road running along 'along', at offset 'across' from its centre line.
-      float markings(float across, float along, float distToJunction) {
-        if (distToJunction < uHalfWidth) return 0.0;
+      // Paint on a stretch of road: across/along in metres, distance to the junction box at each end.
+      // + across is the right-hand side of travel towards +along.
+      float markings(float across, float along, float len, float hw, vec3 info) {
+        if (across > 50.0) return 0.0;
+        float kind = info.z;
+        if (kind > 1.5 && kind < 2.5) return 0.0; // alleys: bare tarmac
         float d = abs(across);
-        float centre = step(d, 0.12) * step(0.5, fract(along / 6.0)) * step(uHalfWidth + 4.6, distToJunction);
-        float edge = step(abs(d - (uHalfWidth - 0.6)), 0.08);
-        // Zebra crossing just outside the junction, then a stop line on the approach side.
-        float zj = distToJunction - uHalfWidth;
-        float zebra = step(0.8, zj) * step(zj, 3.8) * step(0.5, fract(across / 1.1)) * step(d, uHalfWidth - 0.9);
-        float stop = step(abs(zj - 4.4), 0.2) * step(d, uHalfWidth - 0.9);
+        float dS = info.x > 0.5 ? along : 1e4;
+        float dE = info.y > 0.5 ? len - along : 1e4;
+        float dj = min(dS, dE);
+        float avenue = step(0.5, kind);
+        float dash = step(0.5, fract(along / 6.0));
+        float centre = mix(step(d, 0.12) * dash, step(abs(d - 0.22), 0.07), avenue) * step(4.6, dj);
+        float edge = step(abs(d - (hw - 0.6)), 0.08);
+        // Zebra crossing just outside the junction, then a stop line across the approaching lane.
+        float zebra = step(0.8, dj) * step(dj, 3.8) * step(0.5, fract(across / 1.1)) * step(d, hw - 0.9);
+        float approachEnd = step(dE, dS);
+        float myLane = mix(step(across, 0.0), step(0.0, across), approachEnd);
+        float stop = step(abs(dj - 4.4), 0.2) * step(d, hw - 0.9) * myLane;
         return max(max(centre, edge * 0.7), max(zebra * 0.85, stop * 0.9));
       }
 
@@ -136,21 +140,22 @@ export function createWetRoadMaterial(
         vec2 n3 = texture2D(uNoise, vXZ * 0.6 + vec2(uTime * 0.4, -uTime * 0.3)).rg - 0.5;
         vec2 n = n1 + n2 * 0.6;
         // Reflections smear towards the camera (screen-down = +Z).
-        vec2 ruv = (vXZ + vec2(0.0, 7.0)) / uExtent + 0.5 + n * 0.035;
+        // Wobble by a few metres whatever the size of the map.
+        vec2 ruv = (vXZ + vec2(0.0, 7.0) + n * 10.0) / uExtent + 0.5;
         vec3 refl = texture2D(uRefl, ruv).rgb;
-        refl += texture2D(uRefl, ruv + vec2(0.0, 0.025)).rgb * 0.5;
+        refl += texture2D(uRefl, ruv + vec2(0.0, 4.0 / uExtent)).rgb * 0.5;
         float puddle = smoothstep(-0.1, 0.45, n1.x + 0.2);
         // Fine aggregate so the tarmac is not a flat colour.
         float grit = texture2D(uNoise, vXZ * 1.7).r;
         vec3 col = uBase * (0.8 + 0.3 * n.y + 0.18 * grit) * mix(1.0, 0.7, puddle);
-        vec2 ew = nearestRoad(vXZ.y); // east-west road: centre z
-        vec2 ns = nearestRoad(vXZ.x); // north-south road: centre x
-        float lane = 0.0;
-        if (ew.y < uHalfWidth) lane = max(lane, markings(vXZ.y - ew.x, vXZ.x, ns.y));
-        if (ns.y < uHalfWidth) lane = max(lane, markings(vXZ.x - ns.x, vXZ.y, ew.y));
+        float lane = markings(vLane.x, vLane.y, vLane.z, vLane.w, vInfo);
+        // Alleys are rougher and darker.
+        if (vInfo.z > 1.5 && vInfo.z < 2.5) col *= 0.78;
         // Worn paint: broken up by the noise.
         lane *= 0.65 + 0.35 * smoothstep(0.2, 0.6, grit);
         col = mix(col, uLine, lane * 0.75);
+        // Daylight and sky: lifts the tarmac and paint, more on dry patches than in puddles.
+        col += (col * 6.0 + 0.04) * uAmbient * (1.0 - 0.4 * puddle);
         col += refl * (0.22 + 0.5 * puddle) * uWetness * uFakeRefl;
         // Real-time light: diffuse spill plus a wet sheen that is strongest in puddles.
         vec3 L = lfSample(vW, vec3(0.0, 1.0, 0.0));

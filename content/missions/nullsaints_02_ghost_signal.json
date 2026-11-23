@@ -1,0 +1,50 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "nullsaints_02_ghost_signal",
+  "faction": "null_saints",
+  "title": "Ghost Signal",
+  "summary": "A Kurogane sniffer van is mapping the Saints' network. Follow it to see where it reports, then make sure it never does.",
+  "chain": 2,
+  "giver": { "type": "payphone", "at": "marker:undercroft_payphone_4" },
+  "prerequisites": { "missions": ["nullsaints_01_handshake"] },
+  "budgetMinutes": 6,
+  "spawns": {
+    "sniffer": { "variant": "brick", "at": "marker:undercroft_road_7", "locked": true, "role": "courier" }
+  },
+  "objectives": [
+    {
+      "id": "find",
+      "type": "reach",
+      "target": "spawn:sniffer",
+      "radius": 50,
+      "vehicle": "any",
+      "text": "Find the sniffer van",
+      "onStart": [{ "do": "dialogue", "line": "n02_intro" }]
+    },
+    {
+      "id": "tail",
+      "type": "tail",
+      "target": "spawn:sniffer",
+      "route": ["marker:undercroft_road_3", "marker:bridge_west", "marker:glass_road_5"],
+      "speed": 11,
+      "minRange": 15,
+      "maxRange": 70,
+      "onStart": [{ "do": "dialogue", "line": "n02_tail" }]
+    },
+    {
+      "id": "kill_signal",
+      "type": "destroyVehicle",
+      "targets": ["spawn:sniffer"],
+      "escapeAt": "marker:central_tower",
+      "escapeRadius": 18,
+      "text": "Wreck the van before it reaches the tower",
+      "onStart": [
+        { "do": "dialogue", "line": "n02_wreck" },
+        { "do": "drive", "vehicle": "spawn:sniffer", "mode": "route", "route": ["marker:central_tower"], "speed": 12 }
+      ],
+      "onComplete": [{ "do": "dialogue", "line": "n02_done" }]
+    }
+  ],
+  "rewards": { "credits": 1400, "rep": { "null_saints": 10, "kurogane": -5 } },
+  "failPolicy": "checkpoint"
+}

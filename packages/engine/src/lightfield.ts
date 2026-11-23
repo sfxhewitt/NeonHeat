@@ -225,6 +225,17 @@ export class LightField {
     return slot;
   }
 
+  /** Drop every static light (before streaming in the ones near the camera). */
+  clearStatic(): void {
+    this.staticCount = 0;
+    this.count = 0;
+  }
+
+  /** World metres covered by the light buffer. */
+  get extent(): number {
+    return this.opts.extent;
+  }
+
   /** Switch a static light off (a smashed lamp or vending machine) or back on. */
   setStaticOn(slot: number, on: boolean): void {
     if (slot < 0 || slot >= this.staticCount) return;
@@ -296,6 +307,9 @@ export class LightField {
             #ifdef USE_INSTANCING
               lfw = instanceMatrix * lfw;
             #endif
+            #ifdef USE_BATCHING
+              lfw = batchingMatrix * lfw;
+            #endif
             vLfW = (modelMatrix * lfw).xyz;
           }`,
         );
@@ -353,7 +367,8 @@ function buildHeightTexture(map: MapContent): DataTexture {
   const [sx, sz] = map.size;
   const W = sx + 40;
   const D = sz + 40;
-  const res = 2; // texels per metre
+  // Texels per metre: half-metre detail for a small map, a metre for a whole city.
+  const res = Math.max(W, D) > 800 ? 1 : 2;
   const w = Math.ceil(W * res);
   const h = Math.ceil(D * res);
   const data = new Uint8Array(w * h);

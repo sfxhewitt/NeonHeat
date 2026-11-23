@@ -1,0 +1,58 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "velvet_02_encore",
+  "faction": "velvet_choir",
+  "title": "Encore",
+  "summary": "Two of the Choir are going backstage at a Glass Quarter club to reclaim a ledger. You keep the engine running.",
+  "chain": 2,
+  "giver": { "type": "payphone", "at": "marker:lantern_payphone_3" },
+  "prerequisites": { "missions": ["velvet_01_guest_list"] },
+  "budgetMinutes": 6,
+  "actors": {
+    "alto": { "faction": "velvet_choir", "at": "marker:glass_door_3", "behaviour": "idle", "role": "crew" },
+    "tenor": { "faction": "velvet_choir", "at": "marker:glass_door_3", "offset": [1.5, 0], "behaviour": "idle", "role": "crew" }
+  },
+  "objectives": [
+    {
+      "id": "stage_door",
+      "type": "reach",
+      "target": "marker:glass_door_3",
+      "radius": 12,
+      "vehicle": "any",
+      "text": "Park up by the stage door",
+      "onStart": [{ "do": "dialogue", "line": "v02_intro" }]
+    },
+    {
+      "id": "keep_running",
+      "type": "wait",
+      "target": "marker:glass_door_3",
+      "radius": 14,
+      "durationSec": 25,
+      "vehicle": "any",
+      "text": "Keep the engine running",
+      "failOn": [{ "if": "heatAtLeast", "value": 2, "message": "You drew the police to the stage door" }],
+      "onStart": [{ "do": "dialogue", "line": "v02_wait" }, { "do": "dialogue", "line": "v02_midway", "delaySec": 13 }],
+      "onComplete": [
+        { "do": "spawn", "refs": ["actor:alto", "actor:tenor"] },
+        { "do": "board", "actors": ["actor:alto", "actor:tenor"] },
+        { "do": "setHeat", "value": 2 },
+        { "do": "dialogue", "line": "v02_go" }
+      ]
+    },
+    {
+      "id": "getaway",
+      "type": "escape",
+      "text": "Lose the HEAT with them aboard",
+      "failOn": [{ "if": "onFoot", "message": "You left the Choir in the car" }]
+    },
+    {
+      "id": "home",
+      "type": "dropOff",
+      "target": "marker:lantern_door_4",
+      "passengers": ["actor:alto", "actor:tenor"],
+      "onComplete": [{ "do": "dialogue", "line": "v02_done" }]
+    }
+  ],
+  "rewards": { "credits": 1400, "rep": { "velvet_choir": 10, "kurogane": -5 } },
+  "failPolicy": "checkpoint"
+}

@@ -19,3 +19,8 @@ export * from './lightfield';
 export * from './scene-lights';
 export * from './props-view';
 export * from './skidmarks';
+export * from './combat-view';
+export * from './car-models';
+export * from './signals-view';
+export * from './services-view';
+export * from './activities-view';

@@ -1,3 +1,7 @@
 {
-  "kurogane_pursuit": { "variant": "enforcer", "count": 2, "despawnOnEnd": true }
+  "kurogane_pursuit": { "variant": "enforcer", "count": 2, "despawnOnEnd": true },
+  "kurogane_response": { "variant": "enforcer", "count": 3, "despawnOnEnd": true },
+  "promoter_heavies": { "variant": "vandal", "count": 2, "despawnOnEnd": true },
+  "rustmouth_wreckers": { "variant": "brick", "count": 2, "despawnOnEnd": true },
+  "saints_hunters": { "variant": "interceptor", "count": 2, "despawnOnEnd": true }
 }

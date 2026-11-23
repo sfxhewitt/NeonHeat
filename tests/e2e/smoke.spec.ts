@@ -83,9 +83,15 @@ test('on foot: walk, roll and fire without errors', async ({ page }) => {
   await simFor(page, 0.5);
   await page.evaluate(() => window.__neon!.setIntents({ fire: true }));
   await simFor(page, 1.2);
-  const heat = await page.evaluate(() => window.__neon!.game.world.heat.level);
-  expect(heat).toBeGreaterThanOrEqual(1);
-  await expect(page.locator('.nh-heat .chev.on').first()).toBeAttached();
+  // A few unwitnessed shots register, but do not bring the police down on you.
+  const heat = await page.evaluate(() => ({ level: window.__neon!.game.world.heat.level, points: window.__neon!.game.world.heat.points }));
+  expect(heat.points).toBeGreaterThan(0);
+  expect(heat.level).toBeLessThanOrEqual(1);
+  await expect(page.locator('.nh-vitals .nh-bar--body')).toBeAttached();
+  await expect(page.locator('.nh-weapon__name')).toHaveText(/\S/);
+  // Hidden overlays must really be hidden (flex boxes ignore [hidden] without a rule).
+  await expect(page.locator('.nh-fate')).toBeHidden();
+  await expect(page.locator('.nh-arrest')).toBeHidden();
   expect(errors).toEqual([]);
 });
 
@@ -94,8 +100,33 @@ test('title screen starts the game on tap', async ({ page }) => {
   await page.goto('/?quality=low');
   await expect(page.getByRole('heading', { name: /NEON/ })).toBeVisible();
   await page.getByRole('button', { name: 'TAP TO START' }).click();
+  await page.getByRole('menuitem', { name: /New game/ }).click();
   await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
   const tier = await page.evaluate(() => window.__neon!.game.tier);
   expect(tier).toBe('low');
+  expect(errors).toEqual([]);
+});
+
+test('sound unlocks on the first tap and plays every cue without errors', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/?quality=low');
+  await page.getByRole('button', { name: 'TAP TO START' }).click();
+  await page.getByRole('menuitem', { name: /New game/ }).click();
+  await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
+  await page.waitForFunction(() => window.__neon!.game.sound.audio.engine.pending === 0, null, { timeout: 30_000 });
+  expect(await page.evaluate(() => window.__neon!.game.sound.audio.engine.ctx?.state)).toBe('running');
+  await page.evaluate(() => {
+    const a = window.__neon!.game.sound.audio;
+    const p = window.__neon!.game.world.player;
+    for (const type of ['impact', 'vehicleDestroyed', 'shot', 'pedHit', 'kerb', 'propBroken', 'playerHurt', 'dodge', 'pickup', 'reload', 'someFutureEvent'])
+      a.onEvent({ type, x: p.x + 2, z: p.z, strength: 15, other: 'static', kind: 'vending', hit: 'static', weapon: 'shotgun', hx: p.x, hz: p.z } as never);
+    a.ui('cash');
+    a.sting('missionComplete');
+  });
+  await page.keyboard.press('Escape');
+  await page.locator('[data-tab="settings"]').click();
+  await expect(page.locator('input[data-vol="musicVolume"]')).toBeVisible();
+  await expect(page.locator('[data-k="radioStation"] button')).toHaveCount(5);
+  await page.keyboard.press('Escape');
   expect(errors).toEqual([]);
 });
