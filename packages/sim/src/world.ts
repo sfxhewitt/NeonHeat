@@ -14,8 +14,10 @@ import { PedSystem } from './peds';
 import { PropSystem } from './props';
 import { kerbAngle, onPavement } from './street';
 import { PlayerController, type Interactable } from './player';
+import { ActorSystem } from './actors';
 
-export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad';
+/** `mission`: driven by a mission actor (see actors.ts); traffic and police leave it alone. */
+export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad' | 'mission';
 
 export interface Vehicle extends ArcadeState {
   id: number;
@@ -97,6 +99,8 @@ export class World {
   readonly police: PoliceSystem;
   readonly peds: PedSystem;
   readonly props: PropSystem;
+  /** Mission actors: scripted people and drivers. */
+  readonly actors: ActorSystem;
   /** The on-foot player and the enter/exit/fire logic. */
   readonly playerCtl: PlayerController;
   /** Mission-placed things the context button can use. */
@@ -117,6 +121,7 @@ export class World {
     this.traffic = new TrafficSystem(this, this.content.traffic);
     this.police = new PoliceSystem(this, this.content.heat);
     this.peds = new PedSystem(this, this.content.peds);
+    this.actors = new ActorSystem(this);
     this.buildStatics();
     this.props = new PropSystem(this, this.content.props);
     const start = this.content.map.markers['player_start']?.pos ?? [0, 0, 0];
@@ -344,6 +349,7 @@ export class World {
     this.traffic.step(SIM_DT);
     this.police.step(SIM_DT);
     this.peds.step(SIM_DT);
+    this.actors.step(SIM_DT);
     for (const v of this.vehicles) {
       if (!v.active) continue;
       v.prevX = v.x;
@@ -393,6 +399,7 @@ export class World {
       this.kerbs(v);
     }
     this.peds.postStep();
+    this.actors.postStep();
     this.playerCtl.postStep();
     this.syncPlayer();
     this.police.postStep(SIM_DT);

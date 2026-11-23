@@ -1,5 +1,6 @@
 import { rawContent } from '@neonheat/content';
 import { World, emptyIntents, initPhysics, parseSimContent, type Intents, type SimContent } from '@neonheat/sim';
+import { fixtureCity } from './fixtures/city-fixture';
 
 export function loadContent(): SimContent {
   return parseSimContent(structuredClone(rawContent) as never);
@@ -17,4 +18,13 @@ export function intents(patch: Partial<Intents> = {}): Intents {
 export function run(world: World, seconds: number, input: Intents | ((t: number) => Intents)): void {
   const steps = Math.round(seconds * 60);
   for (let i = 0; i < steps; i++) world.step(typeof input === 'function' ? input(world.time) : input);
+}
+
+/** Sim content with the Vey City test fixture in place of the shipped map. */
+export function fixtureContent(patch?: (c: SimContent) => void): SimContent {
+  const raw = structuredClone(rawContent) as Record<string, unknown>;
+  raw.map = fixtureCity();
+  const c = parseSimContent(raw as never);
+  patch?.(c);
+  return c;
 }

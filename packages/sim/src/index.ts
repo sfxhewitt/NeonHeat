@@ -15,3 +15,4 @@ export * from './peds';
 export * from './player';
 export * from './props';
 export * from './street';
+export * from './actors';
