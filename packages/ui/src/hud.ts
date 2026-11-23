@@ -99,6 +99,7 @@ export class Hud {
     weapon: '',
   };
   private toastUntil = 0;
+  private toastPriority = 0;
   private dialogueUntil = 0;
   private hintUntil = 0;
   private hintTarget: Element | null = null;
@@ -285,7 +286,13 @@ export class Hud {
     this.dialogueUntil = now + seconds * 1000;
   }
 
-  toast(text: string, now: number, seconds = 2.5): void {
+  /**
+   * Show a banner. A higher `priority` banner (JOB DONE, for one) is not replaced by a
+   * lesser one while it is still up.
+   */
+  toast(text: string, now: number, seconds = 2.5, priority = 0): void {
+    if (now < this.toastUntil && priority < this.toastPriority) return;
+    this.toastPriority = priority;
     this.toastEl.textContent = text;
     this.toastEl.hidden = false;
     this.toastEl.style.animation = 'none';

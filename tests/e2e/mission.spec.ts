@@ -14,6 +14,14 @@ test('the bot completes Hot Chrome in the browser build and the result is saved'
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/?autostart=1&bot=1&quality=low');
   await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
+  // Remember every toast: a later one (respect, a street event) can replace JOB DONE before we look.
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as unknown as { __toasts: string[] }).__toasts = seen;
+    new MutationObserver(() => {
+      for (const t of document.querySelectorAll('.nh-toast')) if (t.textContent && !seen.includes(t.textContent)) seen.push(t.textContent);
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
   // A new game rings only the tutorial; open Hot Chrome's chain for the bot.
   expect(await page.evaluate(() => window.__neon!.unlockJob('glasshounds_03_hot_chrome'))).not.toBeNull();
 
@@ -53,6 +61,6 @@ test('the bot completes Hot Chrome in the browser build and the result is saved'
   );
   expect(saved).toMatchObject({ version: 3, completedMissions: ['glasshounds_03_hot_chrome'], respect: { glasshounds: 10, kurogane: -15 } });
   expect((saved as { credits: number }).credits).toBeGreaterThanOrEqual(1500);
-  await expect(page.locator('.nh-toast')).toContainText('JOB DONE');
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __toasts: string[] }).__toasts.join(' | '))).toContain('JOB DONE');
   expect(errors).toEqual([]);
 });

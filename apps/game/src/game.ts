@@ -214,7 +214,7 @@ export class Game {
     d.onComplete = (r) => {
       this.lastResult = r;
       const mins = `${Math.floor(r.seconds / 60)}:${String(Math.floor(r.seconds % 60)).padStart(2, '0')}`;
-      this.hud.toast(`JOB DONE  ${mins}\n+${r.pay.total.toLocaleString('en-GB')} cr`, performance.now(), 3.5);
+      this.hud.toast(`JOB DONE  ${mins}\n+${r.pay.total.toLocaleString('en-GB')} cr`, performance.now(), 3.5, 2);
       this.saves.current = applyMissionResult(this.saves.current, r.missionId, { credits: r.pay.total, rep: r.respect, unlocks: r.unlocks }, r.seconds);
       this.world.score.credits = this.saves.current.credits;
       this.autosave('mission end');
