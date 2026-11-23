@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SkyGrade } from './sky';
 import { FixedStepLoop, SIM_DT, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type Prop, type SimEvent } from '@neonheat/sim';
 import { MissionBot, MissionDirector } from '@neonheat/missions';
 import { IndexedDbStorage, MemoryStorage, SaveManager, applyMissionResult } from '@neonheat/save';
@@ -83,6 +84,9 @@ export class Game {
   private sceneLights!: SceneLights;
   private signs!: { stream: (x: number, z: number) => void };
   private signals!: SignalsView;
+  private readonly hemi = new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8);
+  private readonly key = new THREE.DirectionalLight(0xc0b0ff, 0.85);
+  private readonly sky = new SkyGrade();
   private perfEl: HTMLElement | null = null;
   private minimap!: Minimap;
   private readonly mapDots: MinimapDot[] = [];
@@ -250,10 +254,9 @@ export class Game {
     const s = this.scene;
     s.background = new THREE.Color(Palette.bg);
     s.fog = new THREE.Fog(Palette.fog, 90, 260);
-    s.add(new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8));
-    const key = new THREE.DirectionalLight(0xc0b0ff, 0.85);
-    key.position.set(-40, 100, 30);
-    s.add(key);
+    s.add(this.hemi);
+    this.key.position.set(-40, 100, 30);
+    s.add(this.key);
     const map = this.content.sim.map;
     const signs = layoutSigns(map);
     this.lightField = new LightField(map);
@@ -663,6 +666,7 @@ export class Game {
     this.propsView.stream(focus.x, focus.z - 15);
     this.signs.stream(focus.x, focus.z - 20);
     this.signals.update(focus.x, focus.z - 15, w.time);
+    this.sky.apply(w.weather, this.scene, this.hemi, this.key, this.rain, this.roadMat);
     waterTime.value = w.time;
     this.propsView.update();
     this.syncBrokenLights();

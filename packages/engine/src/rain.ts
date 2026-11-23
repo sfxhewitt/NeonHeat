@@ -146,12 +146,31 @@ export class Rain {
     scene.add(this.splashes);
   }
 
+  private tierStreaks = 0;
+  private tierSplashes = 0;
+  private amount = 1;
+
   /** Quality tiers draw fewer instances of the same buffers. */
   setCounts(streaks: number, splashes: number): void {
+    this.tierStreaks = streaks;
+    this.tierSplashes = splashes;
+    this.apply();
+  }
+
+  /** How hard it is raining, 0 to 1: scales the instances drawn (0 hides the rain). */
+  setAmount(a: number): void {
+    const v = Math.round(Math.min(1, Math.max(0, a)) * 50) / 50;
+    if (v === this.amount) return;
+    this.amount = v;
+    this.apply();
+  }
+
+  private apply(): void {
     const sg = this.streaks.geometry as InstancedBufferGeometry;
     const pg = this.splashes.geometry as InstancedBufferGeometry;
-    sg.instanceCount = Math.min(streaks, (sg.getAttribute('aOffset') as InstancedBufferAttribute).count);
-    pg.instanceCount = Math.min(splashes, (pg.getAttribute('aOffset') as InstancedBufferAttribute).count);
+    const k = this.amount;
+    sg.instanceCount = Math.round(Math.min(this.tierStreaks, (sg.getAttribute('aOffset') as InstancedBufferAttribute).count) * k);
+    pg.instanceCount = Math.round(Math.min(this.tierSplashes, (pg.getAttribute('aOffset') as InstancedBufferAttribute).count) * k);
   }
 
   set visible(v: boolean) {

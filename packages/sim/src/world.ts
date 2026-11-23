@@ -1,3 +1,4 @@
+import { WeatherSystem } from './weather';
 import type RAPIER_NS from '@dimforge/rapier3d-simd-compat';
 import { Rng } from './rng';
 import { SIM_DT } from './loop';
@@ -94,6 +95,7 @@ export class World {
   readonly player: PlayerState = { vehicle: null, x: 0, z: 0, vx: 0, vz: 0 };
   readonly roads: RoadGraph;
   readonly traffic: TrafficSystem;
+  readonly weather: WeatherSystem;
   readonly police: PoliceSystem;
   readonly peds: PedSystem;
   readonly props: PropSystem;
@@ -115,6 +117,7 @@ export class World {
     for (let i = 0; i < pool; i++) this.vehicles.push(makeVehicle(i, this.content.vehicles.variants[this.content.vehicles.player]!));
     this.roads = new RoadGraph(this.content.map);
     this.traffic = new TrafficSystem(this, this.content.traffic);
+    this.weather = new WeatherSystem(this.content.weather, this.rng);
     this.police = new PoliceSystem(this, this.content.heat);
     this.peds = new PedSystem(this, this.content.peds);
     this.buildStatics();
@@ -351,6 +354,7 @@ export class World {
   step(intents: Intents): void {
     this.events.length = 0;
     this.playerCtl.preStep(intents, SIM_DT);
+    this.weather.step(SIM_DT);
     const player = this.player.vehicle;
     this.traffic.step(SIM_DT);
     this.police.step(SIM_DT);

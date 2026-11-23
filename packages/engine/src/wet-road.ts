@@ -66,6 +66,7 @@ export function createWetRoadMaterial(
           uExtent: { value: map.size[0] },
           uWetness: { value: 1 },
           uFakeRefl: { value: 1 },
+          uAmbient: { value: new Color(0x000000) },
         },
       ]),
       // Shared by reference so the light field can update them every frame.
@@ -105,6 +106,7 @@ export function createWetRoadMaterial(
       uniform float uExtent;
       uniform float uWetness;
       uniform float uFakeRefl;
+      uniform vec3 uAmbient;
       varying vec2 vXZ;
       varying vec3 vW;
       varying vec4 vLane;
@@ -152,6 +154,8 @@ export function createWetRoadMaterial(
         // Worn paint: broken up by the noise.
         lane *= 0.65 + 0.35 * smoothstep(0.2, 0.6, grit);
         col = mix(col, uLine, lane * 0.75);
+        // Daylight and sky: lifts the tarmac and paint, more on dry patches than in puddles.
+        col += (col * 6.0 + 0.04) * uAmbient * (1.0 - 0.4 * puddle);
         col += refl * (0.22 + 0.5 * puddle) * uWetness * uFakeRefl;
         // Real-time light: diffuse spill plus a wet sheen that is strongest in puddles.
         vec3 L = lfSample(vW, vec3(0.0, 1.0, 0.0));

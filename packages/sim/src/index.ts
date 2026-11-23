@@ -17,3 +17,4 @@ export * from './props';
 export * from './street';
 export * from './citygen';
 export * from './roster';
+export * from './weather';

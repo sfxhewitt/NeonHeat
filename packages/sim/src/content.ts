@@ -1,3 +1,4 @@
+import { WeatherConfigSchema, type WeatherConfig } from './weather';
 import { z } from 'zod';
 import { HeatConfigSchema, type HeatConfig } from './heat';
 import { TrafficConfigSchema, type TrafficConfig } from './traffic';
@@ -198,6 +199,7 @@ export interface SimContent {
   peds: PedsConfig;
   weapons: WeaponsConfig;
   props: PropsConfig;
+  weather: WeatherConfig;
 }
 
 export interface RawSimContent {
@@ -208,6 +210,8 @@ export interface RawSimContent {
   peds: unknown;
   weapons: unknown;
   props: unknown;
+  /** Optional: defaults apply when absent. */
+  weather?: unknown;
 }
 
 /** Validate raw JSON content. Throws a readable error on the first invalid file. */
@@ -230,5 +234,6 @@ export function parseSimContent(raw: RawSimContent): SimContent {
   const props = parse('props', PropsConfigSchema, raw.props);
   for (const p of map.parking) if (!(p.variant in vehicles.variants)) throw new Error(`Parking uses unknown variant "${p.variant}"`);
   for (const p of map.props) if (!(p.kind in props.kinds)) throw new Error(`Map prop uses unknown kind "${p.kind}"`);
-  return { vehicles, map, heat, traffic, peds, weapons, props };
+  const weather = parse('weather', WeatherConfigSchema, raw.weather ?? {});
+  return { vehicles, map, heat, traffic, peds, weapons, props, weather };
 }
