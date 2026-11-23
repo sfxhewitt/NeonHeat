@@ -33,6 +33,16 @@ export interface FlowAudioHooks {
 
 const HINTS_KEY = 'neonheat.hints.v1';
 
+/** Side activities feed the maps, the GPS and the Stats tab through these (apps/game/src/activities-layer.ts). */
+export interface FlowActivityHooks {
+  /** Where the running activity wants the player to go (next checkpoint, fare stop), or null. */
+  target(): { x: number; z: number } | null;
+  /** Fill the map markers (cleared first). */
+  markers(out: MapLiveState['activities'], x: number, z: number): void;
+  /** Extra rows for the Stats tab. */
+  stats(): { label: string; value: string }[];
+}
+
 /**
  * The game's front end and flow, kept out of game.ts: title screen, pause menu
  * (Map / Jobs / Stats / Settings), minimap and full map with GPS, job and
@@ -44,6 +54,7 @@ export class GameFlow {
   readonly menu: PauseMenu;
   readonly live: MapLiveState = emptyLiveState();
   audio: FlowAudioHooks = {};
+  activities: FlowActivityHooks | null = null;
   /** Run once on the title's first tap (a user gesture), after `audio.onFirstGesture`. */
   readonly firstGestureHooks: (() => void)[] = [];
   private minimap: Minimap | null = null;
@@ -295,9 +306,11 @@ export class GameFlow {
     }
     const d = g.director;
     const r = d.runner;
-    s.objective = r && r.state === 'running' ? { x: r.view.targetX, z: r.view.targetZ } : null;
+    s.objective = r && r.state === 'running' ? { x: r.view.targetX, z: r.view.targetZ } : (this.activities?.target() ?? null);
     s.payphones.length = 0;
     if (!d.active) for (const gv of d.givers) s.payphones.push({ x: gv.x, z: gv.z, crew: gv.crew, title: gv.title });
+    s.activities.length = 0;
+    if (!d.active) this.activities?.markers(s.activities, x, z);
     if (s.waypoint && Math.hypot(s.waypoint.x - x, s.waypoint.z - z) < 12) this.setWaypoint(null);
     this.routeTimer -= dt;
     this.refreshRoute(false);
@@ -414,6 +427,7 @@ export class GameFlow {
       { label: 'Highest HEAT', value: `${st.highestHeat} / 5` },
       { label: 'Flatlined', value: n(st.flatlined) },
       { label: 'Booked', value: n(st.booked) },
+      ...(this.activities?.stats() ?? []),
     ];
   }
 }

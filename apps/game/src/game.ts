@@ -45,6 +45,7 @@ import { loadGameContent, type GameContent } from './content';
 import { GameFlow } from './flow';
 import { setupTuning } from './tuning';
 import { CombatLayer } from './combat-layer';
+import { ActivitiesLayer } from './activities-layer';
 import { SoundBridge } from './sound';
 
 export interface GameStats {
@@ -81,6 +82,7 @@ export class Game {
   private skids!: SkidMarks;
   private sceneLights!: SceneLights;
   private combat!: CombatLayer;
+  private activities!: ActivitiesLayer;
   private signs!: { stream: (x: number, z: number) => void };
   private signals!: SignalsView;
   private readonly hemi = new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8);
@@ -170,6 +172,7 @@ export class Game {
     const save = this.saves.current;
     this.director.setProgress({ completed: save.completedMissions, respect: save.respect });
     this.world.score.credits = this.saves.current.credits;
+    this.activities.load(save.activities);
   }
 
   private setupMissions(bot: boolean): void {
@@ -275,6 +278,23 @@ export class Game {
         if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(ms);
       },
     });
+    this.activities = new ActivitiesLayer(this.world, {
+      scene: s,
+      overlay: this.overlay,
+      hud: this.hud,
+      input: this.input,
+      rig: this.rig,
+      audio: this.sound.audio,
+      vibrate: (ms) => {
+        if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(ms);
+      },
+      persist: (p) => {
+        this.saves.current.activities = p;
+        this.autosave('activity');
+      },
+      jobActive: () => this.director.active,
+    });
+    this.flow.activities = this.activities;
     const top = this.content.quality.tiers.ultra;
     this.rain = new Rain(s, top.rainStreaks, top.rainSplashes, this.lightField.uniforms);
     this.postfx.addOccluder(
@@ -285,6 +305,7 @@ export class Game {
       this.vehiclesView.wheels,
       ...this.people.meshes,
       ...this.propsView.meshes,
+      ...this.activities.view.solids,
     );
     // Everything solid receives the real-time light field; paint and glass also pick up a wet sheen.
     const lf = this.lightField;
@@ -302,7 +323,7 @@ export class Game {
         }
     };
     lit(0.55, ...this.vehiclesView.bodies);
-    lit(0.12, this.city.buildings, this.city.pavements, this.city.ground);
+    lit(0.12, this.city.buildings, this.city.pavements, this.city.ground, ...this.activities.view.solids.slice(0, 1));
     lit(0.7, this.city.water);
     lit(0, this.city.roofProps, this.city.lampPosts, this.vehiclesView.wheels, ...this.people.meshes, ...this.propsView.meshes, this.particles.debris.mesh);
   }
@@ -401,7 +422,7 @@ export class Game {
       this.hitStop -= dt;
       alpha = 1;
     } else if (!this.paused) {
-      alpha = this.loop.advance(dt, () => this.simStep());
+      alpha = this.loop.advance(dt * this.activities.timeScale, () => this.simStep());
     }
     const pc = this.world.playerCtl;
     this.input.setMode(this.flow.blocking ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
@@ -490,7 +511,13 @@ export class Game {
           gz = g.z;
         }
       }
-      if (best < Infinity && !d.active) {
+      // A side activity's next stop (race checkpoint, fare) takes the arrow over from the payphones.
+      const at = this.activities.target();
+      if (at && !d.active) {
+        const p = this.projected.set(at.x, 0, at.z).project(this.rig.camera);
+        this.arrow.setTone(false);
+        this.arrow.set(p.x, p.y, p.z > 1);
+      } else if (best < Infinity && !d.active && !this.world.activities.current) {
         const p = this.projected.set(gx, 0, gz).project(this.rig.camera);
         this.arrow.setTone(true);
         this.arrow.set(p.x, p.y, p.z > 1);
@@ -548,6 +575,7 @@ export class Game {
   private onSimEvent(e: SimEvent): void {
     this.sound.audio.onEvent(e);
     if (this.combat.onEvent(e)) return;
+    if (this.activities.onEvent(e)) return;
     const feel = this.content.feel;
     if (e.type === 'impact') {
       const n = Math.min(feel.sparksMax, Math.round(e.strength * feel.sparksPerStrength));
@@ -648,6 +676,7 @@ export class Game {
     this.renderer.info.reset();
     this.shadows.update(w, alpha);
     const focus = this.rig.focus;
+    this.activities.update(alpha, dt, focus.x, focus.z - 12);
     this.rain.update(w.time, focus.x, focus.z);
     this.roadMat.uniforms.uTime!.value = w.time;
     (this.city.lampCones.material as THREE.ShaderMaterial).uniforms.uTime!.value = w.time;
@@ -664,6 +693,7 @@ export class Game {
     this.propsView.update();
     this.syncBrokenLights();
     this.sceneLights.update(w, alpha, this.paused ? 0 : dt, focus.x, focus.z - 12);
+    this.activities.light(this.lightField);
     // Centre the light buffer a little ahead (north) of the focus: the camera sees further up the screen.
     this.lightField.render(this.renderer, focus.x, focus.z - 12);
     this.postfx.render(this.scene, this.rig.camera);

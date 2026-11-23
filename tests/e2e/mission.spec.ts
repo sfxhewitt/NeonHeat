@@ -51,7 +51,7 @@ test('the bot completes Hot Chrome in the browser build and the result is saved'
         req.onerror = () => reject(req.error);
       }),
   );
-  expect(saved).toMatchObject({ version: 2, completedMissions: ['glasshounds_03_hot_chrome'], respect: { glasshounds: 10, kurogane: -15 } });
+  expect(saved).toMatchObject({ version: 3, completedMissions: ['glasshounds_03_hot_chrome'], respect: { glasshounds: 10, kurogane: -15 } });
   expect((saved as { credits: number }).credits).toBeGreaterThanOrEqual(1500);
   await expect(page.locator('.nh-toast')).toContainText('JOB DONE');
   expect(errors).toEqual([]);
