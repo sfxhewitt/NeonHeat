@@ -160,7 +160,7 @@ export class GameFlow {
         for (const f of this.firstGestureHooks) f();
       },
       settings: { ...this.settingsHooks(), onEditLayout: undefined },
-      version: 'Phase 1 preview',
+      version: 'Vey City · early access',
     });
     if (choice === 'new') {
       g.saves.current = newSave();
