@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { driveTowards, emptyControls, type SimContent, type SimEvent, type Vehicle, type World } from '@neonheat/sim';
-import { intents, loadContent, makeWorld, run } from './helpers';
+import { EW, intents, loadContent, makeWorld, movePlayer, run } from './helpers';
 
 const idle = intents();
 
@@ -206,25 +206,30 @@ describe('escape', () => {
   });
 });
 
-/** Drive the player's car round the inner block (road graph corners), like a player fleeing. */
+/** Drive the player's car along road-graph routes between far-apart points, like a player fleeing. */
 function fleeScript(w: World): () => ReturnType<typeof intents> {
-  const loop = [
-    [-40, -40],
-    [40, -40],
-    [40, 40],
-    [-40, 40],
+  const goals = [
+    [300, -330],
+    [0, -100],
+    [-300, -330],
+    [0, -600],
   ] as const;
+  let g = 0;
+  let pts: { x: number; z: number }[] = [];
   let i = 0;
   const c = emptyControls();
   return () => {
     const v = w.player.vehicle;
     if (!v) return idle;
-    let [tx, tz] = loop[i]!;
-    if (Math.hypot(tx - v.x, tz - v.z) < 14) {
-      i = (i + 1) % loop.length;
-      [tx, tz] = loop[i]!;
+    if (i >= pts.length) {
+      const [gx, gz] = goals[g]!;
+      g = (g + 1) % goals.length;
+      pts = w.roads.route(v.x, v.z, gx, gz);
+      i = 1;
     }
-    driveTowards(v, tx, tz, 24, c, false);
+    const p = pts[Math.min(i, pts.length - 1)]!;
+    if (Math.hypot(p.x - v.x, p.z - v.z) < 12) i++;
+    driveTowards(v, p.x, p.z, 22, c, false);
     return intents({ steer: c.steer, throttle: c.throttle, brake: c.brake, handbrake: c.handbrake });
   };
 }
@@ -232,7 +237,8 @@ function fleeScript(w: World): () => ReturnType<typeof intents> {
 describe('police chase you, they do not kill you', () => {
   it('a car survives a sustained 60 s HEAT 2 chase', async () => {
     const w = await quietWorld(11);
-    const car = w.spawnVehicle('kestrel', -40, 0, Math.PI, 'parked')!;
+    movePlayer(w, EW.x, EW.z);
+    const car = w.spawnVehicle('kestrel', EW.x, EW.z, Math.PI / 2, 'parked')!;
     w.playerCtl.enter(car);
     w.heat.setLevel(2, car.x, car.z);
     const script = fleeScript(w);

@@ -3,6 +3,7 @@ import { HeatConfigSchema, type HeatConfig } from './heat';
 import { TrafficConfigSchema, type TrafficConfig } from './traffic';
 import { PickupsConfigSchema, type PickupsConfig } from './pickups';
 import { SurvivalConfigSchema, type SurvivalConfig } from './survival';
+import { CitySpecSchema, generateCity, type GeneratedMap } from './citygen';
 
 /** Zod schemas for every piece of content the simulation consumes. */
 
@@ -62,35 +63,23 @@ export const VehiclesSchema = z
   .refine((v) => v.player in v.variants, { message: 'player variant must exist' });
 export type VehiclesContent = z.infer<typeof VehiclesSchema>;
 
-const Vec3 = z.tuple([z.number(), z.number(), z.number()]);
+/** The city map: generated from content/map/city.json (see citygen.ts). */
+export type MapContent = GeneratedMap;
 
-export const MapSchema = z.object({
-  id: z.string(),
-  size: z.tuple([z.number().positive(), z.number().positive()]),
-  roads: z.object({
-    positions: z.array(z.number()).min(2),
-    width: z.number().positive(),
-    laneOffset: z.number().positive(),
-    extent: z.number().positive(),
-    /** Height of the raised pavement above the road (m). Cars ride up onto it. */
-    kerbHeight: z.number().nonnegative().default(0.18),
-    /** Street lamps stand this far in from the kerb, every lampSpacing metres. */
-    lampInset: z.number().nonnegative().default(0.9),
-    lampSpacing: z.number().positive().default(24),
-  }),
-  wallThickness: z.number().positive(),
-  buildings: z.array(
-    z.object({ x: z.number(), z: z.number(), w: z.number().positive(), d: z.number().positive(), h: z.number().positive() }),
-  ),
-  /** Street furniture and clutter; sizes and behaviour come from props.json by kind. */
-  props: z.array(z.object({ kind: z.string(), x: z.number(), z: z.number(), yaw: z.number() })).default([]),
-  markers: z.record(z.string(), z.object({ pos: Vec3 })),
-  spawns: z.record(z.string(), z.object({ variant: z.string(), pos: Vec3, yaw: z.number(), locked: z.boolean() })),
-  traffic: z.object({
-    loops: z.array(z.object({ id: z.string(), points: z.array(z.tuple([z.number(), z.number()])).min(3) })),
-  }),
-});
-export type MapContent = z.infer<typeof MapSchema>;
+const cityCache = new Map<string, GeneratedMap>();
+
+/** Generate (once per spec) and return a private copy, so callers may edit it freely. */
+export function cityFromSpec(raw: unknown): GeneratedMap {
+  const key = JSON.stringify(raw);
+  let m = cityCache.get(key);
+  if (!m) {
+    const r = CitySpecSchema.safeParse(raw);
+    if (!r.success) throw new Error(`Invalid content "map": ${z.prettifyError(r.error)}`);
+    m = generateCity(r.data);
+    cityCache.set(key, m);
+  }
+  return JSON.parse(JSON.stringify(m)) as GeneratedMap;
+}
 
 export const PropKindSchema = z.object({
   w: z.number().positive(),
@@ -249,7 +238,7 @@ export function parseSimContent(raw: RawSimContent): SimContent {
     return r.data;
   };
   const vehicles = parse('vehicles', VehiclesSchema, raw.vehicles);
-  const map = parse('map', MapSchema, raw.map);
+  const map = cityFromSpec(raw.map);
   const heat = parse('heat', HeatConfigSchema, raw.heat);
   const traffic = parse('traffic', TrafficConfigSchema, raw.traffic);
   for (const v of traffic.variants) if (!(v in vehicles.variants)) throw new Error(`Traffic uses unknown variant "${v}"`);
@@ -259,6 +248,7 @@ export function parseSimContent(raw: RawSimContent): SimContent {
   const peds = parse('peds', PedsConfigSchema, raw.peds);
   const weapons = parse('weapons', WeaponsSchema, raw.weapons);
   const props = parse('props', PropsConfigSchema, raw.props);
+  for (const p of map.parking) if (!(p.variant in vehicles.variants)) throw new Error(`Parking uses unknown variant "${p.variant}"`);
   for (const p of map.props) if (!(p.kind in props.kinds)) throw new Error(`Map prop uses unknown kind "${p.kind}"`);
   const pickups = parse('pickups', PickupsConfigSchema, raw.pickups);
   const survival = parse('survival', SurvivalConfigSchema, raw.survival);

@@ -2,6 +2,7 @@ import type RAPIER_NS from '@dimforge/rapier3d-simd-compat';
 import type { PedsConfig } from './content';
 import { Groups, interactionGroups } from './physics';
 import type { World } from './world';
+import { onPavement } from './street';
 
 export type PedState = 'wander' | 'flee' | 'cower' | 'down';
 
@@ -75,15 +76,16 @@ export class PedSystem {
     for (let i = 0; i < this.cap; i++) this.spawnSomewhere(false);
   }
 
-  /** A random walkable point: inside the map, outside buildings, off the road centre. */
-  private randomPoint(nearX: number, nearZ: number, radius: number, out: { x: number; z: number }): boolean {
+  /** A random walkable point: inside the map, on a pavement, park or yard (not the road, water or a building). */
+  private randomPoint(nearX: number, nearZ: number, radius: number, out: { x: number; z: number }, minRadius = 0): boolean {
     const w = this.world;
     const half = w.content.map.size[0] / 2 - 3;
-    for (let tries = 0; tries < 12; tries++) {
+    for (let tries = 0; tries < 16; tries++) {
       const x = nearX + w.rng.range(-radius, radius);
       const z = nearZ + w.rng.range(-radius, radius);
       if (Math.abs(x) > half || Math.abs(z) > half) continue;
-      if (w.insideBuilding(x, z, 1)) continue;
+      if (minRadius > 0 && Math.hypot(x - nearX, z - nearZ) < minRadius) continue;
+      if (!onPavement(w.content.map, x, z) || w.insideBuilding(x, z, 1)) continue;
       out.x = x;
       out.z = z;
       return true;
@@ -97,9 +99,10 @@ export class PedSystem {
     const p = this.peds.find((q) => !q.active);
     if (!p) return null;
     const w = this.world;
+    // People live around the player: a ring out of view, or anywhere close at the start.
+    const outer = this.config.respawnMinDist + 50;
     for (let tries = 0; tries < 8; tries++) {
-      if (!this.randomPoint(0, 0, w.content.map.size[0] / 2, this.tmp)) continue;
-      if (awayFromPlayer && w.distToPlayer(this.tmp.x, this.tmp.z) < this.config.respawnMinDist) continue;
+      if (!this.randomPoint(w.player.x, w.player.z, awayFromPlayer ? outer : outer * 0.8, this.tmp, awayFromPlayer ? this.config.respawnMinDist : 6)) continue;
       this.spawnAt(p, this.tmp.x, this.tmp.z);
       return p;
     }
@@ -260,8 +263,11 @@ export class PedSystem {
       p.vz = vz;
       if (speed > 0 && len > 0.01) p.facing = Math.atan2(dx, dz);
     }
-    // Top up the population away from the player.
-    if (w.tick % 30 === 0 && this.activeCount() < this.cap) this.spawnSomewhere(true);
+    // Top up the population away from the player, and let people far behind go.
+    if (w.tick % 10 === 0 && this.activeCount() < this.cap) this.spawnSomewhere(true);
+    if (w.tick % 20 === 0) {
+      for (const p of this.peds) if (p.active && w.distToPlayer(p.x, p.z) > cfg.respawnMinDist + 90) this.despawn(p);
+    }
     while (this.activeCount() > this.cap) {
       const far = this.peds.find((p) => p.active && w.distToPlayer(p.x, p.z) > cfg.respawnMinDist);
       if (!far) break;

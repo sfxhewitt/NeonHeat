@@ -23,3 +23,4 @@ export * from './score';
 export * from './survival';
 export * from './witness';
 export * from './roadblocks';
+export * from "./citygen";

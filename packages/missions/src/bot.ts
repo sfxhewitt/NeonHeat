@@ -169,7 +169,7 @@ export class MissionBot {
   /** Next road-graph point towards (tx, tz) from (x, z). */
   private routePoint(x: number, z: number, tx: number, tz: number): { x: number; z: number } {
     const g = this.world.roads;
-    if (this.waypoint < 0 || Math.hypot(g.nodes[this.waypoint]!.x - x, g.nodes[this.waypoint]!.z - z) > 110) {
+    if (this.waypoint < 0 || Math.hypot(g.nodes[this.waypoint]!.x - x, g.nodes[this.waypoint]!.z - z) > 450) {
       this.waypoint = g.nearest(x, z).id;
     }
     const wp = g.nodes[this.waypoint]!;

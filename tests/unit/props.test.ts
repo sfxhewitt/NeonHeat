@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { forwardSpeed } from '@neonheat/sim';
-import { intents, loadContent, makeWorld, run } from './helpers';
+import { EW, intents, loadContent, makeWorld, run } from './helpers';
 
 /** An empty map with one prop in front of the player's car on an open stretch. */
 async function lineUp(kind: string, gap = 25) {
   const content = loadContent();
   content.map.buildings = [];
-  content.map.props = [{ kind, x: -110 + gap, z: 0, yaw: 0 }];
+  content.map.props = [{ kind, x: EW.x + gap, z: EW.z, yaw: 0 }];
   content.traffic.count = 0;
   content.peds.count = 0;
   const world = await makeWorld(1, content);
-  const car = world.spawnVehicle('kestrel', -110, 0, Math.PI / 2, 'player')!;
+  const car = world.spawnVehicle('kestrel', EW.x, EW.z, Math.PI / 2, 'player')!;
   world.playerCtl.enter(car);
   return { world, car, prop: world.props.props[0]! };
 }

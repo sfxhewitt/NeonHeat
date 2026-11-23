@@ -481,6 +481,8 @@ export class PoliceSystem {
       // Cut-off: get ahead and block the road.
       tx = p.x + hx * ps * cfg.cutoffLeadSec;
       tz = p.z + hz * ps * cfg.cutoffLeadSec;
+      // Once in front, ease off so the player has to brake or go round: never race away.
+      if (along > 4) speed = Math.max(6, ps - cfg.closingSpeed);
     } else if (dist < cfg.pitDist && along < 0 && along > -7 && Math.abs(lat) < 4.5) {
       // PIT: steer into the player's rear quarter from the side we are on.
       const s = lat >= 0 ? 1 : -1;
@@ -573,10 +575,9 @@ export class PoliceSystem {
     d.prevZ = d.z;
     if (want && (!d.active || d.leaving)) {
       if (!d.active) {
-        // Arrive from the map edge furthest from the player.
-        const edge = w.content.map.size[0] / 2 - 10;
-        d.x = w.player.x > 0 ? -edge : edge;
-        d.z = w.player.z > 0 ? -edge : edge;
+        // Arrive from a little way off, out of view.
+        d.x = w.player.x + (w.player.x > 0 ? -140 : 140);
+        d.z = w.player.z + (w.player.z > 0 ? -140 : 140);
         d.prevX = d.x;
         d.prevZ = d.z;
         d.vx = d.vz = 0;

@@ -11,7 +11,9 @@
     "shotgun": { "shape": "shotgun", "colour": "#ff9a3c", "weapon": "shotgun", "ammo": 16 },
     "rifle": { "shape": "rifle", "colour": "#d7ff2b", "weapon": "rifle", "ammo": 12 },
     "launcher": { "shape": "launcher", "colour": "#ff3355", "weapon": "launcher", "ammo": 5 },
-    "arc": { "shape": "arc", "colour": "#b98cff", "weapon": "arc", "ammo": 12 }
+    "arc": { "shape": "arc", "colour": "#b98cff", "weapon": "arc", "ammo": 12 },
+    "grenade": { "shape": "launcher", "colour": "#ff3355", "weapon": "launcher", "ammo": 5 },
+    "taser": { "shape": "arc", "colour": "#b98cff", "weapon": "arc", "ammo": 12 }
   },
   "auto": {
     "kinds": ["health", "armour", "pistol", "smg", "health", "shotgun", "bat", "armour", "rifle", "health", "arc", "launcher", "smg", "armour", "pistol", "health"],

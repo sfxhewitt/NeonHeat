@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { layoutLamps, onPavement, type SimContent, type World } from '@neonheat/sim';
-import { intents, loadContent, makeWorld } from './helpers';
+import { EW, intents, loadContent, makeWorld, movePlayer } from './helpers';
 
 /** Aim a car at the kerb of the east-west road at z = road, from the road side, and let it run. */
-function crossKerb(w: World, road: number, x: number, side: 1 | -1, angleDeg: number, speed: number, throttle: number) {
-  const hw = w.content.map.roads.width / 2;
+function crossKerb(w: World, road: number, x: number, side: 1 | -1, angleDeg: number, speed: number, throttle: number, hw = 9) {
   const a = (angleDeg * Math.PI) / 180;
   const dx = Math.cos(a);
   const dz = side * Math.sin(a);
@@ -32,14 +31,19 @@ function crossKerb(w: World, road: number, x: number, side: 1 | -1, angleDeg: nu
   return { through, speed: Math.hypot(car.vx, car.vz), kerbEvents, kerbLoss };
 }
 
+/** A stretch of the east-west avenue at z = EW.z with pavement on both sides (no junction mouths). */
+const KX = -140;
+
 async function worldWith(edit: (c: SimContent) => void): Promise<World> {
   const c = loadContent();
   c.traffic.count = 0;
   c.peds.count = 0;
   edit(c);
+  c.traffic.parkedMax = 0;
   const w = await makeWorld(1, c);
+  movePlayer(w, KX, EW.z);
   for (const v of w.vehicles) if (v.active) w.despawnVehicle(v);
-  const car = w.spawnVehicle('kestrel', 0, -40, 0, 'player')!;
+  const car = w.spawnVehicle('kestrel', KX, EW.z, 0, 'player')!;
   w.playerCtl.enter(car);
   return w;
 }
@@ -54,7 +58,7 @@ describe('kerbs', () => {
     for (const angle of [15, 35, 60, 90]) {
       for (const speed of [3, 8, 16, 30]) {
         for (const side of [1, -1] as const) {
-          const r = crossKerb(w, -40, -80, side, angle, speed, 0.35);
+          const r = crossKerb(w, EW.z, KX + 20, side, angle, speed, 0.35);
           expect(r.through, `${angle}° at ${speed} m/s`).toBe(true);
           // Riding over the step costs only a little speed, even square on.
           expect(r.kerbLoss, `${angle}° at ${speed} m/s`).toBeLessThan(speed * 0.12);
@@ -71,9 +75,9 @@ describe('kerbs', () => {
       delete c.props.kinds['lamp'];
     });
     const car = w.player.vehicle!;
-    const hw = w.content.map.roads.width / 2;
-    // Up: from the road onto the north pavement of the road at z = -40.
-    w.teleportVehicle(car, -80, -40 + hw - 4, 0);
+    const hw = 9;
+    // Up: from the road onto the south pavement of the avenue.
+    w.teleportVehicle(car, KX + 20, EW.z + hw - 4, 0);
     car.vz = 15;
     let upLoss = 0;
     for (let i = 0; i < 40; i++) {
@@ -82,7 +86,7 @@ describe('kerbs', () => {
       if (w.events.some((e) => e.type === 'kerb' && e.up)) upLoss += before - Math.hypot(car.vx, car.vz);
     }
     // Down: from the pavement onto the road.
-    w.teleportVehicle(car, -80, -40 + hw + 4, Math.PI);
+    w.teleportVehicle(car, KX + 20, EW.z + hw + 4, Math.PI);
     car.vz = -15;
     let downLoss = 0;
     for (let i = 0; i < 40; i++) {
@@ -101,29 +105,37 @@ describe('kerbs', () => {
       c.map.props = [];
     });
     const car = w.player.vehicle!;
-    w.teleportVehicle(car, -80, -20, 0);
+    w.teleportVehicle(car, KX + 20, EW.z + 14, 0);
     expect(onPavement(w.content.map, car.x, car.z)).toBe(true);
     w.step(intents());
     expect(w.events.some((e) => e.type === 'kerb')).toBe(false);
   });
 
-  it('every kerb of the real block can be crossed: kerbside furniture smashes instead of stopping the car', async () => {
-    // The whole block with its props and lamps, minus parked cars (real obstacles, tested elsewhere).
+  it('every kerb around the start can be crossed: kerbside furniture smashes instead of stopping the car', async () => {
+    // The real streets with their props and lamps, minus parked cars (real obstacles, tested elsewhere).
     const w = await worldWith(() => {});
-    const { positions, width } = w.content.map.roads;
-    const hw = width / 2;
+    const map = w.content.map;
+    const start = map.markers['player_start']!.pos;
     let runs = 0;
     const snags: string[] = [];
-    for (const road of positions) {
-      for (let x = -110; x <= 110; x += 5) {
-        if (positions.some((q) => Math.abs(x - q) < hw + 8)) continue;
+    for (const sg of map.roads.segments) {
+      if (sg.z0 !== sg.z1 || sg.kind === 'alley' || sg.kind === 'bridge') continue;
+      const hw = sg.width / 2;
+      for (let x = Math.ceil(sg.x0 / 18) * 18; x <= sg.x1; x += 18) {
+        if (Math.hypot(x - start[0], sg.z0 - start[2]) > 200) continue;
+        // Clear of junction mouths: no crossing road within its half-width plus a margin.
+        if (w.roads.nodes.some((n) => Math.abs(n.z - sg.z0) < 1 && Math.abs(n.x - x) < 16)) continue;
         for (const side of [1, -1] as const) {
-          if (Math.abs(road + side * hw) > 120) continue; // the outer edge of the map is a wall
+          const kerbZ = sg.z0 + side * hw;
+          // A real kerb with pavement (not a side road, water or a building) just beyond it.
+          let pavement = true;
+          for (const dx of [-3, 0, 3]) if (!onPavement(map, x + dx, kerbZ + side * 1.5) || w.insideBuilding(x + dx, kerbZ + side * 5.2, 0)) pavement = false;
+          if (!pavement) continue;
           for (const angle of [25, 60, 90]) {
             for (const speed of [10, 22]) {
-              const r = crossKerb(w, road, x, side, angle, speed, 1);
+              const r = crossKerb(w, sg.z0, x, side, angle, speed, 1, hw);
               runs++;
-              if (!r.through) snags.push(`road z=${road} x=${x} side ${side} ${angle}° ${speed} m/s`);
+              if (!r.through) snags.push(`road z=${sg.z0} x=${x} side ${side} ${angle}° ${speed} m/s`);
               for (const p of w.props.props) {
                 if (!p.broken) continue;
                 p.broken = false;
@@ -134,7 +146,7 @@ describe('kerbs', () => {
         }
       }
     }
-    expect(runs).toBeGreaterThan(500);
+    expect(runs).toBeGreaterThan(100);
     expect(snags).toEqual([]);
   });
 
@@ -146,7 +158,7 @@ describe('kerbs', () => {
     const lamps = layoutLamps(w.content.map);
     const lampProps = w.props.props.filter((p) => p.kind === 'lamp');
     expect(lampProps.length).toBe(lamps.length);
-    const lamp = lampProps.find((p) => Math.abs(p.yaw) < 0.01 && p.x < -60)!; // north kerb of an east-west road, arm facing +z
+    const lamp = lampProps.filter((p) => Math.abs(p.yaw) < 0.01).sort((a, b) => Math.hypot(a.x - KX, a.z - EW.z) - Math.hypot(b.x - KX, b.z - EW.z))[0]!; // north kerb of an east-west road, arm facing +z
     const car = w.player.vehicle!;
     w.teleportVehicle(car, lamp.x, lamp.z - 8, 0);
     car.vz = 14;

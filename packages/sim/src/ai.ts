@@ -30,6 +30,12 @@ export interface AiState {
   slot: number;
   /** Seconds before this unit may put officers on the street again. */
   cooldown: number;
+  /** Traffic on the road graph: driving the edge navFrom -> navTo, then turning towards navNext (-1 = not chosen). */
+  navFrom: number;
+  navTo: number;
+  navNext: number;
+  /** Cruising speed for this driver (m/s): some are in a hurry, some dawdle. */
+  cruise: number;
 }
 
 export function makeAiState(): AiState {
@@ -49,6 +55,10 @@ export function makeAiState(): AiState {
     waypoint: -1,
     slot: 0,
     cooldown: 0,
+    navFrom: -1,
+    navTo: -1,
+    navNext: -1,
+    cruise: 0,
   };
 }
 

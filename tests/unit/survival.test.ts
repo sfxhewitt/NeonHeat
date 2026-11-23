@@ -4,6 +4,16 @@ import { intents, loadContent, makeWorld, run } from './helpers';
 
 const idle = intents();
 
+/** Distance from the player to the nearest marker whose id starts with one of `prefixes`. */
+function nearestMarkerDist(w: World, ...prefixes: string[]): number {
+  let best = Infinity;
+  for (const [id, m] of Object.entries(w.content.map.markers)) {
+    if (!prefixes.some((p) => id.startsWith(p))) continue;
+    best = Math.min(best, Math.hypot(w.playerCtl.x - m.pos[0], w.playerCtl.z - m.pos[2]));
+  }
+  return best;
+}
+
 async function quietWorld(seed = 1, patch?: (c: SimContent) => void): Promise<World> {
   const c = loadContent();
   c.traffic.count = 0;
@@ -56,8 +66,7 @@ describe('FLATLINED', () => {
     expect(pc.dead).toBe(false);
     expect(pc.hp).toBe(pc.maxHp);
     expect(w.heat.level).toBe(0);
-    const clinic = w.content.map.markers['clinic']!.pos;
-    expect(Math.hypot(pc.x - clinic[0], pc.z - clinic[2])).toBeLessThan(1);
+    expect(nearestMarkerDist(w, 'clinic')).toBeLessThan(1);
   });
 
   it('respawns at the nearest of several clinics', async () => {
@@ -102,8 +111,7 @@ describe('BOOKED', () => {
     run(w, w.content.survival.booked.respawnSec + 0.2, idle);
     expect(pc.busted).toBe(false);
     expect(w.heat.level).toBe(0);
-    const start = w.content.map.markers['player_start']!.pos;
-    expect(Math.hypot(pc.x - start[0], pc.z - start[2])).toBeLessThan(1);
+    expect(nearestMarkerDist(w, 'precinct', 'player_start')).toBeLessThan(1);
   });
 
   it('running away keeps you free; the arrest meter falls back', async () => {
@@ -160,10 +168,21 @@ describe('pickups', () => {
     expect(w.pickups.kindFromMarker('pickup_armour_north')).toBe('armour');
     expect(w.pickups.kindFromMarker('pickup_nonsense')).toBeNull();
     expect(w.pickups.kindFromMarker('clinic')).toBeNull();
+    // The generated city's names: pickup_<kind>_<district>_<n>, with grenade and taser as aliases.
+    expect(w.pickups.kindFromMarker('pickup_grenade_docks_0')).toBe('grenade');
+    expect(w.content.pickups.kinds['taser']!.weapon).toBe('arc');
+  });
+
+  it('places every pickup marker of the generated city', async () => {
+    const w = await quietWorld();
+    const ids = Object.keys(w.content.map.markers).filter((id) => id.startsWith('pickup_'));
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) expect(w.pickups.kindFromMarker(id)).not.toBeNull();
   });
 
   it('places pickups from map markers when there are some', async () => {
     const w = await quietWorld(1, (c) => {
+      for (const id of Object.keys(c.map.markers)) if (id.startsWith('pickup_')) delete c.map.markers[id];
       c.map.markers['pickup_rifle_1'] = { pos: [10, 0, 10] };
     });
     const placed = w.pickups.pickups.filter((p) => p.active);
@@ -172,7 +191,9 @@ describe('pickups', () => {
   });
 
   it('spreads pickups over street corners when the map has no markers', async () => {
-    const w = await quietWorld();
+    const w = await quietWorld(1, (c) => {
+      for (const id of Object.keys(c.map.markers)) if (id.startsWith('pickup_')) delete c.map.markers[id];
+    });
     const placed = w.pickups.pickups.filter((p) => p.active);
     expect(placed.length).toBeGreaterThan(8);
     for (const p of placed) {
