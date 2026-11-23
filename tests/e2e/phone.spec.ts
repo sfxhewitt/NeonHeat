@@ -92,6 +92,10 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await page.locator('.nh-title [data-act="new"]').tap();
   await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
 
+  // Sound starts on that first tap, and plays through the iPhone silent switch.
+  await expect.poll(() => page.evaluate(() => window.__neon!.game.sound.audio.engine.ctx?.state)).toBe('running');
+  expect(await page.evaluate(() => window.__neon!.game.sound.audio.engine.silentSwitch)).not.toBe('none');
+
   // The game is always landscape, whichever way the phone is held.
   const size = await appSize(page);
   expect(size.w).toBeGreaterThan(size.h);
@@ -311,6 +315,22 @@ test('iPhone: the minimap opens the full map, a tap sets a waypoint, the menu cl
   await expect(page.locator('.nh-crew')).toHaveCount(5);
   await page.locator('.nh-tab[data-tab="stats"]').tap();
   await expect(page.locator('.nh-stat').first()).toBeVisible();
+
+  // Two quick taps (a double tap to iOS) never zoom the page, and the second tap still works.
+  await page.locator('.nh-tab[data-tab="jobs"]').tap();
+  await page.locator('.nh-tab[data-tab="settings"]').tap();
+  await expect(page.locator('.nh-tab[data-tab="settings"]')).toHaveClass(/is-on/);
+  await page.locator('.nh-tab[data-tab="settings"]').tap();
+  await page.locator('.nh-tab[data-tab="settings"]').tap();
+  expect(await page.evaluate(() => window.visualViewport?.scale ?? 1)).toBe(1);
+  await expect(page.locator('.nh-tab[data-tab="settings"]')).toHaveClass(/is-on/);
+  // Taps on a button's icon (SVG) still click it when they come quickly.
+  await page.locator('.nh-tab[data-tab="map"]').tap();
+  const zoomOf = () => page.evaluate(() => (window.__neon!.game.flow as unknown as { fullMap: { view: { zoom: number } } }).fullMap.view.zoom);
+  const z0 = await zoomOf();
+  await page.locator('.nh-fullmap [data-map="in"] svg').first().tap();
+  await page.locator('.nh-fullmap [data-map="in"] svg').first().tap();
+  await expect.poll(zoomOf).toBeGreaterThan(z0);
 
   // Resume by touch: the menu goes and the game runs again.
   await page.locator('[data-act="resume"]').tap();
