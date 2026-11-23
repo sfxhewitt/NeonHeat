@@ -1,5 +1,24 @@
 # Status
 
+## Kerbs and street furniture (23 Nov 2026)
+
+Playing on the phone, hitting a kerb stopped the car dead. The kerb itself never had a collider. The problem was what stands on the pavement:
+- Kerbside trees and vending machines could not be smashed, so they stopped a car at any speed.
+- Bins, benches, bollards and hydrants blocked a slow car.
+- Street lamps had no collider at all, so cars drove straight through them.
+
+A sweep of about 4,900 kerb crossings snagged 13% of the time.
+
+- **Kerbs are a bump.** Each axle that rides up costs a little speed (up to 7% square on, less for a glancing crossing; dropping off is gentler). The car body rises onto the pavement and pitches over the step. A small camera jolt and a haptic tap scale with speed into the kerb. People, the player and blob shadows now stand on the pavement instead of in it. Tuning lives in `vehicles.json` (`kerb`), `feel.json` (`kerb*`) and the map (`roads.kerbHeight`).
+- **Everything kerbside smashes at driving speed**, losing speed and hull by how heavy it is. Bins and crates go from about walking pace; benches, barriers, bollards and hydrants from a slow roll; lamps from 11 km/h; vending machines and trees from 15 to 16 km/h, with a 22 to 28% speed loss and some hull damage. Only buildings, the outer wall, kiosks, dumpsters and other vehicles stop a car. Parked cars get shoved.
+- **Street lamps are physical.** The layout moved into the sim (`packages/sim/src/street.ts`), and each lamp is a breakable prop. A knocked-down lamp lies on the pavement and its light goes out in the light field; a smashed vending machine stops lighting the street. They come back with the other props.
+- **Checked by driving it.** A touch-steering roam of the whole block (260 random routes, about 29 minutes of driving) now only stops at buildings and at parked cars wedged against them. `tests/unit/kerbs.test.ts` covers:
+  - crossing kerbs at 15 to 90° and 3 to 30 m/s;
+  - every kerb of the real block at three angles and two speeds;
+  - mounting versus dropping off;
+  - no bump on a teleport;
+  - lamps smashing.
+
 ## Visual and feel overhaul (22 Nov 2026): conclusions first
 
 - **Budget comes from the target phone, not a guess.** An iPhone 17 Pro Max (A19 Pro: 6-core GPU with hardware ray tracing, roughly desktop-M2 class; 12 GB RAM; 2868 × 1320 panel = 956 × 440 CSS px at DPR 3; ProMotion up to 120 Hz, but Safari runs `requestAnimationFrame` at 60 fps by default) can afford a full-resolution, heavily lit frame. So there is a fourth tier, **Max** (`ultra`), built for it. The three lower tiers stay for ordinary phones, and only they keep the hard < 100 draw-call cap (measured: low 39, mid 79, high 80 in the populated block).

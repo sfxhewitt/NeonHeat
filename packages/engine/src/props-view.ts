@@ -191,20 +191,21 @@ export class PropsView {
   }
 
   /** Neon props that also light the street: vending machines and kiosks. */
-  lights(): { x: number; z: number; colour: number; radius: number }[] {
-    const out: { x: number; z: number; colour: number; radius: number }[] = [];
+  lights(): { x: number; z: number; colour: number; radius: number; propId: number }[] {
+    const out: { x: number; z: number; colour: number; radius: number; propId: number }[] = [];
     for (const s of this.slots) {
       const p = s.prop;
       if (p.kind !== 'vending' && p.kind !== 'kiosk') continue;
       const fx = Math.sin(p.yaw);
       const fz = Math.cos(p.yaw);
-      out.push({ x: p.x + fx * 1.2, z: p.z + fz * 1.2, colour: glowColour(p.kind, p.id), radius: p.kind === 'kiosk' ? 8 : 5 });
+      out.push({ x: p.x + fx * 1.2, z: p.z + fz * 1.2, colour: glowColour(p.kind, p.id), radius: p.kind === 'kiosk' ? 8 : 5, propId: p.id });
     }
     return out;
   }
 
   /** The chunk colour for a kind of prop. */
   debrisColour(kind: string): number {
+    if (kind === 'lamp') return 0x3a3a50;
     return this.models[kind]?.debris ?? 0x55556a;
   }
 

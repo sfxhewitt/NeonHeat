@@ -14,7 +14,7 @@ import {
   type BufferGeometry,
   type Scene,
 } from 'three';
-import { lerp, lerpAngle, type World } from '@neonheat/sim';
+import { groundHeight, lerp, lerpAngle, type MapContent, type World } from '@neonheat/sim';
 import { Palette } from './palette';
 import { BLOOM_LAYER } from './layers';
 import { MeshBuilder } from './mesh-kit';
@@ -231,19 +231,21 @@ export class PeopleView {
   ): void {
     const i = this.n++;
     const o = this.o;
+    // People stand on the pavement, not in it.
+    const gy = this.map ? groundHeight(this.map, x, z) : 0;
     // Stride frequency rises with speed; a run swings wider than a walk.
     rig.phase += dt * (2.2 + speed * 1.15);
     const amp = Math.min(0.85, speed * 0.16);
     const swing = Math.sin(rig.phase) * amp;
     const bob = speed > 0.3 ? Math.abs(Math.cos(rig.phase)) * 0.05 * Math.min(1, speed / 4) : 0;
     const lean = Math.min(0.22, speed * 0.025);
-    o.position.set(x, bob, z);
+    o.position.set(x, gy + bob, z);
     o.scale.setScalar(SCALE);
     if (pose === 'down') {
-      o.position.y = 0.2;
+      o.position.y = gy + 0.2;
       o.rotation.set(-Math.PI / 2, facing, 0, 'YXZ');
     } else if (pose === 'roll') {
-      o.position.y = 0.5 * SCALE * Math.sin(rollT * Math.PI) * 0.5;
+      o.position.y = gy + 0.5 * SCALE * Math.sin(rollT * Math.PI) * 0.5;
       o.rotation.set(rollT * Math.PI * 2, facing, 0, 'YXZ');
       o.scale.set(SCALE, SCALE * 0.8, SCALE);
     } else if (pose === 'cower') {
@@ -285,7 +287,10 @@ export class PeopleView {
     }
   }
 
+  private map: MapContent | null = null;
+
   update(world: World, alpha: number, dt: number, time: number): void {
+    this.map = world.content.map;
     const o = this.o;
     this.n = 0;
 
@@ -313,10 +318,11 @@ export class PeopleView {
       o.rotation.set(Math.PI / 2, 0, 0);
       o.updateMatrix();
       this.pistol.matrix.multiplyMatrices(this.local, o.matrix);
-      this.ring.position.set(x, 0.06, z);
+      const ringY = this.map ? groundHeight(this.map, x, z) : 0;
+      this.ring.position.set(x, ringY + 0.06, z);
       const pulse = 1 + Math.sin(time * 4) * 0.05;
       this.ring.scale.setScalar(pulse);
-      this.facingMark.position.set(x + Math.sin(facing) * 1.2, 0.07, z + Math.cos(facing) * 1.2);
+      this.facingMark.position.set(x + Math.sin(facing) * 1.2, ringY + 0.07, z + Math.cos(facing) * 1.2);
       this.facingMark.rotation.set(0, facing - Math.PI / 2, 0);
     }
 

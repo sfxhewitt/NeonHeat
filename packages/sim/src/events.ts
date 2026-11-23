@@ -1,5 +1,5 @@
 /** Events the simulation emits each step, for rendering, audio, haptics and missions. */
-export type ImpactOther = 'static' | 'vehicle' | 'ped' | 'player';
+export type ImpactOther = 'static' | 'prop' | 'vehicle' | 'ped' | 'player';
 
 export interface ImpactEvent {
   type: 'impact';
@@ -71,8 +71,22 @@ export interface PropBrokenEvent {
   byPlayer: boolean;
 }
 
+/** A wheel pair rode up onto (or dropped off) a kerb. */
+export interface KerbEvent {
+  type: 'kerb';
+  vehicleId: number;
+  x: number;
+  z: number;
+  /** Speed into the kerb (m/s): drives the jolt, sound and haptics. */
+  strength: number;
+  /** Mounting the pavement rather than dropping off it. */
+  up: boolean;
+  byPlayer: boolean;
+}
+
 export type SimEvent =
   | PropBrokenEvent
+  | KerbEvent
   | ImpactEvent
   | VehicleDestroyedEvent
   | ShotEvent

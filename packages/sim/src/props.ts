@@ -1,6 +1,7 @@
 import type RAPIER_NS from '@dimforge/rapier3d-simd-compat';
 import type { PropsConfig } from './content';
 import { Groups, interactionGroups } from './physics';
+import { layoutLamps } from './street';
 import type { World } from './world';
 
 export interface Prop {
@@ -17,17 +18,22 @@ export interface Prop {
   /** Seconds since it was smashed. */
   brokenFor: number;
   collider: RAPIER_NS.Collider | null;
+  /** For street lamps: the index in layoutLamps(map), so the renderer can match its post and light. */
+  lamp: number;
+  /** For lamps: the cold-white variety. */
+  cold: boolean;
 }
 
 const CELL = 16;
 
 /**
- * Street furniture. Everything is a static collider, so people and slow cars
- * bump into it. Breakable props (bins, benches, bollards, hydrants, crates,
- * barriers) are smashed by a vehicle arriving fast enough: the collider is
- * switched off just before the physics step, so the car ploughs through with
- * a little lost speed instead of stopping dead, and the prop comes back a
- * while later once nobody is near.
+ * Street furniture and street lamps. Everything is a static collider, so people
+ * bump into it. Breakable props (everything a car could plausibly flatten: bins,
+ * benches, bollards, hydrants, crates, barriers, lamps, trees, vending machines)
+ * are smashed by a vehicle arriving at more than a crawl: the collider is
+ * switched off just before the physics step, so the car ploughs through, losing
+ * some speed and hull by how heavy the thing was, instead of stopping dead. The
+ * prop comes back a while later once nobody is near.
  */
 export class PropSystem {
   readonly props: Prop[] = [];
@@ -39,7 +45,9 @@ export class PropSystem {
   ) {
     const { R, physics } = world;
     const groups = interactionGroups(Groups.static, 0xffff);
-    world.content.map.props.forEach((p, id) => {
+    const lamps = layoutLamps(world.content.map).map((l, lamp) => ({ kind: 'lamp', x: l.x, z: l.z, yaw: l.yaw, lamp, cold: l.cold }));
+    const all = [...world.content.map.props.map((p) => ({ ...p, lamp: -1, cold: false })), ...(config.kinds['lamp'] ? lamps : [])];
+    all.forEach((p, id) => {
       const k = config.kinds[p.kind]!;
       const collider = physics.createCollider(
         R.ColliderDesc.cuboid(k.w / 2, k.h / 2, k.d / 2)
@@ -48,7 +56,7 @@ export class PropSystem {
           .setCollisionGroups(groups)
           .setFriction(0.1),
       );
-      world.registerCollider(collider, 'static', -1);
+      world.registerCollider(collider, 'prop', id);
       this.props.push({ ...p, id, w: k.w, d: k.d, h: k.h, breakable: k.breakable, broken: false, brokenFor: 0, collider });
       if (k.breakable) {
         const key = this.key(p.x, p.z);
@@ -99,6 +107,7 @@ export class PropSystem {
             v.vx *= 1 - k.slowdown;
             v.vz *= 1 - k.slowdown;
             v.body?.setLinvel({ x: v.vx, y: 0, z: v.vz }, true);
+            if (k.damage > 0) w.damageVehicle(v, k.damage / v.params.armour);
             w.events.push({
               type: 'propBroken',
               propId: id,

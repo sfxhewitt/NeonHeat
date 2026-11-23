@@ -15,5 +15,9 @@ export const FeelConfigSchema = z.object({
   vibrateMaxMs: z.number().nonnegative(),
   sparksPerStrength: z.number().nonnegative(),
   sparksMax: z.number().int().nonnegative(),
+  /** Riding over a kerb: a small jolt and tap, scaled by speed into the kerb. */
+  kerbShakePerStrength: z.number().nonnegative().default(0.012),
+  kerbShakeMax: z.number().nonnegative().default(0.3),
+  kerbVibrateMs: z.number().nonnegative().default(9),
 });
 export type FeelConfig = z.infer<typeof FeelConfigSchema>;

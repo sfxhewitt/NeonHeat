@@ -12,6 +12,7 @@ import { TrafficSystem } from './traffic';
 import { PoliceSystem } from './police';
 import { PedSystem } from './peds';
 import { PropSystem } from './props';
+import { kerbAngle, onPavement } from './street';
 import { PlayerController, type Interactable } from './player';
 
 export type VehicleRole = 'parked' | 'player' | 'traffic' | 'police' | 'squad';
@@ -46,6 +47,9 @@ export interface Vehicle extends ArcadeState {
   setVz: number;
   /** Seconds since the last impact this vehicle took. */
   sinceImpact: number;
+  /** Front and rear axles up on the pavement (the renderer lifts and pitches the body). */
+  kerbFront: boolean;
+  kerbRear: boolean;
   ai: AiState;
 }
 
@@ -157,6 +161,16 @@ export class World {
     v.body?.setRotation({ x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) }, true);
     v.body?.setLinvel({ x: 0, y: 0, z: 0 }, true);
     v.body?.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    this.settleKerbs(v);
+  }
+
+  /** Match the kerb flags to where the car now stands, so a teleport or spawn makes no bump. */
+  private settleKerbs(v: Vehicle): void {
+    const axle = v.params.length * 0.32;
+    const fx = Math.sin(v.yaw) * axle;
+    const fz = Math.cos(v.yaw) * axle;
+    v.kerbFront = onPavement(this.content.map, v.x + fx, v.z + fz);
+    v.kerbRear = onPavement(this.content.map, v.x - fx, v.z - fz);
   }
 
   /** Apply damage to a vehicle; handles the destroyed transition. */
@@ -305,6 +319,7 @@ export class World {
     v.body = body;
     v.collider = collider;
     this.owners.set(collider.handle, { kind: 'vehicle', id: v.id });
+    this.settleKerbs(v);
     return v;
   }
 
@@ -375,6 +390,7 @@ export class World {
       v.yawRate = av.y;
       v.sinceImpact += SIM_DT;
       this.detectImpact(v);
+      this.kerbs(v);
     }
     this.peds.postStep();
     this.playerCtl.postStep();
@@ -384,6 +400,45 @@ export class World {
     this.handlePlayerWreck();
     this.tick++;
     this.time = this.tick * SIM_DT;
+  }
+
+  /**
+   * Kerbs are bumps, not walls: each axle that rides up onto (or drops off) the
+   * pavement costs a little speed, more for a square-on hit than a glancing one,
+   * and raises an event for the jolt and haptics.
+   */
+  private kerbs(v: Vehicle): void {
+    const map = this.content.map;
+    const fx = Math.sin(v.yaw);
+    const fz = Math.cos(v.yaw);
+    const axle = v.params.length * 0.32;
+    const front = onPavement(map, v.x + fx * axle, v.z + fz * axle);
+    const rear = onPavement(map, v.x - fx * axle, v.z - fz * axle);
+    if (front === v.kerbFront && rear === v.kerbRear) return;
+    const cfg = this.content.vehicles.kerb;
+    const speed = Math.hypot(v.vx, v.vz);
+    let crossings = 0;
+    let up = false;
+    let perp = 0;
+    for (const [now, was, ax, az] of [
+      [front, v.kerbFront, v.x + fx * axle, v.z + fz * axle],
+      [rear, v.kerbRear, v.x - fx * axle, v.z - fz * axle],
+    ] as const) {
+      if (now === was) continue;
+      crossings++;
+      up ||= now;
+      perp = Math.max(perp, kerbAngle(map, ax, az, v.vx, v.vz, speed));
+    }
+    v.kerbFront = front;
+    v.kerbRear = rear;
+    if (speed < 0.5) return;
+    // Up is a thump on the tyres; down is gentler.
+    const loss = cfg.speedLoss * (0.3 + 0.7 * perp) * (up ? 0.5 : 0.2) * crossings;
+    v.vx *= 1 - loss;
+    v.vz *= 1 - loss;
+    v.body?.setLinvel({ x: v.vx, y: 0, z: v.vz }, true);
+    if (speed < cfg.minBumpSpeed) return;
+    this.events.push({ type: 'kerb', vehicleId: v.id, x: v.x, z: v.z, strength: speed * (0.4 + 0.6 * perp), up, byPlayer: v === this.player.vehicle });
   }
 
   private detectImpact(v: Vehicle): void {
@@ -505,6 +560,8 @@ function makeVehicle(id: number, params: VehicleParams): Vehicle {
     setVx: 0,
     setVz: 0,
     sinceImpact: 10,
+    kerbFront: false,
+    kerbRear: false,
     ai: makeAiState(),
   };
 }
@@ -528,6 +585,7 @@ function resetVehicle(v: Vehicle, variantId: string, params: VehicleParams, role
   v.hackable = false;
   v.setVx = v.setVz = 0;
   v.sinceImpact = 10;
+  v.kerbFront = v.kerbRear = false;
   const c = v.controls;
   c.steer = c.throttle = c.brake = 0;
   c.handbrake = false;

@@ -216,11 +216,22 @@ export class LightField {
   }
 
   /** Add a light that never moves (street lamps, signs). Call before the first frame. */
-  addStatic(x: number, y: number, z: number, radius: number, colour: number, intensity: number): void {
-    if (this.staticCount >= MAX_LIGHTS / 2) return;
-    this.write(this.staticCount++, x, y, z, radius, colour, intensity, 0, 0, -2, 0);
+  addStatic(x: number, y: number, z: number, radius: number, colour: number, intensity: number): number {
+    if (this.staticCount >= MAX_LIGHTS / 2) return -1;
+    const slot = this.staticCount++;
+    this.write(slot, x, y, z, radius, colour, intensity, 0, 0, -2, 0);
+    this.staticCol.set((this.aCol.array as Float32Array).subarray(slot * 3, slot * 3 + 3), slot * 3);
     this.count = this.staticCount;
+    return slot;
   }
+
+  /** Switch a static light off (a smashed lamp or vending machine) or back on. */
+  setStaticOn(slot: number, on: boolean): void {
+    if (slot < 0 || slot >= this.staticCount) return;
+    const c = this.aCol.array as Float32Array;
+    for (let k = 0; k < 3; k++) c[slot * 3 + k] = on ? this.staticCol[slot * 3 + k]! : 0;
+  }
+  private readonly staticCol = new Float32Array((MAX_LIGHTS / 2) * 3);
 
   /** Start a frame's dynamic lights. */
   begin(): void {

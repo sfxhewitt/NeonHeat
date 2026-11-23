@@ -1,5 +1,5 @@
 import { CanvasTexture, DynamicDrawUsage, InstancedMesh, MeshBasicMaterial, Object3D, PlaneGeometry, type Scene } from 'three';
-import { lerp, type World } from '@neonheat/sim';
+import { lerp, type World, groundHeight } from '@neonheat/sim';
 
 /** Blob shadows under every car, ped and the player: one instanced draw call, no real-time shadows. */
 export class BlobShadows {
@@ -30,9 +30,11 @@ export class BlobShadows {
     const o = this.o;
     let n = 0;
     const cap = this.mesh.instanceMatrix.count;
+    const map = world.content.map;
     const put = (x: number, z: number, yaw: number, w: number, l: number): void => {
       if (n >= cap) return;
-      o.position.set(x, 0.04, z);
+      // Sit on the pavement where there is one, not under it.
+      o.position.set(x, 0.04 + groundHeight(map, x, z), z);
       o.rotation.set(0, yaw, 0);
       o.scale.set(w, 1, l);
       o.updateMatrix();
