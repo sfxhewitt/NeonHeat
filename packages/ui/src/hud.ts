@@ -135,7 +135,8 @@ export class Hud {
       <div class="nh-heatflash" hidden></div>
       <div class="nh-district" hidden><small>ENTERING</small><span></span></div>
       <div class="nh-dialogue" hidden></div>
-      <div class="nh-toast" hidden></div>`;
+      <div class="nh-toast" hidden></div>
+      <div class="nh-hint" role="note" hidden></div>`;
     this.heatEl = this.root.querySelector('.nh-heat') as HTMLElement;
     for (let i = 0; i < maxChevrons; i++) {
       const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');

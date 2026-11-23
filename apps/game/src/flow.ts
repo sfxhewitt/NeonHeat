@@ -297,7 +297,7 @@ export class GameFlow {
     const r = d.runner;
     s.objective = r && r.state === 'running' ? { x: r.view.targetX, z: r.view.targetZ } : null;
     s.payphones.length = 0;
-    if (!d.active) for (const m of d.missions) s.payphones.push({ x: m.giver.pos[0], z: m.giver.pos[2], crew: m.faction, title: m.title });
+    if (!d.active) for (const gv of d.givers) s.payphones.push({ x: gv.x, z: gv.z, crew: gv.crew, title: gv.title });
     if (s.waypoint && Math.hypot(s.waypoint.x - x, s.waypoint.z - z) < 12) this.setWaypoint(null);
     this.routeTimer -= dt;
     this.refreshRoute(false);
@@ -390,8 +390,11 @@ export class GameFlow {
     }
     return {
       active,
-      respect: save.rep,
-      available: d.missions.map((m) => ({ title: m.title, crew: m.faction, done: save.completedMissions.includes(m.id) })),
+      respect: save.respect,
+      available: [
+        ...d.givers.map((gv) => ({ title: gv.title, crew: gv.crew, done: false })),
+        ...d.missions.filter((m) => save.completedMissions.includes(m.id)).map((m) => ({ title: m.title, crew: m.faction, done: true })),
+      ],
     };
   }
 

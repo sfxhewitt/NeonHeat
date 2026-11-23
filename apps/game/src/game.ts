@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SkyGrade } from './sky';
 import { FixedStepLoop, SIM_DT, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type Prop, type SimEvent } from '@neonheat/sim';
-import { MissionBot, MissionDirector } from '@neonheat/missions';
+import { MissionBot, MissionDirector, type MissionResult } from '@neonheat/missions';
 import { IndexedDbStorage, MemoryStorage, SaveManager, applyMissionResult } from '@neonheat/save';
 import {
   BlobShadows,
@@ -96,6 +96,8 @@ export class Game {
   private hackHideTimer = 0;
   private freeRoamSaveTimer = 0;
   private giversShown = false;
+  /** The last completed job (time, damage, pay, respect), for the result card and tests. */
+  lastResult: MissionResult | null = null;
   private readonly projected = new THREE.Vector3();
   readonly postfx: PostFx;
   tier: TierName = 'mid';
@@ -163,12 +165,20 @@ export class Game {
       else if (!this.flow.blocking && !this.closeFail) this.setPaused(false);
     });
     await this.saves.load().catch((err: unknown) => console.warn('Save unavailable', err));
+    const save = this.saves.current;
+    this.director.setProgress({ completed: save.completedMissions, respect: save.respect });
   }
 
   private setupMissions(bot: boolean): void {
     const mc = this.content.missions;
-    const d = new MissionDirector(this.world, mc.missions, mc.squads, mc.dialogue, { autoRetry: bot });
+    this.world.actors.configure(mc.actors);
+    const d = new MissionDirector(this.world, mc.missions, mc.squads, mc.dialogue, { autoRetry: bot, crews: mc.crews });
     this.director = d;
+    d.onWarning = (msg) => console.warn(`Missions: ${msg}`);
+    for (const msg of d.warnings) console.warn(`Missions: ${msg}`);
+    d.onGiversChanged = () => (this.giversShown = false);
+    const coarse = matchMedia('(pointer: coarse)').matches;
+    d.host.onHint = (text, desktop, seconds) => this.hud.showHint(!coarse && desktop ? desktop : text, undefined, seconds);
     if (bot) this.bot = new MissionBot(this.world, d);
     d.host.onDialogue = (speaker, text) => this.hud.showDialogue(speaker, text, performance.now(), 6);
     d.onStart = (m) => this.flow.missionStarted(m);
@@ -191,8 +201,10 @@ export class Game {
       ]);
     };
     d.onComplete = (r) => {
-      this.hud.toast(`JOB DONE\n+${r.mission.rewards.credits.toLocaleString('en-GB')} cr`, performance.now(), 3.5);
-      this.saves.current = applyMissionResult(this.saves.current, r.mission.id, r.mission.rewards);
+      this.lastResult = r;
+      const mins = `${Math.floor(r.seconds / 60)}:${String(Math.floor(r.seconds % 60)).padStart(2, '0')}`;
+      this.hud.toast(`JOB DONE  ${mins}\n+${r.pay.total.toLocaleString('en-GB')} cr`, performance.now(), 3.5);
+      this.saves.current = applyMissionResult(this.saves.current, r.missionId, { credits: r.pay.total, rep: r.respect, unlocks: r.unlocks }, r.seconds);
       this.autosave('mission end');
       this.flow.missionCompleted(r);
     };
@@ -453,12 +465,12 @@ export class Game {
       let gx = 0;
       let gz = 0;
       const pl = this.world.player;
-      for (const m of d.missions) {
-        const dist = Math.hypot(m.giver.pos[0] - pl.x, m.giver.pos[2] - pl.z);
+      for (const g of d.givers) {
+        const dist = Math.hypot(g.x - pl.x, g.z - pl.z);
         if (dist < best) {
           best = dist;
-          gx = m.giver.pos[0];
-          gz = m.giver.pos[2];
+          gx = g.x;
+          gz = g.z;
         }
       }
       if (best < Infinity && !d.active) {
@@ -467,7 +479,7 @@ export class Game {
         this.arrow.set(p.x, p.y, p.z > 1);
       } else this.arrow.set(null);
       if (!d.active && !this.giversShown) {
-        this.markers.setGivers(d.missions.map((m) => ({ x: m.giver.pos[0], z: m.giver.pos[2] })));
+        this.markers.setGivers(d.givers);
         this.giversShown = true;
       }
     }

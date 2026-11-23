@@ -1,0 +1,43 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "rustmouth_01_scrap_value",
+  "faction": "rustmouth",
+  "title": "Scrap Value",
+  "summary": "The tide brought in salvage all along the Saltworks. The Gaffer wants it in his van before the gulls get it.",
+  "chain": 1,
+  "giver": { "type": "payphone", "at": "marker:saltworks_payphone_1" },
+  "prerequisites": { "missions": ["story_01_first_call"] },
+  "budgetMinutes": 6,
+  "spawns": {
+    "scrap_van": { "variant": "brick", "at": "marker:saltworks_lot_4", "yaw": 0, "role": "target" }
+  },
+  "objectives": [
+    {
+      "id": "van",
+      "type": "stealVehicle",
+      "vehicle": "spawn:scrap_van",
+      "text": "Take the Gaffer's van",
+      "onStart": [{ "do": "dialogue", "line": "r01_intro" }]
+    },
+    {
+      "id": "salvage",
+      "type": "collect",
+      "pickups": ["marker:saltworks_road_7", "marker:saltworks_road_1", "marker:saltworks_lot_3", "marker:saltworks_door_3", "marker:saltworks_road_3"],
+      "radius": 7,
+      "vehicle": "spawn:scrap_van",
+      "text": "Pick up the salvage",
+      "timeLimitSec": 240,
+      "onStart": [{ "do": "dialogue", "line": "r01_salvage" }]
+    },
+    {
+      "id": "weigh_in",
+      "type": "deliverVehicle",
+      "vehicle": "spawn:scrap_van",
+      "target": "marker:chopshop_1",
+      "radius": 10,
+      "onComplete": [{ "do": "dialogue", "line": "r01_done" }]
+    }
+  ],
+  "rewards": { "credits": 900, "rep": { "rustmouth": 8 }, "timeBonus": { "underSec": 200, "credits": 250 } },
+  "failPolicy": "checkpoint"
+}

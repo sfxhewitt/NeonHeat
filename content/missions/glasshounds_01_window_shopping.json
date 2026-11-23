@@ -1,0 +1,46 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "glasshounds_01_window_shopping",
+  "faction": "glasshounds",
+  "title": "Window Shopping",
+  "summary": "Vesper has a buyer for a Vandal. Any Vandal. Get one, get it resprayed, get paid.",
+  "chain": 1,
+  "giver": { "type": "payphone", "at": "marker:ashgrove_payphone_3" },
+  "prerequisites": { "missions": ["story_01_first_call"] },
+  "budgetMinutes": 5,
+  "spawns": {
+    "kerbside_vandal": { "variant": "vandal", "at": "marker:lantern_lot_2", "role": "target" }
+  },
+  "onStart": [{ "do": "spawn", "refs": ["spawn:kerbside_vandal"] }],
+  "objectives": [
+    {
+      "id": "steal",
+      "type": "stealVehicle",
+      "variants": ["vandal"],
+      "onStart": [{ "do": "dialogue", "line": "gh01_intro" }],
+      "onComplete": [{ "do": "setHeat", "value": 1 }, { "do": "dialogue", "line": "gh01_alarm" }]
+    },
+    { "id": "to_respray", "type": "reach", "target": "marker:respray_1", "radius": 8, "vehicle": "any", "text": "Get it to the Fresh Coat respray" },
+    {
+      "id": "respray",
+      "type": "wait",
+      "target": "marker:respray_1",
+      "radius": 9,
+      "durationSec": 8,
+      "vehicle": "any",
+      "text": "Sit tight while they spray it",
+      "onComplete": [{ "do": "setHeat", "value": 0 }, { "do": "dialogue", "line": "gh01_fresh" }]
+    },
+    {
+      "id": "deliver",
+      "type": "reach",
+      "target": "marker:chopshop_1",
+      "radius": 8,
+      "vehicle": "any",
+      "text": "Deliver it to the chop shop",
+      "onComplete": [{ "do": "dialogue", "line": "gh01_done" }]
+    }
+  ],
+  "rewards": { "credits": 800, "rep": { "glasshounds": 8 } },
+  "failPolicy": "checkpoint"
+}

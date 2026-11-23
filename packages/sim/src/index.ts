@@ -15,6 +15,8 @@ export * from './peds';
 export * from './player';
 export * from './props';
 export * from './street';
+export * from './actors';
 export * from './citygen';
+export * from './road-main';
 export * from './roster';
 export * from './weather';

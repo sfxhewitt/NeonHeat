@@ -42,6 +42,68 @@ The game now has a proper front end, all in `packages/ui` with the wiring in `ap
 - Hook the AudioEngine to `flow.audio.onFirstGesture` / `onTestSound` and read the volume settings.
 - Combat: call `hud.setWeapon` and `hud.setArmour` each frame (they only write on change).
 - Tutorial mission `hint` event: call `game.hud.showHint(text, controlId)`.
+## Missions and campaign (23 Nov 2026)
+
+There is now a campaign: 26 missions across five crews, with a six-part story thread, all running on the generated Vey City.
+
+- **Crews.** Each crew's payphones ring in its colour, and each colour is paired with a shape (`content/data/crews.json`):
+
+  | Crew | Contact | Colour | Shape |
+  |---|---|---|---|
+  | Glasshounds | Vesper | cyan | diamond |
+  | Kurogane | Mr Sato-Reyes | red | square |
+  | Velvet Choir | Mother Lune | magenta | circle |
+  | Rustmouth | Gaffer Odge | acid yellow | triangle |
+  | Null Saints | Litany | green | hexagon |
+
+  Several payphones ring at once, but only for jobs whose prerequisites are met. A payphone rings for one job at a time.
+- **Story.** `story_01_first_call` is the tutorial. It shows hint lines for touch and keyboard controls, and is the only job a new game offers. The thread then runs through Cold Boot, Paper Trail, Salt and Iron and Dead Air to the finale, `story_06_lattice_fall`. Each crew has a chain of four jobs. The later jobs in a chain are gated by crew respect.
+- **Objective types.** There are 16, all data-driven:
+  - reach, hack (a vehicle or an on-foot terminal), deliverVehicle, stealVehicle, destroyVehicle (can have an escape point), eliminate;
+  - protect (escort or defend), tail, chase (disable or wreck), escape, race (with AI opponents), collect;
+  - wait, dropOff (with passengers), photograph, perform (dodge, fire, enter, exit).
+  
+  Any objective can have `timeLimitSec` and `failOn` conditions:
+  - vehicle destroyed;
+  - actor killed;
+  - HEAT or TRACE at a level;
+  - player on foot;
+  - player too far away.
+- **Schema.**
+  - The giver takes `at: "marker:<id>"`; the old `pos` form still works.
+  - Missions can declare their own `spawns` and `actors`. A `spawn:` ref looks in the mission's own spawns first, then in the map's.
+  - An offset that lands inside a building is nudged out (`freeSpot` in `packages/missions/src/refs.ts`).
+  - New mission fields: `prerequisites` (missions and/or crew respect), `chain`, `story`, and `rewards` (credits, respect per crew, unlocks, time bonus).
+- **Actors.** `packages/sim/src/actors.ts` handles scripted people (guards, followers, fleeing targets, armed hostiles) and drivers (route, flee, ram, hold).
+- **Main road network.** `packages/sim/src/road-main.ts` keeps routing on the main road network. The generated city has dead-end stubs that are islands in the road graph.
+- **Save v2.** Adds respect per crew, unlocks and each mission's best time and number of passes. A migration converts v1 saves.
+- **Results.** The director reports each completed job's time, damage, pay (with any time bonus), respect and unlocks. The game shows the time and pay, and writes the result to the save.
+- **mission-lint.** It now also checks:
+  - refs and objective fields;
+  - squads, crews and HEAT levels;
+  - whether targets can be reached on foot or by car;
+  - a rough duration estimate against the budget;
+  - for the whole campaign: unknown prerequisites, cycles, whether every job can be reached from a new game, chain order and the story start.
+  
+  Warnings do not fail the run unless you pass `--strict`. `--map <file>` checks against another map.
+
+### Tests
+
+- `mission-runner.test.ts` covers every objective type against a fake host.
+- `missions.test.ts` covers:
+  - content checks (counts, types, squads, a clean lint on the real city);
+  - the schema;
+  - lint and campaign errors;
+  - payphones and progress;
+  - tutorial hints;
+  - Hot Chrome in the world (checkpoint, shunted target, completion result).
+- `mission-bot.test.ts`: the bot plays Hot Chrome, Scrap Value, Handshake, Test Drive and the tutorial headlessly in the city.
+
+### Open questions
+
+- HEAT tops out at 3 in `heat.json`. The finale was written for 4, and now uses 3 until police work raises the cap.
+- Auto-aim only targets police and squad cars. Hostile mission actors are hit by a segment test along the player's shots. Auto-aim should also consider `world.actors.nearestHostile`.
+- Mission durations are estimated from straight-line distances. They need checking by playing each job on a phone.
 
 ## Kerbs and street furniture (23 Nov 2026)
 

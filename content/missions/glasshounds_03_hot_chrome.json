@@ -3,7 +3,10 @@
   "id": "glasshounds_03_hot_chrome",
   "faction": "glasshounds",
   "title": "Hot Chrome",
-  "giver": { "type": "payphone", "pos": [594.03, 0, -758.8] },
+  "summary": "Kurogane left a prototype in a car park. Unguarded, apparently.",
+  "chain": 3,
+  "giver": { "type": "payphone", "at": "marker:ashgrove_payphone_1" },
+  "prerequisites": { "missions": ["glasshounds_02_test_drive"] },
   "budgetMinutes": 6,
   "objectives": [
     { "id": "goto_lot", "type": "reach", "target": "marker:glass_lot_2", "radius": 6,

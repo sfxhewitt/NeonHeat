@@ -160,8 +160,8 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
     w.heat.clear();
-    const giver = window.__neon!.game.director.missions[0].giver.pos;
-    w.playerCtl.teleport(giver[0], giver[2] + 1);
+    const g = window.__neon!.unlockJob('glasshounds_03_hot_chrome')!;
+    w.playerCtl.teleport(g.x + 1, g.z + 1);
   });
   await expect(context).toHaveText('ANSWER');
   await context.tap();
@@ -170,7 +170,7 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
 
   // Reach the lot, then hack the prototype on the touch panel.
   await page.evaluate(() => {
-    const p = window.__neon!.game.world.content.map.markers.glass_lot_2.pos;
+    const p = window.__neon!.game.world.content.map.markers['glass_lot_2'].pos;
     window.__neon!.game.world.playerCtl.teleport(p[0], p[2]);
   });
   await expect.poll(() => page.evaluate(() => window.__neon!.mission().objective)).toBe('hack_car');
@@ -201,7 +201,7 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect(page.locator('.nh-mission__timer')).toHaveText(/^[0-3]:[0-5]\d$/);
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
-    const p = w.content.map.markers.chopshop_1.pos;
+    const p = w.content.map.markers['chopshop_1'].pos;
     w.teleportVehicle(w.player.vehicle, p[0], p[2], Math.PI);
   });
   // The job-done card: title, pay, Continue.

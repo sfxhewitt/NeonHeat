@@ -14,6 +14,8 @@ test('the bot completes Hot Chrome in the browser build and the result is saved'
   page.on('pageerror', (e) => errors.push(String(e)));
   await page.goto('/?autostart=1&bot=1&quality=low');
   await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
+  // A new game rings only the tutorial; open Hot Chrome's chain for the bot.
+  expect(await page.evaluate(() => window.__neon!.unlockJob('glasshounds_03_hot_chrome'))).not.toBeNull();
 
   const seen = new Set<string>();
   let hackSeen = false;
@@ -47,7 +49,7 @@ test('the bot completes Hot Chrome in the browser build and the result is saved'
         req.onerror = () => reject(req.error);
       }),
   );
-  expect(saved).toMatchObject({ version: 1, credits: 1500, completedMissions: ['glasshounds_03_hot_chrome'] });
+  expect(saved).toMatchObject({ version: 2, credits: 1500, completedMissions: ['glasshounds_03_hot_chrome'], respect: { glasshounds: 10, kurogane: -15 } });
   await expect(page.locator('.nh-toast')).toContainText('JOB DONE');
   expect(errors).toEqual([]);
 });

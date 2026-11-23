@@ -1,0 +1,52 @@
+{
+  "$schema": "./mission.schema.json",
+  "id": "velvet_04_last_dance",
+  "faction": "velvet_choir",
+  "title": "Last Dance",
+  "summary": "Seraphine is singing in the plaza tonight. Kurogane wants her contract, and they are not bringing a pen.",
+  "chain": 4,
+  "giver": { "type": "payphone", "at": "marker:lantern_payphone_1" },
+  "prerequisites": { "missions": ["velvet_03_bad_reviews"], "respect": { "velvet_choir": 25 } },
+  "budgetMinutes": 6,
+  "actors": {
+    "seraphine": { "faction": "velvet_choir", "at": "marker:plaza", "behaviour": "idle", "hp": 6, "role": "vip" },
+    "suit_1": { "faction": "kurogane", "at": "marker:plaza", "offset": [24, -6], "behaviour": "guard", "hostile": true, "group": "suits" },
+    "suit_2": { "faction": "kurogane", "at": "marker:plaza", "offset": [-22, 8], "behaviour": "guard", "hostile": true, "group": "suits" },
+    "suit_3": { "faction": "kurogane", "at": "marker:plaza", "offset": [6, 26], "behaviour": "guard", "hostile": true, "group": "suits" },
+    "suit_4": { "faction": "kurogane", "at": "marker:plaza", "offset": [-8, -25], "behaviour": "guard", "hostile": true, "hp": 2, "group": "suits" }
+  },
+  "objectives": [
+    {
+      "id": "arrive",
+      "type": "reach",
+      "target": "marker:plaza",
+      "radius": 12,
+      "text": "Get to the plaza before the encore",
+      "onStart": [{ "do": "dialogue", "line": "v04_intro" }, { "do": "spawn", "refs": ["actor:seraphine"] }]
+    },
+    {
+      "id": "defend",
+      "type": "protect",
+      "target": "actor:seraphine",
+      "durationSec": 60,
+      "text": "Keep Seraphine alive until the set ends",
+      "onStart": [
+        { "do": "dialogue", "line": "v04_suits" },
+        { "do": "aggro", "refs": ["actor:suit_1", "actor:suit_2"], "target": "actor:seraphine", "delaySec": 3 },
+        { "do": "aggro", "refs": ["actor:suit_3"], "target": "actor:seraphine", "delaySec": 18 },
+        { "do": "aggro", "refs": ["actor:suit_4"], "target": "actor:seraphine", "delaySec": 32 }
+      ]
+    },
+    {
+      "id": "clear",
+      "type": "eliminate",
+      "targets": ["actor:suit_1", "actor:suit_2", "actor:suit_3", "actor:suit_4"],
+      "text": "Clear the rest of the suits out",
+      "failOn": [{ "if": "actorKilled", "target": "actor:seraphine", "message": "Seraphine was killed" }],
+      "onStart": [{ "do": "aggro", "refs": ["actor:suit_1", "actor:suit_2", "actor:suit_3", "actor:suit_4"] }],
+      "onComplete": [{ "do": "dialogue", "line": "v04_done" }]
+    }
+  ],
+  "rewards": { "credits": 2200, "rep": { "velvet_choir": 12, "kurogane": -10 } },
+  "failPolicy": "checkpoint"
+}
