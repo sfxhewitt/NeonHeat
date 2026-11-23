@@ -283,6 +283,8 @@ export class MissionDirector {
         if (running) this.damageHealth += e.amount;
       } else if (e.type === 'playerDied') {
         if (running) r.failWith('You went down. The job went with you.');
+      } else if (e.type === 'playerBusted') {
+        if (running) r.failWith('Booked. The job is blown.');
       } else if (e.type === 'interact' && e.id.startsWith('giver:') && !this.active) {
         this.start(e.id.slice('giver:'.length));
       } else if (e.type === 'interact' && e.id.startsWith('terminal:') && !this.hack && running) {
