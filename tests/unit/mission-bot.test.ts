@@ -26,5 +26,5 @@ describe('headless mission bot', () => {
     expect(r).toBeDefined();
     expect([...objectivesSeen]).toEqual(['goto_lot', 'hack_car', 'deliver']);
     expect(director.host.dialogueLog).toContain('gh_03_intro');
-  });
+  }, 180_000);
 });

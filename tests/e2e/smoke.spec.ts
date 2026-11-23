@@ -105,6 +105,7 @@ test('sound unlocks on the first tap and plays every cue without errors', async 
   const errors = collectErrors(page);
   await page.goto('/?quality=low');
   await page.getByRole('button', { name: 'TAP TO START' }).click();
+  await page.getByRole('menuitem', { name: /New game/ }).click();
   await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
   await page.waitForFunction(() => window.__neon!.game.sound.audio.engine.pending === 0, null, { timeout: 30_000 });
   expect(await page.evaluate(() => window.__neon!.game.sound.audio.engine.ctx?.state)).toBe('running');
@@ -117,7 +118,9 @@ test('sound unlocks on the first tap and plays every cue without errors', async 
     a.sting('missionComplete');
   });
   await page.keyboard.press('Escape');
+  await page.locator('[data-tab="settings"]').click();
   await expect(page.locator('input[data-vol="musicVolume"]')).toBeVisible();
+  await expect(page.locator('[data-k="radioStation"] button')).toHaveCount(5);
   await page.keyboard.press('Escape');
   expect(errors).toEqual([]);
 });
