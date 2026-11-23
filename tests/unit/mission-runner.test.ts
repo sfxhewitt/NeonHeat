@@ -152,6 +152,12 @@ describe('MissionRunner objective types', () => {
     expect(r.state).toBe('failed');
     expect(r.failReason).toMatch(/spotted/);
     r.retry();
+    // Far away before ever closing in (as after a retry): not lost yet.
+    h.player = { x: 100, z: 0 };
+    tick(r, 6);
+    expect(r.state).toBe('running');
+    h.player = { x: 30, z: 0 };
+    tick(r, 0.5);
     h.player = { x: 100, z: 0 };
     tick(r, 5.5);
     expect(r.failReason).toMatch(/lost/);

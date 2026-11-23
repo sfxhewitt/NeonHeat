@@ -867,7 +867,7 @@
   },
   "damage": {
     "impactThreshold": 4,
-    "damagePerMs": 2.2,
+    "damagePerMs": 1.6,
     "destroyedEjectSec": 1.5
   },
   "kerb": {
