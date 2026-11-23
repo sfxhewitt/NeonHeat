@@ -37,6 +37,26 @@ export interface Point {
 
 const ALLEY_COST = 1.6;
 
+/** A segment whose end stops short of a crossing road's centre line (at its kerb) extended to meet it. */
+function joinToCrossing(s: RoadSegment, all: readonly RoadSegment[]): RoadSegment {
+  const alongX = s.z0 === s.z1;
+  let { x0, x1, z0, z1 } = s;
+  for (const o of all) {
+    if (o === s || (o.z0 === o.z1) === alongX) continue;
+    const reach = o.width / 2 + 1.5;
+    if (alongX) {
+      if (s.z0 < o.z0 - 0.5 || s.z0 > o.z1 + 0.5) continue;
+      if (Math.abs(o.x0 - s.x0) <= reach && o.x0 < x0) x0 = o.x0;
+      if (Math.abs(o.x0 - s.x1) <= reach && o.x0 > x1) x1 = o.x0;
+    } else {
+      if (s.x0 < o.x0 - 0.5 || s.x0 > o.x1 + 0.5) continue;
+      if (Math.abs(o.z0 - s.z0) <= reach && o.z0 < z0) z0 = o.z0;
+      if (Math.abs(o.z0 - s.z1) <= reach && o.z0 > z1) z1 = o.z0;
+    }
+  }
+  return x0 === s.x0 && x1 === s.x1 && z0 === s.z0 && z1 === s.z1 ? s : { ...s, x0, x1, z0, z1 };
+}
+
 export class RoadGraph {
   readonly nodes: NavNode[] = [];
   readonly edges: NavEdge[] = [];
@@ -61,7 +81,8 @@ export class RoadGraph {
       }
       return id;
     };
-    const segs = map.roads.segments;
+    // Alleys stop at the kerb of the road they meet; carry them on to its centre line so they join the network.
+    const segs = map.roads.segments.map((s) => joinToCrossing(s, map.roads.segments));
     const eps = 0.5;
     for (const s of segs) {
       const alongX = s.z0 === s.z1;
@@ -216,12 +237,57 @@ export class RoadGraph {
 
   /** A driving route between two points as a polyline along road centre lines (GPS). */
   route(ax: number, az: number, bx: number, bz: number): Point[] {
-    const a = this.nearest(ax, az);
-    const b = this.nearest(bx, bz);
-    const out: Point[] = [{ x: ax, z: az }];
-    for (const id of this.path(a.id, b.id)) out.push({ x: this.nodes[id]!.x, z: this.nodes[id]!.z });
-    out.push({ x: bx, z: bz });
+    // Join the road at the closest point on the closest edge at each end, then take the
+    // cheapest way between the two edges' ends.
+    const A = this.nearestEdge(ax, az);
+    const B = this.nearestEdge(bx, bz);
+    const out: Point[] = [{ x: ax, z: az }, { x: A.x, z: A.z }];
+    if (A.edge === B.edge) {
+      out.push({ x: B.x, z: B.z }, { x: bx, z: bz });
+      return out;
+    }
+    const ea = this.edges[A.edge]!;
+    const eb = this.edges[B.edge]!;
+    let best: number[] | null = null;
+    let bestCost = Infinity;
+    for (const s of [ea.a, ea.b]) {
+      for (const t of [eb.a, eb.b]) {
+        const p = this.path(s, t);
+        if (p[p.length - 1] !== t) continue;
+        let cost = Math.hypot(this.nodes[s]!.x - A.x, this.nodes[s]!.z - A.z) + Math.hypot(this.nodes[t]!.x - B.x, this.nodes[t]!.z - B.z);
+        for (let i = 1; i < p.length; i++) cost += Math.hypot(this.nodes[p[i]!]!.x - this.nodes[p[i - 1]!]!.x, this.nodes[p[i]!]!.z - this.nodes[p[i - 1]!]!.z);
+        if (cost < bestCost) {
+          bestCost = cost;
+          best = p;
+        }
+      }
+    }
+    for (const id of best ?? []) out.push({ x: this.nodes[id]!.x, z: this.nodes[id]!.z });
+    out.push({ x: B.x, z: B.z }, { x: bx, z: bz });
     return out;
+  }
+
+  /** The closest point on any road centre line to (x, z), and its edge. */
+  nearestEdge(x: number, z: number): { edge: number; x: number; z: number } {
+    let best = 0;
+    let bd = Infinity;
+    let bx = x;
+    let bz = z;
+    for (const e of this.edges) {
+      const a = this.nodes[e.a]!;
+      const b = this.nodes[e.b]!;
+      const px = e.alongX ? Math.min(Math.max(x, Math.min(a.x, b.x)), Math.max(a.x, b.x)) : a.x;
+      const pz = e.alongX ? a.z : Math.min(Math.max(z, Math.min(a.z, b.z)), Math.max(a.z, b.z));
+      // Alleys only when they are clearly closer.
+      const d = Math.hypot(px - x, pz - z) * (e.kind === 'alley' ? 1.5 : 1);
+      if (d < bd) {
+        bd = d;
+        best = e.id;
+        bx = px;
+        bz = pz;
+      }
+    }
+    return { edge: best, x: bx, z: bz };
   }
 }
 
