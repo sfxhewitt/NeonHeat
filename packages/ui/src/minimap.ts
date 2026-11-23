@@ -1,4 +1,4 @@
-import { crewById, drawCrewMark } from './icons';
+import { crewById, drawCrewMark, drawLandmark } from './icons';
 import type { MapGeometry, RoutePoint } from './map-geometry';
 import { drawObjective, drawPlayerArrow, drawWaypoint, paintMap, prepareMap, strokeRoute, type PreparedMap } from './map-paint';
 
@@ -182,6 +182,13 @@ export class Minimap {
       c.fillRect(cx - dot * 1.25, cy - dot * 1.25, dot * 2.5, dot * 2.5);
       c.fillStyle = blink ? '#ff3355' : '#3a7bff';
       c.fillRect(cx - dot * 0.85, cy - dot * 0.85, dot * 1.7, dot * 1.7);
+    }
+    // Shops and services: small badges (shape + colour) while they are inside the disc.
+    for (const l of this.prepared.geom.landmarks) {
+      if (l.kind === 'payphone' || l.kind === 'landmark') continue;
+      const [lx, ly] = toPx(l.x, l.z);
+      if (Math.hypot(lx - n / 2, ly - n / 2) > n / 2 - dot * 2) continue;
+      drawLandmark(c, l.kind, lx, ly, dot * 3.4);
     }
     const rim = n / 2 - dot * 2.6;
     const clampRim = (p: [number, number]): [number, number, boolean] => {
