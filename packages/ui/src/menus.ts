@@ -12,6 +12,12 @@ export interface SettingsMenuHooks {
   extra?: () => { label: string; run: () => void }[];
   /** A live line about the device: tier, frame rate, resolution. */
   info?: () => string;
+  /** Radio stations for the Sound section. */
+  stations?: () => { name: string; frequency: string }[];
+  /** Sound settings changed (volumes live while dragging, station, on/off). Falls back to onChange. */
+  onSoundChange?: (s: Settings, final: boolean) => void;
+  /** Any menu button pressed (for a UI blip). */
+  onButton?: () => void;
 }
 
 /** The pause / settings menu behind the ☰ button. */
@@ -60,12 +66,50 @@ export class SettingsMenu {
       <div class="nh-modal__info" data-info></div>
       <div class="nh-modal__row"><span>Vibration</span><div class="nh-choice" data-k="vibration">
         <button data-v="true">On</button><button data-v="false">Off</button></div></div>
+      <div class="nh-modal__sub">SOUND</div>
       <div class="nh-modal__row"><span>Sound</span><div class="nh-choice" data-k="sound">
         <button data-v="true">On</button><button data-v="false">Off</button></div></div>
+      <div class="nh-modal__row"><span>Master</span><input class="nh-slider" type="range" min="0" max="100" step="1" data-vol="masterVolume" aria-label="Master volume"></div>
+      <div class="nh-modal__row"><span>Music</span><input class="nh-slider" type="range" min="0" max="100" step="1" data-vol="musicVolume" aria-label="Music volume"></div>
+      <div class="nh-modal__row"><span>Effects</span><input class="nh-slider" type="range" min="0" max="100" step="1" data-vol="sfxVolume" aria-label="Effects volume"></div>
+      <div class="nh-modal__row"><span>Radio</span><div class="nh-choice nh-choice--wrap" data-k="radioStation" data-stations></div></div>
       <button class="nh-wide" data-act="layout">Move touch buttons</button>
       <button class="nh-wide" data-act="reset">Reset touch layout</button>
       <div data-extra></div>
       <button class="nh-wide" data-act="resume">Resume</button></div>`;
+    const stationsEl = m.querySelector('[data-stations]') as HTMLElement;
+    const stations = this.hooks.stations?.() ?? [];
+    if (stations.length === 0) stationsEl.closest('.nh-modal__row')?.remove();
+    stations.forEach((st, i) => {
+      const b = document.createElement('button');
+      b.dataset.v = String(i);
+      b.title = `${st.name} ${st.frequency}`;
+      b.textContent = st.name.charAt(0) + st.name.slice(1).toLowerCase();
+      stationsEl.appendChild(b);
+    });
+    const off = document.createElement('button');
+    off.dataset.v = '-1';
+    off.textContent = 'Off';
+    stationsEl.appendChild(off);
+    const sound = (final: boolean): void => {
+      if (this.hooks.onSoundChange) this.hooks.onSoundChange(s, final);
+      else if (final) this.hooks.onChange(s);
+    };
+    m.querySelectorAll<HTMLInputElement>('input[data-vol]').forEach((input) => {
+      const k = input.dataset.vol as 'masterVolume' | 'musicVolume' | 'sfxVolume';
+      input.value = String(Math.round((s[k] ?? 1) * 100));
+      input.addEventListener('input', () => {
+        s[k] = Number(input.value) / 100;
+        sound(false);
+      });
+      input.addEventListener('change', () => {
+        s[k] = Number(input.value) / 100;
+        sound(true);
+      });
+    });
+    m.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('button')) this.hooks.onButton?.();
+    });
     const sync = (): void => {
       m.querySelectorAll<HTMLElement>('.nh-choice').forEach((group) => {
         const k = group.dataset.k as keyof Settings;
@@ -82,9 +126,11 @@ export class SettingsMenu {
         else if (k === 'quality') s.quality = v as QualityTier | 'auto';
         else if (k === 'vibration') s.vibration = v === 'true';
         else if (k === 'sound') s.sound = v === 'true';
+        else if (k === 'radioStation') s.radioStation = Number(v);
         else if (k === 'perf') s.perf = v === 'true';
         sync();
-        this.hooks.onChange(s);
+        if (k === 'sound' || k === 'radioStation') sound(true);
+        else this.hooks.onChange(s);
       });
     });
     const info = m.querySelector('[data-info]') as HTMLElement;

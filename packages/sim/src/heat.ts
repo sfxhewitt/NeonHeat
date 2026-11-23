@@ -46,7 +46,7 @@ export const HeatLevelSchema = z.object({
   spikes: z.boolean(),
   /** Officers each car puts on the street. */
   officersPerCar: z.number().int().nonnegative(),
-  /** Officers from this level's cars are tactical (armoured, rifles). */
+  /** Officers from this level's first listed variant are tactical (armoured, rifles). */
   tactical: z.boolean().default(false),
 });
 export type HeatLevel = z.infer<typeof HeatLevelSchema>;

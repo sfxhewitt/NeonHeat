@@ -2,6 +2,8 @@ import { z } from 'zod';
 import type { NavNode } from './nav';
 import { driveTowards, handleStuck, resetAiState } from './ai';
 import { forwardSpeed } from './vehicle';
+import { districtAt } from './citygen';
+import { pickTrafficVariant } from './roster';
 import type { Vehicle, World } from './world';
 
 export const TrafficConfigSchema = z.object({
@@ -117,7 +119,7 @@ export class TrafficSystem {
       for (const v of w.vehicles) if (v.active && Math.hypot(v.x - x, v.z - z) < 12) blocked = true;
       if (blocked) continue;
       const yaw = Math.atan2(dx, dz);
-      const v = w.spawnVehicle(this.pickVariant(), x, z, yaw, 'traffic');
+      const v = w.spawnVehicle(this.pickVariant(x, z), x, z, yaw, 'traffic');
       if (!v) return null;
       resetAiState(v.ai);
       v.ai.mode = 'drive';
@@ -134,8 +136,13 @@ export class TrafficSystem {
     return null;
   }
 
-  private pickVariant(): string {
-    return this.world.rng.pick(this.config.variants);
+  /** A civilian variant weighted by the roster's traffic weights and the district's hint; else the config list. */
+  private pickVariant(x: number, z: number): string {
+    const w = this.world;
+    const map = w.content.map;
+    const d = districtAt(map, x, z);
+    const id = pickTrafficVariant(w.content.vehicles, w.rng, d >= 0 ? map.districts[d]!.trafficHint || undefined : undefined);
+    return id ?? w.rng.pick(this.config.variants);
   }
 
   /** Pre-physics: choose controls for each traffic car. */

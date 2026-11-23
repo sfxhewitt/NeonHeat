@@ -87,6 +87,7 @@ export class Hud {
 
   /** The hull bar only shows while driving (on foot the combat HUD shows body and armour). */
   showHealth(on: boolean): void {
+    if (this.healthWrap.hidden === !on) return;
     this.healthWrap.hidden = !on;
   }
 

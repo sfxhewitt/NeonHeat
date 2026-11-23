@@ -515,7 +515,7 @@ export class PoliceSystem {
     const stoppedCar = !!pv && Math.abs(forwardSpeed(pv)) < oc.carArrestMaxSpeed * 1.5 && dist < 16;
     if (!onFoot && !stoppedCar) return false;
     if (w.officers.countFor(v.id) > 0) return false;
-    const n = w.officers.deploy(v, lvl.officersPerCar, lvl.tactical && v.variantId === 'tactical');
+    const n = w.officers.deploy(v, lvl.officersPerCar, lvl.tactical && v.variantId === lvl.variants[0]);
     a.cooldown = 4;
     if (n === 0 || a.mode === 'roadblock') return false;
     a.mode = 'hold';

@@ -115,17 +115,22 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   // --- Get into the parked starter car with the context button.
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
-    const car = w.vehicles.find((v: { active: boolean; variantId: string; role: string }) => v.active && v.variantId === 'kestrel' && v.role === 'parked');
-    w.playerCtl.teleport(car.x, car.z + 2.4);
+    const s = w.content.map.spawns['start_car'].pos;
+    const car = w.vehicles
+      .filter((v: { active: boolean; role: string }) => v.active && v.role === 'parked')
+      .sort((a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - s[0], a.z - s[2]) - Math.hypot(b.x - s[0], b.z - s[2]))[0];
+    w.playerCtl.teleport(car.x + Math.cos(car.yaw) * 2.2, car.z - Math.sin(car.yaw) * 2.2);
   });
   await expect(context).toHaveText('ENTER');
   await context.tap();
   await expect.poll(async () => (await player(page)).driving).toBe(true);
 
   // --- Drive: direction steering, push the stick the way you want to go.
+  // Push the stick the way the car faces (yaw 0 is +Z, which is screen-down).
   p0 = await player(page);
+  const yaw: number = await page.evaluate(() => window.__neon!.game.world.player.vehicle.yaw);
   await finger.press(sx, sy);
-  await finger.move(sx + 70, sy);
+  await finger.move(sx + Math.sin(yaw) * 70, sy + Math.cos(yaw) * 70);
   await page.waitForTimeout(2500);
   p1 = await player(page);
   await finger.release();
@@ -157,7 +162,8 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
     w.heat.clear();
-    w.playerCtl.teleport(-31, 21);
+    const g = window.__neon!.game.director.missions.find((m: { id: string }) => m.id === 'glasshounds_03_hot_chrome').giver.pos;
+    w.playerCtl.teleport(g[0], g[2] + 1);
   });
   await expect(context).toHaveText('ANSWER');
   await context.tap();
@@ -165,7 +171,11 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect(page.locator('.nh-mission__obj')).toHaveText('Get to the marker');
 
   // Reach the lot, then hack the prototype on the touch panel.
-  await page.evaluate(() => window.__neon!.game.world.playerCtl.teleport(95, 16));
+  await page.evaluate(() => {
+    const w = window.__neon!.game.world;
+    const m = w.content.map.markers['glass_lot_2'].pos;
+    w.playerCtl.teleport(m[0], m[2]);
+  });
   await expect.poll(() => page.evaluate(() => window.__neon!.mission().objective)).toBe('hack_car');
   await page.evaluate(() => {
     const g = window.__neon!.game;
@@ -194,7 +204,8 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect(page.locator('.nh-mission__timer')).toHaveText(/^[0-3]:[0-5]\d$/);
   await page.evaluate(() => {
     const w = window.__neon!.game.world;
-    w.teleportVehicle(w.player.vehicle, -60, 66, Math.PI);
+    const m = w.content.map.markers['chopshop_1'].pos;
+    w.teleportVehicle(w.player.vehicle, m[0], m[2], Math.PI);
   });
   await expect(page.locator('.nh-toast')).toContainText('JOB DONE', { timeout: 10_000 });
   expect(await page.evaluate(() => window.__neon!.mission().credits)).toBe(1500);

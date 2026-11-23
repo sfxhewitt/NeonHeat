@@ -7,6 +7,12 @@ export interface Settings {
   quality: QualityTier | 'auto';
   vibration: boolean;
   sound: boolean;
+  /** Player volume trims, 0..1 (the mix itself lives in content/data/audio.json). */
+  masterVolume: number;
+  musicVolume: number;
+  sfxVolume: number;
+  /** Car radio station index; -1 = radio off. */
+  radioStation: number;
   /** Frame rate and tier readout in the corner. */
   perf: boolean;
 }
@@ -14,7 +20,17 @@ export interface Settings {
 const KEY = 'neonheat.settings.v1';
 
 export function loadSettings(): Settings {
-  const defaults: Settings = { scheme: 'direction', quality: 'auto', vibration: true, sound: true, perf: false };
+  const defaults: Settings = {
+    scheme: 'direction',
+    quality: 'auto',
+    vibration: true,
+    sound: true,
+    masterVolume: 1,
+    musicVolume: 1,
+    sfxVolume: 1,
+    radioStation: 0,
+    perf: false,
+  };
   try {
     const raw = localStorage.getItem(KEY);
     return raw ? { ...defaults, ...(JSON.parse(raw) as Partial<Settings>) } : defaults;

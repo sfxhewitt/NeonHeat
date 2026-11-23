@@ -307,6 +307,9 @@ export class LightField {
             #ifdef USE_INSTANCING
               lfw = instanceMatrix * lfw;
             #endif
+            #ifdef USE_BATCHING
+              lfw = batchingMatrix * lfw;
+            #endif
             vLfW = (modelMatrix * lfw).xyz;
           }`,
         );

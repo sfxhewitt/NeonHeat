@@ -643,8 +643,8 @@ export class CombatSystem {
       if (this.blastTimer[i]! > 0) continue;
       this.blastTimer[i] = -1;
       const v = w.vehicles[i]!;
-      if (!v.active) continue;
       const ex = this.config.explosion;
+      if (!v.active || v.params.mass < ex.wreckMinMass) continue;
       const blame = w.time - this.playerHitTime[i]! < BLAME_SEC;
       this.flip[i] = ex.flipSec;
       this.explode(v.x, v.z, ex.vehicleRadius, ex.vehicleDamagePed, ex.vehicleDamageVehicle, blame, v.id);

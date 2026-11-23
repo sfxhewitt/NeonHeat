@@ -20,8 +20,8 @@
     { "units": 1, "variants": ["interceptor"], "tactic": "investigate", "decaySec": 15, "searchRadius": 0, "drone": false, "officersShoot": false, "roadblocks": false, "spikes": false, "officersPerCar": 1 },
     { "units": 3, "variants": ["interceptor"], "tactic": "pursue", "decaySec": 18, "searchRadius": 60, "drone": false, "officersShoot": false, "roadblocks": false, "spikes": false, "officersPerCar": 2 },
     { "units": 4, "variants": ["interceptor"], "tactic": "pursue", "decaySec": 22, "searchRadius": 80, "drone": true, "officersShoot": true, "roadblocks": false, "spikes": false, "officersPerCar": 2 },
-    { "units": 5, "variants": ["heavy", "interceptor"], "tactic": "pursue", "decaySec": 26, "searchRadius": 100, "drone": true, "officersShoot": true, "roadblocks": true, "spikes": true, "officersPerCar": 2 },
-    { "units": 7, "variants": ["tactical", "heavy", "interceptor"], "tactic": "pursue", "decaySec": 30, "searchRadius": 120, "drone": true, "officersShoot": true, "roadblocks": true, "spikes": true, "officersPerCar": 3, "tactical": true }
+    { "units": 5, "variants": ["warden", "interceptor"], "tactic": "pursue", "decaySec": 26, "searchRadius": 100, "drone": true, "officersShoot": true, "roadblocks": true, "spikes": true, "officersPerCar": 2 },
+    { "units": 7, "variants": ["patrolvan", "warden", "interceptor"], "tactic": "pursue", "decaySec": 30, "searchRadius": 120, "drone": true, "officersShoot": true, "roadblocks": true, "spikes": true, "officersPerCar": 3, "tactical": true }
   ],
   "witness": {
     "pedRadius": 25,

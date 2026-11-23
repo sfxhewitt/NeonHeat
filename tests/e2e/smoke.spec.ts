@@ -102,3 +102,24 @@ test('title screen starts the game on tap', async ({ page }) => {
   expect(tier).toBe('low');
   expect(errors).toEqual([]);
 });
+
+test('sound unlocks on the first tap and plays every cue without errors', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.goto('/?quality=low');
+  await page.getByRole('button', { name: 'TAP TO START' }).click();
+  await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
+  await page.waitForFunction(() => window.__neon!.game.sound.audio.engine.pending === 0, null, { timeout: 30_000 });
+  expect(await page.evaluate(() => window.__neon!.game.sound.audio.engine.ctx?.state)).toBe('running');
+  await page.evaluate(() => {
+    const a = window.__neon!.game.sound.audio;
+    const p = window.__neon!.game.world.player;
+    for (const type of ['impact', 'vehicleDestroyed', 'shot', 'pedHit', 'kerb', 'propBroken', 'playerHurt', 'dodge', 'pickup', 'reload', 'someFutureEvent'])
+      a.onEvent({ type, x: p.x + 2, z: p.z, strength: 15, other: 'static', kind: 'vending', hit: 'static', weapon: 'shotgun', hx: p.x, hz: p.z } as never);
+    a.ui('cash');
+    a.sting('missionComplete');
+  });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('input[data-vol="musicVolume"]')).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(errors).toEqual([]);
+});

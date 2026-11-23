@@ -132,7 +132,8 @@
     "impulse": 12,
     "spin": 4,
     "flipSec": 1.1,
-    "pedAlarmRadius": 45
+    "pedAlarmRadius": 45,
+    "wreckMinMass": 500
   },
   "driveByConeDeg": 80
 }

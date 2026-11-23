@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { forwardSpeed, type Vehicle } from '@neonheat/sim';
-import { EW, buildingWithRoadSouth, intents, loadContent, makeWorld, run } from './helpers';
+import { EW, buildingWithRoadSouth, intents, loadContent, makeWorld, movePlayer, run } from './helpers';
 
 const idle = intents();
 
@@ -22,8 +22,18 @@ describe('traffic', () => {
     const content = loadContent();
     content.traffic.count = 1;
     content.map.traffic.loops = [content.map.traffic.loops[0]!];
+    content.traffic.parkedMax = 0;
     const world = await makeWorld(4, content);
     const car = world.vehicles.find((v) => v.active && v.role === 'traffic')!;
+    // Put it in the eastbound lane of a straight 78 m stretch of avenue between two junctions.
+    const a = world.roads.nearest(-173, EW.z);
+    const b = world.roads.nearest(-95, EW.z);
+    movePlayer(world, -150, EW.z - 20);
+    world.teleportVehicle(car, a.x + 8, EW.z + 4.5, Math.PI / 2);
+    car.ai.mode = 'drive';
+    car.ai.navFrom = a.id;
+    car.ai.navTo = b.id;
+    car.ai.navNext = -1;
     // Park a van 40 m ahead in its lane.
     const yaw = car.yaw;
     const block = world.spawnVehicle('brick', car.x + Math.sin(yaw) * 40, car.z + Math.cos(yaw) * 40, yaw, 'parked')!;

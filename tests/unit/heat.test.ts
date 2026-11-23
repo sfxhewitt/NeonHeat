@@ -51,8 +51,8 @@ describe('HEAT escalation', () => {
     expect(l[2]!.officersShoot).toBe(false);
     expect(l[4]!.roadblocks && l[4]!.spikes).toBe(true);
     expect(l[3]!.roadblocks).toBe(false);
-    expect(l[4]!.variants).toContain('heavy');
-    expect(l[5]!.variants).toContain('tactical');
+    expect(l[4]!.variants).toContain('warden');
+    expect(l[5]!.variants).toContain('patrolvan');
     expect(l[5]!.tactical).toBe(true);
     for (let i = 1; i < 5; i++) expect(l[i + 1]!.units).toBeGreaterThan(l[i]!.units);
   });

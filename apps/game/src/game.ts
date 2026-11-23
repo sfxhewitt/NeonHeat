@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SkyGrade } from './sky';
 import { FixedStepLoop, SIM_DT, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type Prop, type SimEvent } from '@neonheat/sim';
 import { MissionBot, MissionDirector } from '@neonheat/missions';
 import { IndexedDbStorage, MemoryStorage, SaveManager, applyMissionResult } from '@neonheat/save';
@@ -14,6 +15,7 @@ import {
   PeopleView,
   PostFx,
   PropsView,
+  SignalsView,
   Rain,
   SceneLights,
   SkidMarks,
@@ -46,6 +48,7 @@ import {
 import { loadGameContent, type GameContent } from './content';
 import { setupTuning } from './tuning';
 import { CombatLayer } from './combat-layer';
+import { SoundBridge } from './sound';
 
 export interface GameStats {
   fps: number;
@@ -82,6 +85,10 @@ export class Game {
   private sceneLights!: SceneLights;
   private combat!: CombatLayer;
   private signs!: { stream: (x: number, z: number) => void };
+  private signals!: SignalsView;
+  private readonly hemi = new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8);
+  private readonly key = new THREE.DirectionalLight(0xc0b0ff, 0.85);
+  private readonly sky = new SkyGrade();
   private perfEl: HTMLElement | null = null;
   private minimap!: Minimap;
   private readonly mapDots: MinimapDot[] = [];
@@ -104,6 +111,8 @@ export class Game {
   /** Set while the first-boot benchmark runs, so dynamic resolution does not flatter the result. */
   holdResolution = false;
   readonly hud: Hud;
+  /** Sound layer: engines, guns, sirens, ambience, radio, UI. */
+  readonly sound: SoundBridge;
   /** Remaining hit-stop, seconds of frozen simulation. */
   private hitStop = 0;
   private smokeTimer = 0;
@@ -140,6 +149,7 @@ export class Game {
     this.hud = new Hud(overlay);
     this.arrow = new EdgeArrow(overlay);
     this.hackUi = new HackOverlay(overlay);
+    this.sound = new SoundBridge(this.content.audio, this.settings);
     this.saves = new SaveManager(typeof indexedDB === 'undefined' ? new MemoryStorage() : new IndexedDbStorage());
     this.menu = new SettingsMenu(overlay, {
       settings: this.settings,
@@ -155,6 +165,7 @@ export class Game {
         if (!this.closeFail) this.setPaused(false);
       },
       info: () => this.perfLine(),
+      ...this.sound.menuHooks(),
       extra: () =>
         this.director?.active
           ? [
@@ -172,6 +183,7 @@ export class Game {
     this.minimap = new Minimap(this.hud.root, this.content.sim.map);
     const params = new URLSearchParams(location.search);
     this.setupMissions(params.has('bot'));
+    this.sound.attach(this);
     const p = this.world.player;
     this.rig.snap({ x: p.x, z: p.z, vx: 0, vz: 0, speedT: 0, onFoot: !p.vehicle });
     if (import.meta.env.DEV || params.has('debug')) this.setupDebug();
@@ -246,16 +258,16 @@ export class Game {
     const s = this.scene;
     s.background = new THREE.Color(Palette.bg);
     s.fog = new THREE.Fog(Palette.fog, 90, 260);
-    s.add(new THREE.HemisphereLight(0x7a74b0, 0x241228, 0.8));
-    const key = new THREE.DirectionalLight(0xc0b0ff, 0.85);
-    key.position.set(-40, 100, 30);
-    s.add(key);
+    s.add(this.hemi);
+    this.key.position.set(-40, 100, 30);
+    s.add(this.key);
     const map = this.content.sim.map;
     const signs = layoutSigns(map);
     this.lightField = new LightField(map);
     this.roadMat = createWetRoadMaterial(map, buildReflectionTexture(map, signs), buildNoiseTexture(), this.lightField.uniforms);
     this.city = buildCity(s, map, this.roadMat);
     this.propsView = new PropsView(s, this.world.props.props);
+    this.signals = new SignalsView(s, this.world.roads, this.world.content.traffic.lights);
     this.sceneLights = new SceneLights(this.lightField, this.city.lamps, signs, this.propsView.lights());
     this.signs = buildSignage(s, signs);
     this.shadows = new BlobShadows(s);
@@ -347,6 +359,7 @@ export class Game {
 
   setPaused(p: boolean): void {
     this.paused = p;
+    this.sound.audio.setPaused(p);
     this.loop.reset();
   }
 
@@ -403,6 +416,7 @@ export class Game {
     const pc = this.world.playerCtl;
     this.input.setMode(this.menu.isOpen ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
     this.render(alpha, dt);
+    this.sound.frame(dt);
     if (this.holdResolution) {
       // Benchmark only: wait for the GPU so the sample is the real cost of the frame, even where
       // the browser would otherwise keep handing out frames while the work queues up.
@@ -556,6 +570,7 @@ export class Game {
   }
 
   private onSimEvent(e: SimEvent): void {
+    this.sound.audio.onEvent(e);
     if (this.combat.onEvent(e)) return;
     const feel = this.content.feel;
     if (e.type === 'impact') {
@@ -669,6 +684,8 @@ export class Game {
     this.city.stream(focus.x, focus.z - 20);
     this.propsView.stream(focus.x, focus.z - 15);
     this.signs.stream(focus.x, focus.z - 20);
+    this.signals.update(focus.x, focus.z - 15, w.time);
+    this.sky.apply(w.weather, this.scene, this.hemi, this.key, this.rain, this.roadMat);
     waterTime.value = w.time;
     this.propsView.update();
     this.syncBrokenLights();

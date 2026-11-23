@@ -1,0 +1,1444 @@
+{
+  "buses": {
+    "master": 0.9,
+    "music": 0.55,
+    "sfx": 0.85,
+    "ui": 0.55,
+    "ambience": 1,
+    "reverbReturn": 0.32,
+    "compressor": {
+      "threshold": -16,
+      "knee": 10,
+      "ratio": 3.5,
+      "attack": 0.004,
+      "release": 0.2
+    },
+    "limiterThreshold": -1.5,
+    "highpassHz": 32,
+    "reverbSeconds": 2.2,
+    "pausedMusic": 0.45,
+    "pausedCutoff": 900,
+    "duckAmount": 0.65,
+    "duckRelease": 0.5
+  },
+  "listener": {
+    "refDistance": 10,
+    "maxDistance": 110,
+    "rolloff": 1.1,
+    "panWidth": 45,
+    "maxPan": 0.8,
+    "speedOfSound": 343,
+    "dopplerScale": 1.8
+  },
+  "vehicles": {
+    "maxVoices": 6,
+    "hysteresis": 5,
+    "playerGain": 0.24,
+    "otherGain": 0.2,
+    "idleGain": 0.09,
+    "rpmRate": 6,
+    "shiftCutSec": 0.11,
+    "squealSlipMin": 3.5,
+    "squealSlipFull": 11,
+    "squealGain": 0.16,
+    "hornGain": 0.18,
+    "defaultClass": "coupe",
+    "variantClass": {
+      "kestrel": "coupe",
+      "vandal": "muscle",
+      "brick": "van",
+      "interceptor": "police",
+      "enforcer": "muscle",
+      "prototype": "sports",
+      "hatch": "coupe",
+      "saloon": "coupe",
+      "taxi": "coupe",
+      "estate": "coupe",
+      "bastion": "van",
+      "razorback": "sports",
+      "nightjar": "sports",
+      "mule": "muscle",
+      "stacker": "van",
+      "leviathan": "van",
+      "loopline": "van",
+      "lifeline": "van",
+      "ember": "van",
+      "patrolvan": "police",
+      "warden": "police",
+      "sparrow": "motorbike",
+      "shrike": "motorbike"
+    },
+    "classes": {
+      "coupe": {
+        "idleHz": 30,
+        "redlineHz": 150,
+        "gears": 5,
+        "shiftDropRpm": 0.55,
+        "harmonics": [
+          0.665,
+          1.0,
+          0.363,
+          0.683,
+          0.275,
+          0.546,
+          0.228,
+          0.466,
+          0.199,
+          0.413,
+          0.178,
+          0.373,
+          0.162,
+          0.343,
+          0.15,
+          0.319,
+          0.14,
+          0.299,
+          0.132,
+          0.282
+        ],
+        "cutoffIdle": 700,
+        "cutoffMax": 3200,
+        "resonance": 2.5,
+        "sub": 0.12,
+        "detuneCents": 9,
+        "detuneLevel": 0.5,
+        "noise": 0.12,
+        "whineRatio": 0,
+        "whineLevel": 0,
+        "pops": false,
+        "gain": 0.9
+      },
+      "muscle": {
+        "idleHz": 22,
+        "redlineHz": 108,
+        "gears": 4,
+        "shiftDropRpm": 0.6,
+        "harmonics": [
+          0.502,
+          0.37,
+          0.31,
+          1.0,
+          0.248,
+          0.228,
+          0.213,
+          0.737,
+          0.191,
+          0.182,
+          0.175,
+          0.617,
+          0.162,
+          0.157,
+          0.152,
+          0.544,
+          0.144,
+          0.141,
+          0.137,
+          0.493,
+          0.131,
+          0.129,
+          0.126,
+          0.454
+        ],
+        "cutoffIdle": 520,
+        "cutoffMax": 2400,
+        "resonance": 3,
+        "sub": 0.22,
+        "detuneCents": 14,
+        "detuneLevel": 0.6,
+        "noise": 0.16,
+        "whineRatio": 0,
+        "whineLevel": 0,
+        "pops": true,
+        "gain": 1.0
+      },
+      "van": {
+        "idleHz": 19,
+        "redlineHz": 74,
+        "gears": 4,
+        "shiftDropRpm": 0.5,
+        "harmonics": [
+          0.631,
+          1.0,
+          0.439,
+          0.795,
+          0.371,
+          0.696,
+          0.332,
+          0.633,
+          0.306,
+          0.588,
+          0.286,
+          0.554,
+          0.271,
+          0.526,
+          0.258,
+          0.503,
+          0.248,
+          0.485,
+          0.239,
+          0.468,
+          0.231,
+          0.453,
+          0.225,
+          0.441
+        ],
+        "cutoffIdle": 650,
+        "cutoffMax": 1900,
+        "resonance": 1.2,
+        "sub": 0.18,
+        "detuneCents": 6,
+        "detuneLevel": 0.4,
+        "noise": 0.24,
+        "whineRatio": 0,
+        "whineLevel": 0,
+        "pops": false,
+        "gain": 0.85
+      },
+      "police": {
+        "idleHz": 25,
+        "redlineHz": 122,
+        "gears": 5,
+        "shiftDropRpm": 0.58,
+        "harmonics": [
+          0.722,
+          0.513,
+          0.419,
+          1.0,
+          0.326,
+          0.298,
+          0.275,
+          0.709,
+          0.244,
+          0.231,
+          0.22,
+          0.58,
+          0.203,
+          0.196,
+          0.189,
+          0.504,
+          0.178,
+          0.172,
+          0.168,
+          0.45,
+          0.16,
+          0.156
+        ],
+        "cutoffIdle": 600,
+        "cutoffMax": 2800,
+        "resonance": 2.5,
+        "sub": 0.18,
+        "detuneCents": 10,
+        "detuneLevel": 0.5,
+        "noise": 0.12,
+        "whineRatio": 0,
+        "whineLevel": 0,
+        "pops": false,
+        "gain": 0.9
+      },
+      "motorbike": {
+        "idleHz": 42,
+        "redlineHz": 235,
+        "gears": 6,
+        "shiftDropRpm": 0.6,
+        "harmonics": [
+          1.0,
+          0.547,
+          0.655,
+          0.419,
+          0.538,
+          0.358,
+          0.473,
+          0.321,
+          0.429,
+          0.294,
+          0.397,
+          0.274,
+          0.372,
+          0.258,
+          0.353,
+          0.246,
+          0.336,
+          0.235,
+          0.322,
+          0.225
+        ],
+        "cutoffIdle": 900,
+        "cutoffMax": 4500,
+        "resonance": 4,
+        "sub": 0.08,
+        "detuneCents": 7,
+        "detuneLevel": 0.4,
+        "noise": 0.2,
+        "whineRatio": 0,
+        "whineLevel": 0,
+        "pops": true,
+        "gain": 0.8
+      },
+      "sports": {
+        "idleHz": 33,
+        "redlineHz": 190,
+        "gears": 7,
+        "shiftDropRpm": 0.62,
+        "harmonics": [
+          0.409,
+          1.0,
+          0.245,
+          0.723,
+          0.192,
+          0.598,
+          0.165,
+          0.523,
+          0.146,
+          0.471,
+          0.133,
+          0.433,
+          0.123,
+          0.403,
+          0.115,
+          0.378,
+          0.109,
+          0.358,
+          0.103,
+          0.341,
+          0.099,
+          0.326
+        ],
+        "cutoffIdle": 750,
+        "cutoffMax": 4200,
+        "resonance": 3,
+        "sub": 0.12,
+        "detuneCents": 8,
+        "detuneLevel": 0.45,
+        "noise": 0.1,
+        "whineRatio": 11.3,
+        "whineLevel": 0.05,
+        "pops": true,
+        "gain": 0.95
+      }
+    }
+  },
+  "impacts": {
+    "minStrength": 1.5,
+    "fullStrength": 22,
+    "glassStrength": 13,
+    "cooldownSec": 0.14,
+    "gain": 0.85,
+    "kerbGain": 0.4,
+    "kerbMinStrength": 2.5,
+    "explosionGain": 1.0,
+    "propGain": 0.6,
+    "bodyGain": 0.6
+  },
+  "weapons": {
+    "gain": 0.75,
+    "levels": {
+      "pistol": 1,
+      "smg": 0.8,
+      "shotgun": 1.15,
+      "rifle": 1.1,
+      "launcher": 1,
+      "taser": 0.6,
+      "fists": 0.6,
+      "bat": 0.75
+    },
+    "bulletHitGain": 0.35,
+    "ricochetChance": 0.3
+  },
+  "police": {
+    "sirenGain": 0.2,
+    "maxSirens": 3,
+    "wailLowHz": 640,
+    "wailHighHz": 1480,
+    "wailPeriod": 4.4,
+    "yelpPeriod": 0.34,
+    "yelpDistance": 28,
+    "yelpHysteresis": 10,
+    "droneMinHeat": 3,
+    "droneGain": 0.14,
+    "droneHz": 98,
+    "chatterMinHeat": 1,
+    "chatterGain": 0.22,
+    "chatterIntervalMin": 5,
+    "chatterIntervalMax": 12
+  },
+  "ambience": {
+    "rainGain": 0.2,
+    "rainInCarCutoff": 1300,
+    "humGain": 0.07,
+    "distantSirenGain": 0.035,
+    "distantSirenIntervalMin": 30,
+    "distantSirenIntervalMax": 80,
+    "distantHornChance": 0.35,
+    "crowdGain": 0.1,
+    "crowdRadius": 20,
+    "crowdFull": 3,
+    "screamGain": 0.3,
+    "screamCooldownSec": 1.4,
+    "footstepGain": 0.32,
+    "footstepStride": 1.6,
+    "fireGain": 0.35
+  },
+  "ui": {
+    "gain": 0.6,
+    "stingGain": 0.75
+  },
+  "sfx": {
+    "maxOneShots": 24,
+    "variants": 3
+  },
+  "radio": {
+    "lookaheadSec": 0.15,
+    "identSec": 2.0,
+    "staticSec": 0.35,
+    "fadeSec": 0.8,
+    "defaultStation": 0,
+    "stations": [
+      {
+        "id": "nightdrive",
+        "name": "NIGHTDRIVE",
+        "frequency": "88.1",
+        "colour": "#ff2bd6",
+        "seed": 8810,
+        "tracks": 6,
+        "bpm": 96,
+        "bpmJitter": 6,
+        "root": 45,
+        "transpose": 3,
+        "scale": "minor",
+        "progressions": [
+          [
+            0,
+            5,
+            2,
+            6
+          ],
+          [
+            0,
+            3,
+            5,
+            4
+          ],
+          [
+            5,
+            3,
+            0,
+            4
+          ],
+          [
+            0,
+            6,
+            5,
+            6
+          ],
+          [
+            3,
+            4,
+            0,
+            0
+          ]
+        ],
+        "chordBars": 2,
+        "swing": 0,
+        "drums": {
+          "kick": [
+            "X...X...X...X...",
+            "X...X...X...X.x."
+          ],
+          "snare": [
+            "....X.......X..."
+          ],
+          "hat": [
+            "..x...x...x...x.",
+            "x.x.x.x.x.x.x.x."
+          ],
+          "openHat": [
+            "......x.......x.",
+            "..............x."
+          ],
+          "clap": [
+            "....X.......X..."
+          ],
+          "perc": [
+            "................",
+            "..........o....."
+          ],
+          "ghostChance": 0.08
+        },
+        "bassRhythms": [
+          "x.x.x.x.x.x.x.x.",
+          "X-x.x.x.X-x.x.x.",
+          "xxx.xxx.xxx.xxx."
+        ],
+        "bassStyle": "octave",
+        "arp": {
+          "mode": "up",
+          "rate": 1,
+          "octaves": 2
+        },
+        "leadRhythms": [
+          "x..x..x.x.......",
+          "X...x.x...x.x...",
+          "x.....x.x...x..."
+        ],
+        "leadDensity": 0.5,
+        "form": [
+          {
+            "name": "intro",
+            "bars": 8,
+            "layers": [
+              "pad",
+              "arp",
+              "hat"
+            ],
+            "filter": 0.35,
+            "fill": false
+          },
+          {
+            "name": "build",
+            "bars": 8,
+            "layers": [
+              "kick",
+              "hat",
+              "pad",
+              "arp",
+              "bass"
+            ],
+            "filter": 0.65,
+            "fill": true
+          },
+          {
+            "name": "main",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "snare",
+              "hat",
+              "openHat",
+              "clap",
+              "perc",
+              "bass",
+              "pad",
+              "arp",
+              "lead"
+            ],
+            "filter": 1,
+            "fill": true
+          },
+          {
+            "name": "break",
+            "bars": 8,
+            "layers": [
+              "pad",
+              "arp",
+              "lead"
+            ],
+            "filter": 0.45,
+            "fill": false
+          },
+          {
+            "name": "main2",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "snare",
+              "hat",
+              "openHat",
+              "clap",
+              "perc",
+              "bass",
+              "pad",
+              "arp",
+              "lead"
+            ],
+            "filter": 1,
+            "fill": true
+          },
+          {
+            "name": "outro",
+            "bars": 8,
+            "layers": [
+              "kick",
+              "pad",
+              "arp"
+            ],
+            "filter": 0.4,
+            "fill": false
+          }
+        ],
+        "kit": {
+          "kickStartHz": 150,
+          "kickEndHz": 48,
+          "kickPitchDecay": 0.035,
+          "kickDecay": 0.32,
+          "kickDrive": 1.5,
+          "kickClick": 0.5,
+          "snareToneHz": 190,
+          "snareDecay": 0.22,
+          "snareNoiseHz": 1800,
+          "snareSnap": 0.5,
+          "hatDecay": 0.03,
+          "openHatDecay": 0.18,
+          "hatHz": 9000,
+          "clapDecay": 0.08,
+          "percHz": 400,
+          "crush": 0,
+          "gains": {
+            "kick": 1,
+            "snare": 0.8,
+            "hat": 0.26,
+            "openHat": 0.22,
+            "clap": 0.45,
+            "perc": 0.3
+          },
+          "reverb": 0.45
+        },
+        "bass": {
+          "wave": "sawtooth",
+          "octave": -1,
+          "gain": 0.55,
+          "cutoff": 520,
+          "resonance": 5,
+          "envAmount": 1500,
+          "attack": 0.003,
+          "decay": 0.18,
+          "sustain": 0.45,
+          "release": 0.06,
+          "detuneCents": 6,
+          "reverb": 0,
+          "delay": 0
+        },
+        "pad": {
+          "wave": "sawtooth",
+          "octave": 1,
+          "gain": 0.6,
+          "cutoff": 1700,
+          "resonance": 1,
+          "envAmount": 0,
+          "attack": 0.6,
+          "decay": 1.0,
+          "sustain": 0.9,
+          "release": 1.2,
+          "detuneCents": 12,
+          "reverb": 0.5,
+          "delay": 0
+        },
+        "arpSynth": {
+          "wave": "square",
+          "octave": 2,
+          "gain": 0.2,
+          "cutoff": 2000,
+          "resonance": 6,
+          "envAmount": 2600,
+          "attack": 0.002,
+          "decay": 0.12,
+          "sustain": 0.1,
+          "release": 0.08,
+          "detuneCents": 4,
+          "reverb": 0.3,
+          "delay": 0.35
+        },
+        "lead": {
+          "wave": "sawtooth",
+          "octave": 2,
+          "gain": 0.24,
+          "cutoff": 2800,
+          "resonance": 2,
+          "envAmount": 1500,
+          "attack": 0.02,
+          "decay": 0.3,
+          "sustain": 0.7,
+          "release": 0.25,
+          "detuneCents": 8,
+          "reverb": 0.4,
+          "delay": 0.3
+        },
+        "filterMin": 400,
+        "filterMax": 16000,
+        "crackle": 0,
+        "wobbleCents": 4,
+        "pump": 0.25,
+        "delayBeats": 0.75,
+        "delayFeedback": 0.38,
+        "gain": 0.8
+      },
+      {
+        "id": "static-chapel",
+        "name": "STATIC CHAPEL",
+        "frequency": "101.9",
+        "colour": "#21f0ff",
+        "seed": 10190,
+        "tracks": 6,
+        "bpm": 128,
+        "bpmJitter": 4,
+        "root": 38,
+        "transpose": 2,
+        "scale": "phrygian",
+        "progressions": [
+          [
+            0
+          ],
+          [
+            0,
+            0,
+            1,
+            0
+          ],
+          [
+            0,
+            6
+          ],
+          [
+            0,
+            0,
+            0,
+            5
+          ]
+        ],
+        "chordBars": 4,
+        "swing": 0.04,
+        "drums": {
+          "kick": [
+            "X...X...X...X...",
+            "X...X...X...X..o"
+          ],
+          "snare": [
+            "................",
+            "............o..."
+          ],
+          "hat": [
+            "oxoxoxoxoxoxoxox",
+            "xoxoxxoxxoxoxxox"
+          ],
+          "openHat": [
+            "..x...x...x...x.",
+            "..X...X...X...x."
+          ],
+          "clap": [
+            "....x.......x...",
+            "....x.......x..o"
+          ],
+          "perc": [
+            "...o..o....o..o.",
+            ".o....o..o....o."
+          ],
+          "ghostChance": 0.15
+        },
+        "bassRhythms": [
+          "x~x.xx~.x.x~xx.x",
+          "X.x~x.xX.x~x.x.x",
+          ".xx.~xx..xx.~x.x"
+        ],
+        "bassStyle": "acid",
+        "arp": {
+          "mode": "random",
+          "rate": 2,
+          "octaves": 1
+        },
+        "leadRhythms": [
+          "x.......x.......",
+          "....x.........x."
+        ],
+        "leadDensity": 0.25,
+        "form": [
+          {
+            "name": "intro",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "hat",
+              "perc"
+            ],
+            "filter": 0.5,
+            "fill": false
+          },
+          {
+            "name": "build",
+            "bars": 8,
+            "layers": [
+              "kick",
+              "hat",
+              "perc",
+              "bass",
+              "openHat"
+            ],
+            "filter": 0.7,
+            "fill": true
+          },
+          {
+            "name": "main",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "hat",
+              "openHat",
+              "clap",
+              "perc",
+              "bass",
+              "arp"
+            ],
+            "filter": 1,
+            "fill": false
+          },
+          {
+            "name": "break",
+            "bars": 8,
+            "layers": [
+              "pad",
+              "arp",
+              "lead",
+              "hat"
+            ],
+            "filter": 0.4,
+            "fill": false
+          },
+          {
+            "name": "drop",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "snare",
+              "hat",
+              "openHat",
+              "clap",
+              "perc",
+              "bass",
+              "pad",
+              "arp",
+              "lead"
+            ],
+            "filter": 1,
+            "fill": true
+          },
+          {
+            "name": "outro",
+            "bars": 8,
+            "layers": [
+              "kick",
+              "hat",
+              "pad"
+            ],
+            "filter": 0.5,
+            "fill": false
+          }
+        ],
+        "kit": {
+          "kickStartHz": 120,
+          "kickEndHz": 42,
+          "kickPitchDecay": 0.05,
+          "kickDecay": 0.45,
+          "kickDrive": 3.5,
+          "kickClick": 0.7,
+          "snareToneHz": 200,
+          "snareDecay": 0.15,
+          "snareNoiseHz": 1800,
+          "snareSnap": 0.4,
+          "hatDecay": 0.025,
+          "openHatDecay": 0.12,
+          "hatHz": 10000,
+          "clapDecay": 0.12,
+          "percHz": 750,
+          "crush": 0.05,
+          "gains": {
+            "kick": 1.1,
+            "snare": 0.5,
+            "hat": 0.28,
+            "openHat": 0.3,
+            "clap": 0.5,
+            "perc": 0.3
+          },
+          "reverb": 0.2
+        },
+        "bass": {
+          "wave": "sawtooth",
+          "octave": 0,
+          "gain": 0.42,
+          "cutoff": 320,
+          "resonance": 14,
+          "envAmount": 1900,
+          "attack": 0.002,
+          "decay": 0.12,
+          "sustain": 0.25,
+          "release": 0.05,
+          "detuneCents": 0,
+          "reverb": 0.05,
+          "delay": 0.15
+        },
+        "pad": {
+          "wave": "sawtooth",
+          "octave": 1,
+          "gain": 0.45,
+          "cutoff": 700,
+          "resonance": 2,
+          "envAmount": 0,
+          "attack": 2,
+          "decay": 2,
+          "sustain": 0.8,
+          "release": 2,
+          "detuneCents": 18,
+          "reverb": 0.7,
+          "delay": 0
+        },
+        "arpSynth": {
+          "wave": "square",
+          "octave": 1,
+          "gain": 0.2,
+          "cutoff": 900,
+          "resonance": 8,
+          "envAmount": 1600,
+          "attack": 0.002,
+          "decay": 0.09,
+          "sustain": 0,
+          "release": 0.1,
+          "detuneCents": 10,
+          "reverb": 0.5,
+          "delay": 0.5
+        },
+        "lead": {
+          "wave": "sine",
+          "octave": 2,
+          "gain": 0.16,
+          "cutoff": 2500,
+          "resonance": 0,
+          "envAmount": 0,
+          "attack": 0.005,
+          "decay": 0.4,
+          "sustain": 0.2,
+          "release": 0.4,
+          "detuneCents": 0,
+          "reverb": 0.6,
+          "delay": 0.5
+        },
+        "filterMin": 250,
+        "filterMax": 14000,
+        "crackle": 0,
+        "wobbleCents": 0,
+        "pump": 0.45,
+        "delayBeats": 0.75,
+        "delayFeedback": 0.5,
+        "gain": 0.8
+      },
+      {
+        "id": "soft-rain",
+        "name": "SOFT RAIN FM",
+        "frequency": "92.4",
+        "colour": "#c8ff2b",
+        "seed": 9240,
+        "tracks": 6,
+        "bpm": 78,
+        "bpmJitter": 5,
+        "root": 50,
+        "transpose": 4,
+        "scale": "dorian",
+        "progressions": [
+          [
+            1,
+            4,
+            0,
+            0
+          ],
+          [
+            3,
+            2,
+            1,
+            4
+          ],
+          [
+            0,
+            3,
+            6,
+            4
+          ],
+          [
+            5,
+            4,
+            1,
+            4
+          ],
+          [
+            0,
+            5,
+            1,
+            4
+          ]
+        ],
+        "chordBars": 1,
+        "swing": 0.28,
+        "drums": {
+          "kick": [
+            "X......x..X.....",
+            "X.....x...X..x.."
+          ],
+          "snare": [
+            "....X.......X...",
+            "....X.......X..o"
+          ],
+          "hat": [
+            "x.x.x.x.x.x.x.x.",
+            "x.xox.x.x.xox.x."
+          ],
+          "openHat": [
+            "................",
+            "..............x."
+          ],
+          "clap": [
+            "................"
+          ],
+          "perc": [
+            "..........o.....",
+            "................"
+          ],
+          "ghostChance": 0.12
+        },
+        "bassRhythms": [
+          "X.....x...x.....",
+          "X-....x.x-......",
+          "X-.x....X-..x..."
+        ],
+        "bassStyle": "walk",
+        "arp": {
+          "mode": "pattern",
+          "rate": 2,
+          "octaves": 1
+        },
+        "leadRhythms": [
+          "x..x...x..x.....",
+          "..x...x.x...x..."
+        ],
+        "leadDensity": 0.45,
+        "form": [
+          {
+            "name": "intro",
+            "bars": 4,
+            "layers": [
+              "pad",
+              "hat",
+              "perc"
+            ],
+            "filter": 0.45,
+            "fill": false
+          },
+          {
+            "name": "main",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "snare",
+              "hat",
+              "openHat",
+              "perc",
+              "bass",
+              "pad"
+            ],
+            "filter": 0.8,
+            "fill": false
+          },
+          {
+            "name": "main2",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "snare",
+              "hat",
+              "openHat",
+              "perc",
+              "bass",
+              "pad",
+              "lead"
+            ],
+            "filter": 0.85,
+            "fill": false
+          },
+          {
+            "name": "break",
+            "bars": 8,
+            "layers": [
+              "pad",
+              "arp",
+              "bass"
+            ],
+            "filter": 0.5,
+            "fill": false
+          },
+          {
+            "name": "main3",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "snare",
+              "hat",
+              "openHat",
+              "clap",
+              "perc",
+              "bass",
+              "pad",
+              "arp",
+              "lead"
+            ],
+            "filter": 0.85,
+            "fill": true
+          },
+          {
+            "name": "outro",
+            "bars": 4,
+            "layers": [
+              "pad",
+              "arp"
+            ],
+            "filter": 0.4,
+            "fill": false
+          }
+        ],
+        "kit": {
+          "kickStartHz": 110,
+          "kickEndHz": 50,
+          "kickPitchDecay": 0.03,
+          "kickDecay": 0.25,
+          "kickDrive": 1,
+          "kickClick": 0.2,
+          "snareToneHz": 180,
+          "snareDecay": 0.14,
+          "snareNoiseHz": 1500,
+          "snareSnap": 0.3,
+          "hatDecay": 0.025,
+          "openHatDecay": 0.15,
+          "hatHz": 7000,
+          "clapDecay": 0.07,
+          "percHz": 900,
+          "crush": 0.45,
+          "gains": {
+            "kick": 0.95,
+            "snare": 0.7,
+            "hat": 0.2,
+            "openHat": 0.2,
+            "clap": 0.4,
+            "perc": 0.25
+          },
+          "reverb": 0.12
+        },
+        "bass": {
+          "wave": "triangle",
+          "octave": -1,
+          "gain": 0.75,
+          "cutoff": 900,
+          "resonance": 1,
+          "envAmount": 300,
+          "attack": 0.005,
+          "decay": 0.4,
+          "sustain": 0.6,
+          "release": 0.12,
+          "detuneCents": 0,
+          "reverb": 0,
+          "delay": 0
+        },
+        "pad": {
+          "wave": "triangle",
+          "octave": 0,
+          "gain": 0.75,
+          "cutoff": 1600,
+          "resonance": 1,
+          "envAmount": 800,
+          "attack": 0.01,
+          "decay": 1.2,
+          "sustain": 0.35,
+          "release": 0.6,
+          "detuneCents": 6,
+          "reverb": 0.35,
+          "delay": 0
+        },
+        "arpSynth": {
+          "wave": "sine",
+          "octave": 1,
+          "gain": 0.18,
+          "cutoff": 3000,
+          "resonance": 0,
+          "envAmount": 0,
+          "attack": 0.005,
+          "decay": 0.3,
+          "sustain": 0.1,
+          "release": 0.3,
+          "detuneCents": 0,
+          "reverb": 0.4,
+          "delay": 0.3
+        },
+        "lead": {
+          "wave": "triangle",
+          "octave": 1,
+          "gain": 0.22,
+          "cutoff": 1800,
+          "resonance": 1,
+          "envAmount": 400,
+          "attack": 0.03,
+          "decay": 0.4,
+          "sustain": 0.6,
+          "release": 0.3,
+          "detuneCents": 5,
+          "reverb": 0.45,
+          "delay": 0.25
+        },
+        "filterMin": 600,
+        "filterMax": 5500,
+        "crackle": 0.18,
+        "wobbleCents": 14,
+        "pump": 0.1,
+        "delayBeats": 1,
+        "delayFeedback": 0.3,
+        "gain": 0.9
+      },
+      {
+        "id": "rush-hour",
+        "name": "RUSH HOUR",
+        "frequency": "174.0",
+        "colour": "#ff9a2b",
+        "seed": 17400,
+        "tracks": 6,
+        "bpm": 172,
+        "bpmJitter": 3,
+        "root": 41,
+        "transpose": 3,
+        "scale": "minor",
+        "progressions": [
+          [
+            0,
+            5,
+            3,
+            4
+          ],
+          [
+            0,
+            0,
+            5,
+            6
+          ],
+          [
+            0,
+            3,
+            0,
+            6
+          ]
+        ],
+        "chordBars": 2,
+        "swing": 0,
+        "drums": {
+          "kick": [
+            "X.........X.....",
+            "X.........X..x..",
+            "X.x.......X....."
+          ],
+          "snare": [
+            "....X.......X...",
+            "....X..o....X..o"
+          ],
+          "hat": [
+            "x.x.x.x.x.x.x.x.",
+            "xox.xox.xox.xoxo"
+          ],
+          "openHat": [
+            "..............x.",
+            "......x........."
+          ],
+          "clap": [
+            "................"
+          ],
+          "perc": [
+            "......o.......o.",
+            "..o.......o....."
+          ],
+          "ghostChance": 0.2
+        },
+        "bassRhythms": [
+          "X-------x-------",
+          "X-----x-X-------",
+          "X---x---X-----x-"
+        ],
+        "bassStyle": "reese",
+        "arp": {
+          "mode": "up",
+          "rate": 2,
+          "octaves": 2
+        },
+        "leadRhythms": [
+          "X.....x.....x...",
+          "x..x..x...x.x..."
+        ],
+        "leadDensity": 0.35,
+        "form": [
+          {
+            "name": "intro",
+            "bars": 8,
+            "layers": [
+              "hat",
+              "pad",
+              "arp"
+            ],
+            "filter": 0.4,
+            "fill": false
+          },
+          {
+            "name": "build",
+            "bars": 8,
+            "layers": [
+              "hat",
+              "perc",
+              "pad",
+              "arp",
+              "snare"
+            ],
+            "filter": 0.6,
+            "fill": true
+          },
+          {
+            "name": "drop",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "snare",
+              "hat",
+              "openHat",
+              "perc",
+              "bass",
+              "pad"
+            ],
+            "filter": 1,
+            "fill": true
+          },
+          {
+            "name": "break",
+            "bars": 8,
+            "layers": [
+              "pad",
+              "lead",
+              "arp"
+            ],
+            "filter": 0.4,
+            "fill": false
+          },
+          {
+            "name": "drop2",
+            "bars": 16,
+            "layers": [
+              "kick",
+              "snare",
+              "hat",
+              "openHat",
+              "clap",
+              "perc",
+              "bass",
+              "pad",
+              "arp",
+              "lead"
+            ],
+            "filter": 1,
+            "fill": true
+          },
+          {
+            "name": "outro",
+            "bars": 8,
+            "layers": [
+              "kick",
+              "snare",
+              "hat",
+              "pad"
+            ],
+            "filter": 0.5,
+            "fill": false
+          }
+        ],
+        "kit": {
+          "kickStartHz": 140,
+          "kickEndHz": 52,
+          "kickPitchDecay": 0.025,
+          "kickDecay": 0.2,
+          "kickDrive": 2,
+          "kickClick": 0.6,
+          "snareToneHz": 210,
+          "snareDecay": 0.13,
+          "snareNoiseHz": 2200,
+          "snareSnap": 0.8,
+          "hatDecay": 0.02,
+          "openHatDecay": 0.1,
+          "hatHz": 10500,
+          "clapDecay": 0.06,
+          "percHz": 1200,
+          "crush": 0,
+          "gains": {
+            "kick": 1,
+            "snare": 0.95,
+            "hat": 0.28,
+            "openHat": 0.22,
+            "clap": 0.3,
+            "perc": 0.25
+          },
+          "reverb": 0.15
+        },
+        "bass": {
+          "wave": "sawtooth",
+          "octave": 0,
+          "gain": 0.5,
+          "cutoff": 450,
+          "resonance": 3,
+          "envAmount": 300,
+          "attack": 0.01,
+          "decay": 0.5,
+          "sustain": 0.8,
+          "release": 0.1,
+          "detuneCents": 22,
+          "reverb": 0,
+          "delay": 0
+        },
+        "pad": {
+          "wave": "sawtooth",
+          "octave": 1,
+          "gain": 0.4,
+          "cutoff": 1400,
+          "resonance": 1,
+          "envAmount": 0,
+          "attack": 1,
+          "decay": 1.5,
+          "sustain": 0.8,
+          "release": 1.5,
+          "detuneCents": 15,
+          "reverb": 0.6,
+          "delay": 0
+        },
+        "arpSynth": {
+          "wave": "triangle",
+          "octave": 2,
+          "gain": 0.14,
+          "cutoff": 4000,
+          "resonance": 0,
+          "envAmount": 0,
+          "attack": 0.003,
+          "decay": 0.15,
+          "sustain": 0.05,
+          "release": 0.1,
+          "detuneCents": 0,
+          "reverb": 0.4,
+          "delay": 0.4
+        },
+        "lead": {
+          "wave": "square",
+          "octave": 2,
+          "gain": 0.15,
+          "cutoff": 2400,
+          "resonance": 1,
+          "envAmount": 1200,
+          "attack": 0.01,
+          "decay": 0.25,
+          "sustain": 0.5,
+          "release": 0.2,
+          "detuneCents": 6,
+          "reverb": 0.35,
+          "delay": 0.25
+        },
+        "filterMin": 350,
+        "filterMax": 16000,
+        "crackle": 0,
+        "wobbleCents": 0,
+        "pump": 0.2,
+        "delayBeats": 0.75,
+        "delayFeedback": 0.35,
+        "gain": 0.8
+      }
+    ]
+  }
+}

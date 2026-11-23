@@ -9,6 +9,8 @@ import { BufferAttribute, BufferGeometry, Color, Euler, Matrix4, Quaternion, Vec
 export class MeshBuilder {
   private readonly pos: number[] = [];
   private readonly col: number[] = [];
+  /** 1 where the vertex is paint (white), 0 for fixed trim: lets a material tint only the paint. */
+  private readonly mask: number[] = [];
   private readonly m = new Matrix4();
   private readonly q = new Quaternion();
   private readonly e = new Euler();
@@ -57,11 +59,13 @@ export class MeshBuilder {
     this.q.setFromEuler(this.e);
     this.m.compose(this.v.set(cx, cy - h / 2, cz), this.q, new Vector3(1, 1, 1));
     const base = this.c.setHex(colour);
+    const paint = colour === 0xffffff ? 1 : 0;
     for (const [a, b, c2, d2, shade] of faces) {
       for (const idx of [a, b, c2, a, c2, d2]) {
         const [x, y, z] = p[idx]!;
         this.v.set(x, y, z).applyMatrix4(this.m);
         this.pos.push(this.v.x, this.v.y, this.v.z);
+        this.mask.push(paint);
         this.col.push(base.r * shade, base.g * shade, base.b * shade);
       }
     }
@@ -80,6 +84,7 @@ export class MeshBuilder {
     }
     const push = (x: number, y: number, z: number, c: Color, s: number): void => {
       this.pos.push(cx + x, cy + y, cz + z);
+      this.mask.push(c === base ? (colour === 0xffffff ? 1 : 0) : capColour === 0xffffff ? 1 : 0);
       this.col.push(c.r * s, c.g * s, c.b * s);
     };
     for (let i = 0; i < sides; i++) {
@@ -104,10 +109,16 @@ export class MeshBuilder {
     return this;
   }
 
+  /** Triangles added so far (budget checks). */
+  get triangles(): number {
+    return this.pos.length / 9;
+  }
+
   build(): BufferGeometry {
     const g = new BufferGeometry();
     g.setAttribute('position', new BufferAttribute(new Float32Array(this.pos), 3));
     g.setAttribute('color', new BufferAttribute(new Float32Array(this.col), 3));
+    g.setAttribute('paintMask', new BufferAttribute(new Float32Array(this.mask), 1));
     g.computeVertexNormals();
     return g;
   }

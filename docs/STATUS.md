@@ -1,5 +1,27 @@
 # Status
 
+## Vehicle roster (23 Nov 2026)
+
+- **23 variants** (17 new): hatchback, saloon, cab, estate, SUV, two sports cars, two supercars, muscle, pickup, van, box truck, hauler, bus, ambulance, fire tender, patrol car, patrol van, heavy interceptor, corporate enforcer, motorbike and sport bike. Every handling value is in `vehicles.json`. New optional fields (all defaulted): `class`, `model`, `twoWheel`, `traffic` (weight), `districts`, `paints`, `leanMax`, plus class paint palettes under `paints`.
+- **Roster helpers** in `packages/sim/src/roster.ts`: `variantsOfClass`, `pickTrafficVariant` (weighted, district-boosted, seeded) and `paintFor`. Traffic and police do not call them yet: `traffic.ts` still picks from `traffic.json` (now a wider civilian mix) and `police.ts` still spawns `interceptor` at every HEAT level.
+- **Bikes**: a two-wheeler only slides on the rear brake (handbrake); the view leans it into turns and seats a rider. They are light, so cars knock them about.
+- **Rendering**: all bodies and riders are one `BatchedMesh` (one draw call) with per-instance paint. A `paintMask` vertex attribute keeps trim untinted. Lamps (head, tail and brake, beacons, taxi sign, clearance lamps and accent strips) are one instanced mesh. The whole roster costs 4 draw calls. Parked cars go dark.
+- **Showroom**: `?garage=1` (add `&labels=1` for names, `&city=1` to keep the buildings) loads `apps/game/src/garage.ts` on demand.
+- **Open**: police escalation to the van and heavy interceptor at high HEAT; district-aware traffic; per-class engine audio; a sustained shove from a light car still moves a parked lorry (the arcade model's push ignores mass until the contact).
+## Sound (23 Nov 2026)
+
+The game had no sound. It now has a fully procedural sound layer (`packages/audio`, tuned in `content/data/audio.json`). Nothing is shipped as an audio file: one-shots are rendered from code at runtime, in a frame-budgeted queue after the first tap.
+- **Engine**: one AudioContext, created and unlocked on the first gesture. It resumes after iOS interruptions and suspends when the tab is hidden. Buses: music, world, ambience and UI, then a high-pass, a compressor and a limiter. One generated reverb is shared. Pausing mutes world sounds and puts the music behind a low-pass. One-shots play on a pool of 24 channel strips.
+- **Cars**: the nearest 6 cars get engine voices. Each of the six classes (coupé, muscle, van, police, motorbike, sports) has its own harmonic spectrum. Rpm comes from speed, gear and load, with a throttle cut on upshifts. There is doppler, tyre squeal from lateral slip and handbrake, exhaust pops on lift-off, and traffic horns after a shunt.
+- **Impacts**: metal crunches in three sizes, plus glass, explosions and kerb thumps. Smashed props sound by material (wood, plastic, metal, glass with electrical fizz, hydrant spray). Body hits are soft thuds.
+- **Weapons**: pistol, SMG, shotgun and rifle each have their own sound, with street slap-back echoes. There are also a launcher thump, taser crackle, fist and bat swings and hits, a dry click and a reload, plus ricochets and bullet hits.
+- **Police**: up to 3 sirens (wail far off, yelp close, doppler), drone rotor hum at HEAT 3 and above, and scanner chatter (garbled formant voice).
+- **City**: rain (darker inside a car), the low hum of the city and distant traffic. Far-off sirens and horns play while not wanted. Crowd murmur rises near people. Short formant screams and shouts play when people scatter. Wrecks crackle with fire, and footsteps land on the wet street.
+- **UI and stings**: menu blips, pickup, cash, HEAT up and down tones, and hack-panel notes per node. Mission start, complete and fail stings, plus flatline and busted stings; all stings duck the radio.
+- **Radio**: four stations of generated music: NIGHTDRIVE 88.1 (synthwave), STATIC CHAPEL 101.9 (dark techno), SOFT RAIN FM 92.4 (lo-fi) and RUSH HOUR 174.0 (drum and bass). A seeded composer builds 6 tracks per station, each with its own tempo, key, progression, bass line, motif and arrangement. Stations run live, so coming back resumes mid-song. Tuning plays static, then the station's jingle. The radio plays only in a car: press **R** or the **FM** button to change station. The pause menu has a Sound section with master, music and effects volume and a station choice.
+- **Tests**: `tests/unit/audio.test.ts` (19 tests) covers the content schema, sequencer determinism and form, scale correctness, the timeline, the ident, distance gain, engine pitch and gear mapping, voice allocation caps and hysteresis, doppler, siren range and DSP sanity. A new e2e test unlocks audio with a tap and fires every cue, checking for no errors.
+- **Open**: the mix was checked by level and spectrum analysis of captured output, not by ear on a phone; levels may need a listening pass. There is no player horn input yet (`horn` events are supported). New weapon and pickup events are handled by name in `GameAudio.handle` (weapon from `e.weapon`).
+
 ## Kerbs and street furniture (23 Nov 2026)
 
 Playing on the phone, hitting a kerb stopped the car dead. The kerb itself never had a collider. The problem was what stands on the pavement:

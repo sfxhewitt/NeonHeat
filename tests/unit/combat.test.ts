@@ -243,6 +243,14 @@ describe('vehicles and explosions', () => {
     expect(b.hp).toBeLessThan(b.params.maxHealth);
   });
 
+  it('a wrecked bike crumples without blowing up', async () => {
+    const w = await arena();
+    const bike = w.spawnVehicle('sparrow', 20, 0, 0, 'parked')!;
+    expect(bike.params.mass).toBeLessThan(w.content.weapons.explosion.wreckMinMass);
+    w.damageVehicle(bike, 1e6);
+    expect(events(w, 1).some((e) => e.type === 'explosion')).toBe(false);
+  });
+
   it('shooting a police car to pieces is a serious crime', async () => {
     const w = await arena();
     const cop = parkedCop(w, 12, 0);

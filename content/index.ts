@@ -13,9 +13,11 @@ import dialogue from './data/dialogue.json' with { type: 'json' };
 import props from './data/props.json' with { type: 'json' };
 import pickups from './data/pickups.json' with { type: 'json' };
 import survival from './data/survival.json' with { type: 'json' };
+import audio from './data/audio.json' with { type: 'json' };
+import weather from './data/weather.json' with { type: 'json' };
 import hotChrome from './missions/glasshounds_03_hot_chrome.json' with { type: 'json' };
 
-export const rawContent = { vehicles, camera, map, heat, traffic, feel, peds, weapons, quality, squads, dialogue, props, pickups, survival };
+export const rawContent = { vehicles, camera, map, heat, traffic, feel, peds, weapons, quality, squads, dialogue, props, pickups, survival, audio, weather };
 
 /** Every mission file, keyed by file name. One JSON file per mission. */
 export const rawMissions: Record<string, unknown> = {
