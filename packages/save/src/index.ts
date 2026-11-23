@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** Current save format. Bump and add a migration whenever the shape changes. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 /**
  * Lifetime stats for the pause menu. Fields added after the first v1 saves
@@ -58,18 +58,42 @@ export const SaveV2Schema = z.object({
   stats: StatsSchema,
   savedAt: z.string(),
 });
-export const SaveSchema = SaveV2Schema;
-export type SaveData = z.infer<typeof SaveV2Schema>;
+
+/**
+ * Side activities (mirrors the sim's ActivityProgress): rampages passed, best
+ * jumps and unique jumps, data shards found, race records and fare work.
+ */
+export const ActivitiesSaveSchema = z.object({
+  rampages: z.record(z.string(), z.object({ passes: z.number().int().nonnegative(), bestSec: z.number().nonnegative() })).default({}),
+  jumps: z.record(z.string(), z.object({ best: z.number().nonnegative(), unique: z.boolean() })).default({}),
+  shards: z.array(z.string()).default([]),
+  races: z.record(z.string(), z.object({ wins: z.number().int().nonnegative(), finishes: z.number().int().nonnegative(), bestSec: z.number().nonnegative() })).default({}),
+  fares: z.record(z.string(), z.object({ done: z.number().int().nonnegative(), earned: z.number().nonnegative(), bestStreak: z.number().int().nonnegative() })).default({}),
+});
+export type ActivitiesSave = z.infer<typeof ActivitiesSaveSchema>;
+
+export function newActivities(): ActivitiesSave {
+  return { rampages: {}, jumps: {}, shards: [], races: {}, fares: {} };
+}
+
+/** Version 3: adds side-activity progress. */
+export const SaveV3Schema = SaveV2Schema.extend({
+  version: z.literal(3),
+  activities: ActivitiesSaveSchema,
+});
+export const SaveSchema = SaveV3Schema;
+export type SaveData = z.infer<typeof SaveV3Schema>;
 
 export function newSave(): SaveData {
   return {
-    version: 2,
+    version: 3,
     credits: 0,
     respect: {},
     completedMissions: [],
     unlocks: [],
     missions: {},
     stats: newStats(),
+    activities: newActivities(),
     savedAt: new Date(0).toISOString(),
   };
 }
@@ -93,6 +117,7 @@ export const MIGRATIONS: Record<number, Migration> = {
     const { rep, ...rest } = SaveV1Schema.parse(old);
     return { ...rest, version: 2, respect: { ...rep }, unlocks: [], missions: {} };
   },
+  2: (old) => ({ ...SaveV2Schema.parse(old), version: 3, activities: newActivities() }),
 };
 
 /** Bring any known older save up to the current version and validate it. */

@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { IndexedDbStorage, MemoryStorage, SaveManager, applyMissionResult, migrate, newSave, newStats } from '@neonheat/save';
+import { IndexedDbStorage, MemoryStorage, SaveManager, applyMissionResult, migrate, newActivities, newSave, newStats } from '@neonheat/save';
 
 describe('save', () => {
   it('creates a fresh save when none exists and round-trips it', async () => {
@@ -43,13 +43,14 @@ describe('save', () => {
     };
     const s = migrate(v1);
     expect(s).toEqual({
-      version: 2,
+      version: 3,
       credits: 1500,
       respect: { glasshounds: 10, kurogane: -15 },
       completedMissions: ['glasshounds_03_hot_chrome'],
       unlocks: [],
       missions: {},
       stats: { ...newStats(), missionsPassed: 1, playSeconds: 321 },
+      activities: newActivities(),
       savedAt: '2026-11-22T10:00:00.000Z',
     });
     expect(() => migrate({ ...v1, credits: -5 })).toThrow();
@@ -57,7 +58,7 @@ describe('save', () => {
 
   it('migrates a version 0 save', () => {
     const s = migrate({ money: 250.7, missions: ['old_job'] });
-    expect(s.version).toBe(2);
+    expect(s.version).toBe(3);
     expect(s.credits).toBe(250);
     expect(s.completedMissions).toEqual(['old_job']);
   });
@@ -79,6 +80,39 @@ describe('save', () => {
     s = applyMissionResult(s, 'm1', { credits: 1500, rep: {} });
     s = applyMissionResult(s, 'm2', { credits: 500, rep: {} });
     expect(s.stats.creditsEarned).toBe(2000);
+  });
+
+  it('migrates a version 2 save to 3: side-activity progress starts empty, nothing else changes', () => {
+    const v2 = {
+      version: 2,
+      credits: 900,
+      respect: { glasshounds: 20 },
+      completedMissions: ['story_01_first_call'],
+      unlocks: ['safehouse:safehouse_1'],
+      missions: { story_01_first_call: { bestSeconds: 200, passes: 1 } },
+      stats: { ...newStats(), missionsPassed: 1, playSeconds: 600 },
+      savedAt: '2026-11-23T01:00:00.000Z',
+    };
+    const s = migrate(v2);
+    expect(s).toEqual({ ...v2, version: 3, activities: { rampages: {}, jumps: {}, shards: [], races: {}, fares: {} } });
+  });
+
+  it('round-trips side-activity progress: shards, jumps, rampages, races and fares', async () => {
+    const storage = new MemoryStorage();
+    const a = new SaveManager(storage);
+    await a.load();
+    a.current.activities = {
+      rampages: { glass_hostile_takeover: { passes: 2, bestSec: 51.5 } },
+      jumps: { jump_glass_1: { best: 41.2, unique: true } },
+      shards: ['shard_glass_1', 'shard_lantern_4'],
+      races: { lantern_loop: { wins: 1, finishes: 3, bestSec: 92.31 } },
+      fares: { taxi: { done: 7, earned: 3100, bestStreak: 4 } },
+    };
+    await a.save();
+    const b = new SaveManager(storage);
+    expect((await b.load()).activities).toEqual(a.current.activities);
+    // Partial activity blocks (from a hand-edited or older v3 save) fill in defaults.
+    expect(migrate({ ...newSave(), activities: { shards: ['x'] } }).activities).toEqual({ ...newActivities(), shards: ['x'] });
   });
 
   it('rejects saves from a newer build and falls back to a fresh save', async () => {
