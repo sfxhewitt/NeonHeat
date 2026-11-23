@@ -44,7 +44,10 @@ export function styleFor(variant: string): Style {
     case 'interceptor':
       return 'sedan';
     case 'enforcer':
+    case 'heavy':
       return 'suv';
+    case 'tactical':
+      return 'van';
     case 'prototype':
       return 'super';
     default:

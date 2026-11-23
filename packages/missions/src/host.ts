@@ -176,7 +176,7 @@ export class WorldMissionHost implements MissionHost {
     const cp = raw as Checkpoint;
     const w = this.world;
     const pc = w.playerCtl;
-    if (pc.dead) pc.respawn();
+    if (pc.dead || pc.busted) pc.respawn();
     if (pc.mode === 'driving') pc.exit();
     for (const snap of cp.vehicles) {
       let v = this.vehicle(snap.ref);

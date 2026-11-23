@@ -44,6 +44,7 @@ import {
 } from '@neonheat/ui';
 import { loadGameContent, type GameContent } from './content';
 import { setupTuning } from './tuning';
+import { CombatLayer } from './combat-layer';
 
 export interface GameStats {
   fps: number;
@@ -78,6 +79,7 @@ export class Game {
   private propsView!: PropsView;
   private skids!: SkidMarks;
   private sceneLights!: SceneLights;
+  private combat!: CombatLayer;
   private perfEl: HTMLElement | null = null;
   private minimap!: Minimap;
   private readonly mapDots: MinimapDot[] = [];
@@ -176,6 +178,7 @@ export class Game {
       else if (!this.menu.isOpen && !this.closeFail) this.setPaused(false);
     });
     await this.saves.load().catch((err: unknown) => console.warn('Save unavailable', err));
+    this.world.score.credits = this.saves.current.credits;
   }
 
   private setupMissions(bot: boolean): void {
@@ -206,6 +209,7 @@ export class Game {
     d.onComplete = (r) => {
       this.hud.toast(`JOB DONE\n+${r.mission.rewards.credits.toLocaleString('en-GB')} cr`, performance.now(), 3.5);
       this.saves.current = applyMissionResult(this.saves.current, r.mission.id, r.mission.rewards);
+      this.world.score.credits = this.saves.current.credits;
       this.autosave('mission end');
     };
   }
@@ -259,6 +263,18 @@ export class Game {
     this.people = new PeopleView(s, this.content.sim.peds.colours);
     this.markers = new MarkersView(s);
     this.droneView = new DroneView(s, this.content.sim.heat.droneSightRange);
+    this.combat = new CombatLayer(this.world, {
+      scene: s,
+      overlay: this.overlay,
+      hud: this.hud,
+      input: this.input,
+      particles: this.particles,
+      lights: this.sceneLights,
+      rig: this.rig,
+      vibrate: (ms) => {
+        if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(ms);
+      },
+    });
     const top = this.content.quality.tiers.ultra;
     this.rain = new Rain(s, top.rainStreaks, top.rainSplashes, this.lightField.uniforms);
     this.postfx.addOccluder(
@@ -409,6 +425,7 @@ export class Game {
     this.director.tick(SIM_DT);
     this.stats.tickMs = performance.now() - t0;
     for (const e of this.world.events) this.onSimEvent(e);
+    this.saves.current.credits = Math.max(0, Math.floor(this.world.score.credits));
     this.saves.current.stats.playSeconds += SIM_DT;
     if (!this.director.active) {
       this.freeRoamSaveTimer += SIM_DT;
@@ -536,6 +553,7 @@ export class Game {
   }
 
   private onSimEvent(e: SimEvent): void {
+    if (this.combat.onEvent(e)) return;
     const feel = this.content.feel;
     if (e.type === 'impact') {
       const n = Math.min(feel.sparksMax, Math.round(e.strength * feel.sparksPerStrength));
@@ -621,6 +639,7 @@ export class Game {
     this.updateMinimap(dt);
     this.hud.tick(performance.now());
     this.people.update(w, alpha, dt, w.time);
+    this.combat.update(alpha, dt);
     const pv = w.player.vehicle;
     if (pv) {
       const x = pv.prevX + (pv.x - pv.prevX) * alpha;

@@ -31,7 +31,7 @@ export class MissionBot {
     const pc = w.playerCtl;
     const d = this.director;
     this.interactCooldown = Math.max(0, this.interactCooldown - dt);
-    if (pc.dead) return out;
+    if (pc.incapacitated) return out;
 
     // Hack minigame: wait for the input phase, then tap the sequence with a human-ish delay.
     if (d.hack) {

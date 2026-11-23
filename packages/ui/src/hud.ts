@@ -85,6 +85,11 @@ export class Hud {
     (this.healthWrap.firstElementChild as HTMLElement).textContent = label;
   }
 
+  /** The hull bar only shows while driving (on foot the combat HUD shows body and armour). */
+  showHealth(on: boolean): void {
+    this.healthWrap.hidden = !on;
+  }
+
   setTrace(percent: number): void {
     const v = Math.round(percent);
     if (v === this.last.trace) return;
