@@ -7,3 +7,4 @@ export * from './hud';
 export * from './mission-ui';
 export * from './screen';
 export * from './minimap';
+export * from './radio-ui';

@@ -162,3 +162,23 @@
   pointer-events: none;
   z-index: 30;
 }
+
+/* Car radio */
+.nh-radio-btn {
+  position: fixed; z-index: 30; top: calc(66px + var(--nh-safe-t)); right: calc(12px + var(--nh-safe-r)); width: 48px; height: 48px;
+  background: var(--nh-panel); color: var(--nh-station, var(--nh-cyan)); border: 1px solid var(--nh-station, #3b3a70);
+  font: 800 11px var(--nh-font); letter-spacing: 0.14em; pointer-events: auto; touch-action: manipulation;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--nh-station, #21f0ff) 30%, transparent);
+}
+.nh-radio-btn[hidden], .nh-radio-label[hidden] { display: none; }
+.nh-radio-label {
+  position: fixed; z-index: 30; top: calc(72px + var(--nh-safe-t)); right: calc(70px + var(--nh-safe-r)); text-align: right; pointer-events: none;
+  font-family: var(--nh-font); color: var(--nh-station, var(--nh-cyan));
+}
+.nh-radio-label b { display: block; font-size: 15px; letter-spacing: 0.24em; text-shadow: 0 0 10px var(--nh-station, var(--nh-cyan)); }
+.nh-radio-label small { display: block; font-size: 10px; letter-spacing: 0.2em; color: var(--nh-dim); margin-top: 2px; }
+.nh-radio-label.is-in { animation: nh-radio-in 2.6s ease-out forwards; }
+@keyframes nh-radio-in { 0% { opacity: 0; transform: translateX(12px); } 10% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
+.nh-modal__sub { margin: 14px 0 4px; font-size: 11px; letter-spacing: 0.24em; color: var(--nh-cyan); border-top: 1px solid #2a2950; padding-top: 10px; }
+.nh-choice--wrap { flex-wrap: wrap; justify-content: flex-end; max-width: 340px; }
+.nh-slider { width: 180px; height: 48px; accent-color: var(--nh-magenta); background: transparent; }

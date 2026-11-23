@@ -44,6 +44,7 @@ import {
 } from '@neonheat/ui';
 import { loadGameContent, type GameContent } from './content';
 import { setupTuning } from './tuning';
+import { SoundBridge } from './sound';
 
 export interface GameStats {
   fps: number;
@@ -100,6 +101,8 @@ export class Game {
   /** Set while the first-boot benchmark runs, so dynamic resolution does not flatter the result. */
   holdResolution = false;
   readonly hud: Hud;
+  /** Sound layer: engines, guns, sirens, ambience, radio, UI. */
+  readonly sound: SoundBridge;
   /** Remaining hit-stop, seconds of frozen simulation. */
   private hitStop = 0;
   private smokeTimer = 0;
@@ -136,6 +139,7 @@ export class Game {
     this.hud = new Hud(overlay);
     this.arrow = new EdgeArrow(overlay);
     this.hackUi = new HackOverlay(overlay);
+    this.sound = new SoundBridge(this.content.audio, this.settings);
     this.saves = new SaveManager(typeof indexedDB === 'undefined' ? new MemoryStorage() : new IndexedDbStorage());
     this.menu = new SettingsMenu(overlay, {
       settings: this.settings,
@@ -151,6 +155,7 @@ export class Game {
         if (!this.closeFail) this.setPaused(false);
       },
       info: () => this.perfLine(),
+      ...this.sound.menuHooks(),
       extra: () =>
         this.director?.active
           ? [
@@ -168,6 +173,7 @@ export class Game {
     this.minimap = new Minimap(this.hud.root, this.content.sim.map);
     const params = new URLSearchParams(location.search);
     this.setupMissions(params.has('bot'));
+    this.sound.attach(this);
     const p = this.world.player;
     this.rig.snap({ x: p.x, z: p.z, vx: 0, vz: 0, speedT: 0, onFoot: !p.vehicle });
     if (import.meta.env.DEV || params.has('debug')) this.setupDebug();
@@ -328,6 +334,7 @@ export class Game {
 
   setPaused(p: boolean): void {
     this.paused = p;
+    this.sound.audio.setPaused(p);
     this.loop.reset();
   }
 
@@ -384,6 +391,7 @@ export class Game {
     const pc = this.world.playerCtl;
     this.input.setMode(this.menu.isOpen ? 'menu' : pc.mode === 'driving' ? 'driving' : 'foot', pc.context?.label ?? null);
     this.render(alpha, dt);
+    this.sound.frame(dt);
     if (this.holdResolution) {
       // Benchmark only: wait for the GPU so the sample is the real cost of the frame, even where
       // the browser would otherwise keep handing out frames while the work queues up.
@@ -536,6 +544,7 @@ export class Game {
   }
 
   private onSimEvent(e: SimEvent): void {
+    this.sound.audio.onEvent(e);
     const feel = this.content.feel;
     if (e.type === 'impact') {
       const n = Math.min(feel.sparksMax, Math.round(e.strength * feel.sparksPerStrength));
