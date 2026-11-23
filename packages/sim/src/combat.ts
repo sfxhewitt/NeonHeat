@@ -66,6 +66,8 @@ export class CombatSystem {
   readonly flip: Float32Array;
   /** Pending blast per vehicle id (seconds until a wreck goes up), or -1. */
   private readonly blastTimer: Float32Array;
+  /** Wrecks that have already gone up (or are about to). */
+  private readonly blasted: Uint8Array;
   /** Last time the player damaged each vehicle. */
   private readonly playerHitTime: Float64Array;
   private readonly ray: RAPIER_NS.Ray;
@@ -82,6 +84,7 @@ export class CombatSystem {
     const n = world.vehicles.length;
     this.flip = new Float32Array(n);
     this.blastTimer = new Float32Array(n).fill(-1);
+    this.blasted = new Uint8Array(n);
     this.playerHitTime = new Float64Array(n).fill(-1e9);
     let pool = 0;
     for (const w of Object.values(config.weapons)) pool = Math.max(pool, w.projectile?.pool ?? 0);
@@ -383,13 +386,14 @@ export class CombatSystem {
     if (kind === 'vehicle') {
       const v = w.vehicles[id]!;
       if (!v.active || v.destroyed || v === w.player.vehicle) return false;
-      if (byPlayer) this.playerHitTime[id] = w.time;
-      w.damageVehicle(v, amount);
       if (byPlayer) {
+        // Report first: a police car sees its own destruction.
+        this.playerHitTime[id] = w.time;
         const police = v.role === 'police';
-        if (v.destroyed) w.police.crime(police ? 'destroyPolice' : 'destroyVehicle', px, pz);
+        if (v.hp - amount <= 0) w.police.crime(police ? 'destroyPolice' : 'destroyVehicle', px, pz);
         else if (police) w.police.crime('shootPolice', px, pz);
       }
+      w.damageVehicle(v, amount);
       return v.destroyed;
     }
     if (kind === 'ped') {
@@ -677,12 +681,17 @@ export class CombatSystem {
     return false;
   }
 
-  /** Post-physics: wrecks destroyed this step go up a moment later. */
+  /** Post-physics: newly wrecked vehicles go up a moment later. */
   postStep(): void {
     const w = this.world;
-    for (const e of w.events) {
-      if (e.type !== 'vehicleDestroyed') continue;
-      if (this.blastTimer[e.vehicleId]! < 0) this.blastTimer[e.vehicleId] = 0.25;
+    for (const v of w.vehicles) {
+      if (!v.active || !v.destroyed) {
+        this.blasted[v.id] = 0;
+        continue;
+      }
+      if (this.blasted[v.id]) continue;
+      this.blasted[v.id] = 1;
+      this.blastTimer[v.id] = 0.25;
     }
   }
 
