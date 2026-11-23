@@ -309,14 +309,17 @@ export class Game {
     this.flow.activities = this.activities;
     const top = this.content.quality.tiers.ultra;
     this.rain = new Rain(s, top.rainStreaks, top.rainSplashes, this.lightField.uniforms);
+    // Bloom occluders cost a draw call each in the bloom pass, so only things big enough to hide a glow
+    // from the top-down camera: buildings, cars, kiosks, dumpsters and trees. People and kerbside clutter
+    // (bins, benches, bollards...) are too small to matter.
+    const bigProps = new Set(['props-kiosk', 'props-dumpster', 'props-tree']);
     this.postfx.addOccluder(
       this.city.buildings,
       this.city.roofProps,
       this.city.lampPosts,
       ...this.vehiclesView.bodies,
       this.vehiclesView.wheels,
-      ...this.people.meshes,
-      ...this.propsView.meshes,
+      ...this.propsView.meshes.filter((m) => bigProps.has(m.name)),
       this.economy.view.structure,
       ...this.activities.view.solids,
     );

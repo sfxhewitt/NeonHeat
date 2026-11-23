@@ -238,7 +238,7 @@ export class MissionBot {
         return;
       }
     }
-    if (p.need === 'foot' && !p.press && p.car < 0 && dist > 120 && this.goForCar(out, -1)) return;
+    if (p.need === 'foot' && p.car < 0 && dist > 120 && this.goForCar(out, -1)) return;
     if (p.shoot && dist < 22 && w.police.lineOfSight(pc.x, pc.z, p.x, p.z)) {
       // Face the target by stepping towards it, then fire.
       const dx = p.x - pc.x;
@@ -334,6 +334,11 @@ export class MissionBot {
     }
     if (!best) return false;
     const c = pc.context;
+    // Any car will do and one is in reach: take it rather than walking round to a particular one.
+    if (want < 0 && c && (c.kind === 'enter' || c.kind === 'steal')) {
+      this.press(out, true);
+      return true;
+    }
     if (c && (c.kind === 'enter' || c.kind === 'steal') && c.vehicleId === best.id) {
       this.press(out, true);
       return true;

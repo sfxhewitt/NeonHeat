@@ -438,7 +438,7 @@ export class PoliceSystem {
       a.waypoint = -1;
       return;
     }
-    this.route(v, tx, tz, top * (this.heat.level >= 2 ? 0.9 : 0.75));
+    this.route(v, tx, tz, top * Math.min(this.heat.levelConfig.pursuitSpeed, this.heat.level >= 2 ? 0.9 : 0.75));
   }
 
   /** Box in and PIT: each unit plays a role by its slot. Close in gently: contact is a shove. */
@@ -446,7 +446,7 @@ export class PoliceSystem {
     const cfg = this.config.pursuit;
     const a = v.ai;
     const p = this.world.player;
-    const top = v.params.topSpeed;
+    const top = v.params.topSpeed * this.heat.levelConfig.pursuitSpeed;
     // Player's left (+X local is a car's left).
     const lx = hz;
     const lz = -hx;

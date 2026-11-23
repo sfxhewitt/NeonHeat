@@ -48,6 +48,8 @@ export const HeatLevelSchema = z.object({
   officersPerCar: z.number().int().nonnegative(),
   /** Officers from this level's first listed variant are tactical (armoured, rifles). */
   tactical: z.boolean().default(false),
+  /** Pursuit top speed as a share of the car's own: below 1, a fast car can outrun low HEAT. */
+  pursuitSpeed: z.number().positive().default(1),
 });
 export type HeatLevel = z.infer<typeof HeatLevelSchema>;
 

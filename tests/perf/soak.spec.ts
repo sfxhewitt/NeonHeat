@@ -19,6 +19,7 @@ interface Sample {
   vehicles: number;
   wrecks: number;
   maxWrecks: number;
+  maxVehicles: number;
   peds: number;
 }
 
@@ -71,6 +72,9 @@ test(`soak: ${MINUTES} minute(s) of bot play shows no frame-time or memory creep
           vehicles: w.vehicles.filter((v: { active: boolean }) => v.active).length,
           wrecks: w.vehicles.filter((v: { active: boolean; destroyed: boolean }) => v.active && v.destroyed).length,
           maxWrecks: w.content.traffic.maxWrecks,
+          // Every streamed population has its own cap (the quality tier sets traffic, police and responders),
+          // plus kerbside parking and a handful of crew and mission cars.
+          maxVehicles: w.traffic.cap + w.content.traffic.parkedMax + w.police.cap + w.services.cap + 8,
           peds: w.peds.activeCount(),
         };
       });
@@ -92,7 +96,7 @@ test(`soak: ${MINUTES} minute(s) of bot play shows no frame-time or memory creep
   if (base.heapMb > 0) expect(last.heapMb).toBeLessThan(base.heapMb * 1.25 + 8);
   // Pools are bounded: entity counts never exceed the pool sizes.
   for (const s of samples) {
-    expect(s.vehicles).toBeLessThanOrEqual(40);
+    expect(s.vehicles).toBeLessThanOrEqual(s.maxVehicles);
     // The player's own wreck and mission cars are exempt from the cap, hence the +2.
     expect(s.wrecks).toBeLessThanOrEqual(s.maxWrecks + 2);
   }

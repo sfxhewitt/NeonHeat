@@ -274,6 +274,24 @@ describe('police chase you, they do not kill you', () => {
     expect(w.police.scaleImpactDamage(car, { kind: 'static', id: -1 }, raw)).toBe(raw);
   });
 
+  it('low HEAT pursuers drive below their top speed, so a fast car can outrun them', async () => {
+    const w = await quietWorld(12);
+    const levels = w.content.heat.levels;
+    expect(levels[1]!.pursuitSpeed).toBeLessThan(1);
+    expect(levels[2]!.pursuitSpeed).toBeLessThan(1);
+    for (let i = 2; i < levels.length; i++) expect(levels[i]!.pursuitSpeed).toBeGreaterThanOrEqual(levels[i - 1]!.pursuitSpeed);
+    const car = w.spawnVehicle('kestrel', -100, 0, 0, 'parked')!;
+    w.playerCtl.enter(car);
+    w.heat.setLevel(2, w.player.x, w.player.z);
+    let maxTarget = 0;
+    run(w, 20, () => {
+      for (const v of w.vehicles) if (v.active && v.role === 'police' && v.ai.mode !== 'leave') maxTarget = Math.max(maxTarget, v.ai.targetSpeed / v.params.topSpeed);
+      return idle;
+    });
+    expect(maxTarget).toBeGreaterThan(0);
+    expect(maxTarget).toBeLessThanOrEqual(levels[2]!.pursuitSpeed + 1e-6);
+  });
+
   it('a mission pursuit car rams with the same capped damage as police', async () => {
     const w = await quietWorld(12);
     const car = w.spawnVehicle('kestrel', -100, 0, 0, 'parked')!;

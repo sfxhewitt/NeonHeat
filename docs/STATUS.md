@@ -15,9 +15,15 @@ The owner asked for a full game overnight. The design is in docs/DESIGN.md. Deci
 - **Save v2** (missions branch) adds respect, unlocks and mission records. The front end's stats fields default to 0 inside v2.
 - **e2e** reads its port from E2E_PORT, so several checkouts can run at once.
 
+- **Save v3** carries the economy (loadout, armour, cyberware, export list) and side-activity progress together. v1 and v2 saves migrate.
+- **Pursuit crews ram like police.** Mission `squad` cars get the same capped, rate-limited ram damage as patrol cars (heat.json `ramDamage`), so a chase cannot write off a delivery in two hits.
+- **Touch stick has no idle timeout.** A thumb held perfectly still sends no touch events; the stick and pedals stay live until the finger lifts (the old 4 s timeout made the car stop mid-drive on phones).
+- **Mission retries** clear officers near the checkpoint and give back the weapons and ammo you had there.
+- **Bot soak.** `ALL_MISSIONS=1 npx vitest run tests/unit/all-missions.test.ts` (or a comma list of ids) has the bot play every mission from the giver.
+
 ### Next
 
-Economy (shops, respray, safehouses, cyberware, export list), side activities (rampages, stunt jumps, data shards, taxi and courier, races) and the living city (ambulances, fire tenders, gangs, crowds) are being built in parallel and merged after this section was written.
+Economy, living city and side activities are merged. Next: bot soak failures (mostly arrests and combat-heavy jobs), then real-phone feel.
 
 ## Economy: shops, resprays, safehouses, cyberware, exports (23 Nov 2026)
 
