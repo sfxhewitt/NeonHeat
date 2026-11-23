@@ -80,7 +80,8 @@ export class CombatHud {
     this.arrestEl.hidden = true;
     this.arrestEl.innerHTML = '<span class="nh-bar__label">CUFFS</span><div class="nh-bar nh-bar--arrest"><i></i></div>';
     this.arrestFill = this.arrestEl.querySelector('i') as HTMLElement;
-    tr.append(this.arrestEl, this.scoreEl, this.creditsEl);
+    // Credits themselves are the main HUD's counter; this shows only the street score chain.
+    tr.append(this.arrestEl, this.scoreEl);
   }
 
   update(s: CombatHudState): void {

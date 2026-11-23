@@ -6,7 +6,6 @@
  *
  * Public API for other systems:
  * - `setCredits(n)`: rolls the counter up (or down) to n and pops the difference.
- * - `setWeapon({ name, clip, reserve } | null)`: weapon slot under the credits; null hides it.
  * - `setArmour(frac | null)`: armour bar above the hull/body bar; null hides it.
  * - `showHint(text, controlId?)`: onboarding hint; highlights a control (see {@link HintControl}).
  * - `clearHint()`.
@@ -84,7 +83,6 @@ export class Hud {
   private readonly creditsEl: HTMLElement;
   private readonly creditsNum: HTMLElement;
   private readonly creditsDelta: HTMLElement;
-  private readonly weaponEl: HTMLElement;
   private readonly hintEl: HTMLElement;
   private readonly heatFlashEl: HTMLElement;
   private readonly districtEl: HTMLElement;
@@ -121,7 +119,6 @@ export class Hud {
       <div class="nh-hud__tr">
         <div class="nh-heat" role="status" aria-label="HEAT level"><span class="nh-heat__label">HEAT</span></div>
         <div class="nh-credits" aria-label="Credits"><span class="nh-credits__cr">CR</span><span class="nh-credits__num">0</span><span class="nh-credits__delta"></span></div>
-        <div class="nh-weapon" hidden><span class="nh-weapon__name"></span><span class="nh-weapon__ammo"></span></div>
         <div class="nh-trace" hidden></div>
       </div>
       <div class="nh-hud__bl">
@@ -161,7 +158,6 @@ export class Hud {
     this.creditsEl = q('.nh-credits');
     this.creditsNum = q('.nh-credits__num');
     this.creditsDelta = q('.nh-credits__delta');
-    this.weaponEl = q('.nh-weapon');
     this.hintEl = q('.nh-hint');
     this.heatFlashEl = q('.nh-heatflash');
     this.districtEl = q('.nh-district');
@@ -228,19 +224,6 @@ export class Hud {
     this.last.armour = v;
     this.armourWrap.hidden = v < 0;
     if (v >= 0) this.armourFill.style.width = `${v}%`;
-  }
-
-  /** The weapon slot: name and ammo, or null to hide it. */
-  setWeapon(w: WeaponView | null): void {
-    const key = w ? `${w.name}|${w.clip}|${w.reserve}` : '';
-    if (key === this.last.weapon) return;
-    this.last.weapon = key;
-    this.weaponEl.hidden = !w;
-    if (!w) return;
-    (this.weaponEl.firstElementChild as HTMLElement).textContent = w.name.toUpperCase();
-    const ammo = this.weaponEl.lastElementChild as HTMLElement;
-    ammo.innerHTML = w.clip === null ? '∞' : `<b>${w.clip}</b>${w.reserve === null ? '' : `<small>/${w.reserve}</small>`}`;
-    this.weaponEl.classList.toggle('is-empty', w.clip === 0);
   }
 
   /** Credits: the counter rolls to the new value and pops the difference. The first call sets it instantly. */
