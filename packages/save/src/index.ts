@@ -1,8 +1,9 @@
 import { z } from 'zod';
 
 /** Current save format. Bump and add a migration whenever the shape changes. */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
+/** Version 1 (Phase 0): credits, rep, completed missions. Kept to read old saves. */
 export const SaveV1Schema = z.object({
   version: z.literal(1),
   credits: z.number().int().nonnegative(),
@@ -11,10 +12,43 @@ export const SaveV1Schema = z.object({
   stats: z.object({ missionsPassed: z.number().int().nonnegative(), playSeconds: z.number().nonnegative() }),
   savedAt: z.string(),
 });
-export type SaveData = z.infer<typeof SaveV1Schema>;
+
+/** Best run of one mission, for the job list and the completion card. */
+export const MissionRecordSchema = z.object({
+  bestSeconds: z.number().nonnegative(),
+  passes: z.number().int().nonnegative(),
+});
+
+/**
+ * Version 2: respect per crew (was `rep`), unlocks (safehouses, shops,
+ * weapons) and a record per mission.
+ */
+export const SaveV2Schema = z.object({
+  version: z.literal(2),
+  credits: z.number().int().nonnegative(),
+  /** Respect with each crew; negative for crews you crossed. */
+  respect: z.record(z.string(), z.number()),
+  completedMissions: z.array(z.string()),
+  /** `safehouse:<marker>`, `shop:<marker>`, `weapon:<id>`, ... */
+  unlocks: z.array(z.string()),
+  missions: z.record(z.string(), MissionRecordSchema),
+  stats: z.object({ missionsPassed: z.number().int().nonnegative(), playSeconds: z.number().nonnegative() }),
+  savedAt: z.string(),
+});
+export const SaveSchema = SaveV2Schema;
+export type SaveData = z.infer<typeof SaveV2Schema>;
 
 export function newSave(): SaveData {
-  return { version: 1, credits: 0, rep: {}, completedMissions: [], stats: { missionsPassed: 0, playSeconds: 0 }, savedAt: new Date(0).toISOString() };
+  return {
+    version: 2,
+    credits: 0,
+    respect: {},
+    completedMissions: [],
+    unlocks: [],
+    missions: {},
+    stats: { missionsPassed: 0, playSeconds: 0 },
+    savedAt: new Date(0).toISOString(),
+  };
 }
 
 type Migration = (old: Record<string, unknown>) => Record<string, unknown>;
@@ -32,6 +66,10 @@ export const MIGRATIONS: Record<number, Migration> = {
     stats: { missionsPassed: Array.isArray(old.missions) ? old.missions.length : 0, playSeconds: 0 },
     savedAt: new Date(0).toISOString(),
   }),
+  1: (old) => {
+    const { rep, ...rest } = SaveV1Schema.parse(old);
+    return { ...rest, version: 2, respect: { ...rep }, unlocks: [], missions: {} };
+  },
 };
 
 /** Bring any known older save up to the current version and validate it. */
@@ -46,21 +84,31 @@ export function migrate(raw: unknown): SaveData {
     data = step(data);
     version = data.version as number;
   }
-  return SaveV1Schema.parse(data);
+  return SaveSchema.parse(data);
 }
 
 export interface MissionRewards {
   credits: number;
+  /** Respect change per crew. */
   rep: Record<string, number>;
+  unlocks?: readonly string[];
 }
 
-export function applyMissionResult(save: SaveData, missionId: string, rewards: MissionRewards): SaveData {
-  const rep = { ...save.rep };
-  for (const [k, v] of Object.entries(rewards.rep)) rep[k] = (rep[k] ?? 0) + v;
+/** Record a passed mission: pay, respect, unlocks and the mission's best time. */
+export function applyMissionResult(save: SaveData, missionId: string, rewards: MissionRewards, seconds?: number): SaveData {
+  const respect = { ...save.respect };
+  for (const [k, v] of Object.entries(rewards.rep)) respect[k] = (respect[k] ?? 0) + v;
+  const unlocks = [...save.unlocks];
+  for (const u of rewards.unlocks ?? []) if (!unlocks.includes(u)) unlocks.push(u);
+  const prev = save.missions[missionId];
+  let best = prev?.bestSeconds ?? 0;
+  if (seconds !== undefined) best = best > 0 ? Math.min(best, seconds) : seconds;
   return {
     ...save,
     credits: save.credits + rewards.credits,
-    rep,
+    respect,
+    unlocks,
+    missions: { ...save.missions, [missionId]: { bestSeconds: best, passes: (prev?.passes ?? 0) + 1 } },
     completedMissions: save.completedMissions.includes(missionId) ? save.completedMissions : [...save.completedMissions, missionId],
     stats: { ...save.stats, missionsPassed: save.stats.missionsPassed + 1 },
   };
