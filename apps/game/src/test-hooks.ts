@@ -24,7 +24,7 @@ export function installTestHooks(game: Game): void {
     ready: false,
     setIntents: (i) => {
       game.input.override = i
-        ? { moveX: 0, moveY: 0, steer: 0, throttle: 0, brake: 0, scheme: 'classic', handbrake: false, fire: false, interact: false, dodge: false, ...i }
+        ? { moveX: 0, moveY: 0, steer: 0, throttle: 0, brake: 0, scheme: 'classic', handbrake: false, fire: false, interact: false, dodge: false, nextWeapon: false, ...i }
         : null;
     },
     fastForward: (seconds) => game.fastForward(seconds),

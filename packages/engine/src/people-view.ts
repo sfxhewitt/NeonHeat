@@ -20,7 +20,11 @@ import { BLOOM_LAYER } from './layers';
 import { MeshBuilder } from './mesh-kit';
 
 const MAX_PEOPLE = 65;
-const MAX_TRACERS = 16;
+const MAX_TRACERS = 32;
+/** Officer uniform: dark navy, with red and blue shoulder lights. */
+const OFFICER_JACKET = 0x1b2442;
+const TACTICAL_JACKET = 0x0d111f;
+const OFFICER_TROUSERS = 0x121726;
 /** People are drawn a little larger than life so they read from the top-down camera on a phone. */
 const SCALE = 1.45;
 
@@ -31,6 +35,17 @@ const NECK_Y = 1.56;
 /** Skin tones, jacket and trouser colours for pedestrians (instance colours). */
 const SKIN = [0xf1c9a5, 0xd9a47a, 0xa86f4c, 0x7a4b31, 0x5a3622, 0xe8b98f];
 const TROUSERS = [0x2a2a3a, 0x1d2433, 0x3b3242, 0x24302c, 0x3a3a3a, 0x463a2e];
+
+/** Weapon-in-hand stretch per weapon: [length, thickness]. */
+const HAND_SCALE: Record<string, [number, number]> = {
+  bat: [3.4, 0.7],
+  pistol: [1, 1],
+  smg: [1.6, 1.1],
+  shotgun: [2.6, 1.05],
+  rifle: [3.2, 0.9],
+  launcher: [2.2, 1.7],
+  arc: [1.5, 1.4],
+};
 
 interface Rig {
   phase: number;
@@ -121,6 +136,8 @@ export class PeopleView {
   private readonly facingMark: Mesh;
   readonly aimMarker: Mesh;
   readonly tracers: InstancedMesh;
+  /** Red/blue lights on officers' shoulders (two per officer). */
+  private readonly shoulderLights: InstancedMesh;
   private readonly tracerLife = new Float32Array(MAX_TRACERS);
   private readonly tracerData: { x: number; z: number; hx: number; hz: number }[] = [];
   private nextTracer = 0;
@@ -181,6 +198,15 @@ export class PeopleView {
       scene.add(m);
     }
 
+    this.shoulderLights = new InstancedMesh(new BoxGeometry(0.16, 0.08, 0.16), new MeshBasicMaterial({ toneMapped: false }), 40);
+    this.shoulderLights.instanceMatrix.setUsage(DynamicDrawUsage);
+    this.shoulderLights.frustumCulled = false;
+    this.shoulderLights.count = 0;
+    this.shoulderLights.setColorAt(0, this.c.set(0xffffff));
+    this.shoulderLights.name = 'officer-lights';
+    this.shoulderLights.layers.enable(BLOOM_LAYER);
+    scene.add(this.shoulderLights);
+
     this.aimMarker = new Mesh(new RingGeometry(1.8, 2.3, 4), new MeshBasicMaterial({ color: Palette.policeRed, transparent: true, opacity: 0.9, toneMapped: false }));
     this.aimMarker.rotation.x = -Math.PI / 2;
     this.aimMarker.position.y = 0.08;
@@ -222,7 +248,7 @@ export class PeopleView {
     speed: number,
     rig: Rig,
     dt: number,
-    pose: 'stand' | 'down' | 'cower' | 'roll',
+    pose: 'stand' | 'down' | 'cower' | 'roll' | 'hands',
     rollT: number,
     aiming: boolean,
     jacket: Color,
@@ -276,7 +302,8 @@ export class PeopleView {
       this.legs.setColorAt(i * 2 + s, this.c.setHex(trousers));
 
       o.position.set(side * 0.29, SHOULDER_Y, 0);
-      if (aiming && side === -1) o.rotation.set(-Math.PI / 2 + 0.08, 0, 0);
+      if (pose === 'hands') o.rotation.set(-Math.PI + 0.15, 0, side * -0.25);
+      else if (aiming && side === -1) o.rotation.set(-Math.PI / 2 + 0.08, 0, 0);
       else if (pose === 'cower') o.rotation.set(-2.4, 0, side * 0.3);
       else o.rotation.set(-swing * side * 0.8, 0, side * 0.06);
       o.updateMatrix();
@@ -297,7 +324,11 @@ export class PeopleView {
     // The player first: pale jacket, acid visor, pistol and a ground ring.
     const pc = world.playerCtl;
     const onFoot = pc.mode === 'foot';
-    for (const m of [this.visor, this.pistol, this.ring, this.facingMark]) m.visible = onFoot;
+    const combat = world.combat;
+    const weapon = combat.weaponId;
+    const melee = combat.weapon.kind === 'melee' && weapon === 'fists';
+    for (const m of [this.visor, this.ring, this.facingMark]) m.visible = onFoot;
+    this.pistol.visible = onFoot && !melee && !pc.incapacitated;
     this.playerOn.value = onFoot ? 1 : 0;
     if (onFoot) {
       const x = lerp(pc.prevX, pc.x, alpha);
@@ -306,17 +337,22 @@ export class PeopleView {
       const speed = Math.hypot(pc.vx, pc.vz);
       const rolling = pc.dodgeTime > 0;
       const rollT = rolling ? 1 - pc.dodgeTime / world.content.peds.player.dodgeSec : 0;
-      const aiming = pc.aimTarget >= 0 || pc.fireCooldown > 0;
-      this.person(x, z, facing, rolling ? 0 : speed, this.rigs[0]!, dt, pc.dead ? 'down' : rolling ? 'roll' : 'stand', rollT, aiming && !pc.dead, this.jc.setHex(0xfafaff), 0x1a1a2c, 0xd9a47a);
+      const aiming = combat.aimKind !== null || combat.sinceFired < 0.35;
+      const pose = pc.dead ? 'down' : pc.busted ? 'hands' : rolling ? 'roll' : 'stand';
+      this.person(x, z, facing, rolling || pc.busted ? 0 : speed, this.rigs[0]!, dt, pose, rollT, aiming && !pc.incapacitated, this.jc.setHex(0xfafaff), 0x1a1a2c, 0xd9a47a);
       // Visor across the face, pistol in the right hand.
       o.position.set(0, NECK_Y + 0.24, 0.14);
       o.rotation.set(0, 0, 0);
       o.scale.setScalar(1);
       o.updateMatrix();
       this.visor.matrix.multiplyMatrices(this.root, o.matrix);
+      // The weapon in hand: one model stretched to read as each gun (long guns, the stubby launcher, the bat).
+      const [wl, ww] = HAND_SCALE[weapon] ?? [1, 1];
       o.position.set(0, -0.62, 0.06);
       o.rotation.set(Math.PI / 2, 0, 0);
+      o.scale.set(ww, ww, wl);
       o.updateMatrix();
+      o.scale.setScalar(1);
       this.pistol.matrix.multiplyMatrices(this.local, o.matrix);
       const ringY = this.map ? groundHeight(this.map, x, z) : 0;
       this.ring.position.set(x, ringY + 0.06, z);
@@ -350,18 +386,63 @@ export class PeopleView {
         SKIN[(p.id * 5 + p.colour) % SKIN.length]!,
       );
     }
+    // Officers: navy uniforms, red/blue shoulder lights that alternate.
+    let ln = 0;
+    const flash = Math.floor(time * 5) % 2 === 0;
+    for (const off of world.officers.officers) {
+      if (!off.active || this.n >= MAX_PEOPLE) continue;
+      const x = lerp(off.prevX, off.x, alpha);
+      const z = lerp(off.prevZ, off.z, alpha);
+      const rig = this.rigs[MAX_PEOPLE - 1 - (off.id % 20)]!;
+      const pose = off.state === 'down' ? 'down' : off.state === 'stunned' ? 'cower' : 'stand';
+      const speed = pose === 'stand' ? Math.hypot(off.vx, off.vz) : 0;
+      const shade = off.state === 'down' ? 0.5 : 1;
+      this.person(
+        x,
+        z,
+        lerpAngle(off.prevFacing, off.facing, alpha),
+        speed,
+        rig,
+        dt,
+        pose,
+        0,
+        off.sees && off.state === 'chase',
+        this.jc.setHex(off.tactical ? TACTICAL_JACKET : OFFICER_JACKET).multiplyScalar(shade),
+        OFFICER_TROUSERS,
+        SKIN[(off.id * 3) % SKIN.length]!,
+      );
+      if (off.state === 'down' || ln + 2 > 40) continue;
+      for (let s = 0; s < 2; s++) {
+        const side = s === 0 ? 1 : -1;
+        o.position.set(side * 0.27, SHOULDER_Y + 0.07, 0);
+        o.rotation.set(0, 0, 0);
+        o.scale.setScalar(1);
+        o.updateMatrix();
+        this.shoulderLights.setMatrixAt(ln, this.out.multiplyMatrices(this.root, o.matrix));
+        const red = (s === 0) === flash;
+        this.shoulderLights.setColorAt(ln, this.c.setHex(red ? Palette.policeRed : Palette.policeBlue).multiplyScalar(off.state === 'stunned' ? 0.4 : 2.2));
+        ln++;
+      }
+    }
+    this.shoulderLights.count = ln;
+    this.shoulderLights.instanceMatrix.needsUpdate = true;
+    if (this.shoulderLights.instanceColor) this.shoulderLights.instanceColor.needsUpdate = true;
+
     for (const m of this.meshes) {
       m.count = m === this.arms || m === this.legs ? this.n * 2 : this.n;
       m.instanceMatrix.needsUpdate = true;
       if (m.instanceColor) m.instanceColor.needsUpdate = true;
     }
 
-    const target = onFoot && pc.aimTarget >= 0 ? world.vehicles[pc.aimTarget] : undefined;
-    this.aimMarker.visible = !!target;
+    // Soft-lock marker on whatever the weapon is locked on to.
+    const target =
+      combat.aimKind === 'vehicle' ? world.vehicles[combat.aimId] : combat.aimKind === 'officer' ? world.officers.officers[combat.aimId] : combat.aimKind === 'ped' ? world.peds.peds[combat.aimId] : undefined;
+    this.aimMarker.visible = !!target && !pc.incapacitated;
     if (target) {
       this.aimMarker.position.x = lerp(target.prevX, target.x, alpha);
       this.aimMarker.position.z = lerp(target.prevZ, target.z, alpha);
       this.aimMarker.rotation.z = time * 3;
+      this.aimMarker.scale.setScalar(combat.aimKind === 'vehicle' ? 1 : 0.55);
     }
 
     let tn = 0;

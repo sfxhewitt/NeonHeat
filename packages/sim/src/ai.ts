@@ -1,7 +1,8 @@
 import { clamp, wrapAngle } from './physics';
 import { forwardSpeed, type ArcadeState, type DriveControls } from './vehicle';
 
-export type AiMode = 'idle' | 'drive' | 'reverse' | 'stunned' | 'leave';
+/** hold: parked while its officers are out; roadblock: parked across the road. */
+export type AiMode = 'idle' | 'drive' | 'reverse' | 'stunned' | 'leave' | 'hold' | 'roadblock';
 
 /** Per-vehicle AI scratch state, preallocated with the vehicle. */
 export interface AiState {
@@ -25,6 +26,10 @@ export interface AiState {
   revSteer: number;
   /** Road-graph node currently driven towards, or -1. */
   waypoint: number;
+  /** Pursuit role among the units on the case (0 chase/PIT, 1 flank, 2 cut-off). */
+  slot: number;
+  /** Seconds before this unit may put officers on the street again. */
+  cooldown: number;
 }
 
 export function makeAiState(): AiState {
@@ -42,6 +47,8 @@ export function makeAiState(): AiState {
     searchNode: -1,
     revSteer: 0,
     waypoint: -1,
+    slot: 0,
+    cooldown: 0,
   };
 }
 

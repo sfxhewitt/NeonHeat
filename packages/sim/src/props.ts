@@ -107,7 +107,7 @@ export class PropSystem {
             v.vx *= 1 - k.slowdown;
             v.vz *= 1 - k.slowdown;
             v.body?.setLinvel({ x: v.vx, y: 0, z: v.vz }, true);
-            if (k.damage > 0) w.damageVehicle(v, k.damage / v.params.armour);
+            if (k.damage > 0) w.damageVehicle(v, w.police.scaleImpactDamage(v, { kind: 'prop', id }, k.damage / v.params.armour));
             w.events.push({
               type: 'propBroken',
               propId: id,

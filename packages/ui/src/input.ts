@@ -14,6 +14,8 @@ export class InputManager {
   private readonly keys = new Set<string>();
   private interactLatch = false;
   private dodgeLatch = false;
+  private weaponLatch = false;
+  private padWeaponWas = false;
   private mouseFire = false;
   private padInteractWas = false;
   private padDodgeWas = false;
@@ -27,7 +29,8 @@ export class InputManager {
       this.keys.add(e.code);
       if (e.code === 'KeyE' || e.code === 'KeyF' || e.code === 'Enter') this.interactLatch = true;
       if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') this.dodgeLatch = true;
-      if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
+      if (e.code === 'KeyQ' || e.code === 'Tab') this.weaponLatch = true;
+      if (e.code.startsWith('Arrow') || e.code === 'Space' || e.code === 'Tab') e.preventDefault();
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => this.keys.clear());
@@ -54,6 +57,7 @@ export class InputManager {
       // Edge actions in an override fire once.
       this.override.interact = false;
       this.override.dodge = false;
+      this.override.nextWeapon = false;
       return out;
     }
     const e = emptyIntents();
@@ -72,8 +76,10 @@ export class InputManager {
     e.scheme = 'classic';
     let interact = this.interactLatch;
     let dodge = this.dodgeLatch;
+    let nextWeapon = this.weaponLatch;
     this.interactLatch = false;
     this.dodgeLatch = false;
+    this.weaponLatch = false;
 
     // Gamepad.
     const pads = typeof navigator.getGamepads === 'function' ? navigator.getGamepads() : [];
@@ -87,6 +93,10 @@ export class InputManager {
       const rb = pad.buttons[5]?.pressed ?? false;
       if (a && !this.padInteractWas) interact = true;
       if (rb && !this.padDodgeWas) dodge = true;
+      // Left shoulder cycles weapons.
+      const lb = pad.buttons[4]?.pressed ?? false;
+      if (lb && !this.padWeaponWas) nextWeapon = true;
+      this.padWeaponWas = lb;
       this.padInteractWas = a;
       this.padDodgeWas = rb;
       if (ax !== 0 || ay !== 0 || rt > 0.05 || lt > 0.05) {
@@ -122,8 +132,10 @@ export class InputManager {
     if (t.fire) e.fire = true;
     if (t.interact) interact = true;
     if (t.dodge) dodge = true;
+    if (t.nextWeapon) nextWeapon = true;
     e.interact = interact;
     e.dodge = dodge;
+    e.nextWeapon = nextWeapon;
     return Object.assign(out, e);
   }
 }

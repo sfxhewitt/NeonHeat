@@ -107,15 +107,15 @@ describe('police and HEAT in the world', () => {
 
   const police = (w: Awaited<ReturnType<typeof chaseWorld>>): Vehicle[] => w.vehicles.filter((v) => v.active && v.role === 'police');
 
-  it('spawns one to three patrol cars by level and a drone at level 3', async () => {
+  it('spawns more patrol cars by level and a drone at level 3', async () => {
     const w = await chaseWorld();
     w.heat.setLevel(1, w.player.x, w.player.z);
     run(w, 1, idle);
     expect(police(w).length).toBe(1);
     expect(w.police.drone.active).toBe(false);
     w.heat.setLevel(3, w.player.x, w.player.z);
-    run(w, 4, idle);
-    expect(police(w).length).toBe(3);
+    run(w, 6, idle);
+    expect(police(w).length).toBe(w.content.heat.levels[3]!.units);
     expect(w.police.drone.active).toBe(true);
   });
 
