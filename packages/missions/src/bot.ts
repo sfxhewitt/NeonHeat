@@ -1,10 +1,31 @@
 import { driveTowards, emptyControls, emptyIntents, forwardSpeed, type Intents, type Vehicle, type World } from '@neonheat/sim';
 import type { MissionDirector } from './director';
 
+type Need = 'foot' | 'car' | 'either';
+
+interface Plan {
+  x: number;
+  z: number;
+  need: Need;
+  /** On foot: press the context button when it offers this. */
+  press?: (kind: string, vehicleId: number, interactable: string) => boolean;
+  /** Car the bot must be in (it walks to it and gets in), or -1. */
+  car: number;
+  /** Driving: speed to arrive at (high = drive through, 0 = stop on it). */
+  arrive: number;
+  /** On foot: stop this far away. */
+  stopAt: number;
+  /** On foot: shoot at the goal once in range and in view. */
+  shoot?: boolean;
+  /** Driving: keep this far behind the goal (tailing). */
+  follow?: number;
+}
+
 /**
  * A headless test bot that plays missions through the same intent layer as a
- * player: walks, steals cars, drives the road graph, hacks and delivers.
- * Used by CI to prove a mission can be completed, and by the soak test.
+ * player: walks, steals cars, drives the road graph, hacks, shoots, races,
+ * collects and shakes off HEAT. Used by CI to prove missions can be
+ * completed, and by the soak test.
  */
 export class MissionBot {
   /** Which mission to pick up when idle. */
@@ -16,13 +37,16 @@ export class MissionBot {
   private reverseSteer = 1;
   private interactCooldown = 0;
   private hackDelay = 0;
+  private fireCooldown = 0;
+  private dodgeCooldown = 0;
+  private escapeNode = -1;
   cruiseSpeed = 22;
 
   constructor(
     private readonly world: World,
     private readonly director: MissionDirector,
   ) {
-    this.missionId = director.missions[0]?.id ?? '';
+    this.missionId = director.available()[0]?.id ?? director.missions[0]?.id ?? '';
   }
 
   next(dt: number): Intents {
@@ -31,6 +55,8 @@ export class MissionBot {
     const pc = w.playerCtl;
     const d = this.director;
     this.interactCooldown = Math.max(0, this.interactCooldown - dt);
+    this.fireCooldown = Math.max(0, this.fireCooldown - dt);
+    this.dodgeCooldown = Math.max(0, this.dodgeCooldown - dt);
     if (pc.dead) return out;
 
     // Hack minigame: wait for the input phase, then tap the sequence with a human-ish delay.
@@ -44,69 +70,204 @@ export class MissionBot {
       }
       return out;
     }
-
     const r = d.runner;
     if (r && r.state === 'failed') return out; // the director retries
-    let goalX: number;
-    let goalZ: number;
-    /** Need to stand here on foot and press the context button for this. */
-    let footAction: ((kind: string, vehicleId: number, interactable: string) => boolean) | null = null;
-    let targetVehicle = -1;
+    const plan = this.plan(out);
+    if (!plan) return out;
+    this.execute(plan, out);
+    return out;
+  }
 
-    if (!r || r.state !== 'running') {
-      const m = d.missions.find((x) => x.id === this.missionId);
-      if (!m) return out;
-      goalX = m.giver.pos[0];
-      goalZ = m.giver.pos[2];
-      footAction = (kind, _v, it) => kind === 'interact' && it === `giver:${m.id}`;
-    } else {
-      const v = r.view;
-      goalX = v.targetX;
-      goalZ = v.targetZ;
-      const o = r.objective!;
-      if (o.type === 'hack') {
-        targetVehicle = v.vehicleId;
-        footAction = (kind, vid) => kind === 'hack' && vid === targetVehicle;
-      } else if (o.type === 'deliverVehicle' && w.player.vehicle?.id !== v.vehicleId) {
-        targetVehicle = v.vehicleId;
-        footAction = (kind, vid) => (kind === 'enter' || kind === 'steal') && vid === targetVehicle;
-        // Out of somebody else's car first.
-        if (w.player.vehicle) footAction = footAction ?? null;
-      }
-    }
-
+  /** Work out where to go and what to do there. May write one-shot intents (dodge, fire) itself. */
+  private plan(out: Intents): Plan | null {
+    const w = this.world;
+    const d = this.director;
+    const r = d.runner;
+    const pc = w.playerCtl;
     const px = w.player.x;
     const pz = w.player.z;
-    const dist = Math.hypot(goalX - px, goalZ - pz);
-
-    if (footAction) {
-      if (pc.mode === 'driving') {
-        if (dist < 12) {
+    if (!r || r.state !== 'running') {
+      const m = d.missions.find((x) => x.id === this.missionId);
+      const g = m ? d.giverPos(m) : null;
+      if (!m || !g) return null;
+      return { x: g.x, z: g.z, need: Math.hypot(g.x - px, g.z - pz) > 60 ? 'either' : 'foot', car: -1, arrive: 0, stopAt: 0.8, press: (k, _v, it) => k === 'interact' && it === `giver:${m.id}` };
+    }
+    const v = r.view;
+    const o = r.objective!;
+    const base: Plan = { x: v.targetX, z: v.targetZ, need: 'either', car: -1, arrive: 0, stopAt: 0.8 };
+    switch (o.type) {
+      case 'reach':
+        if (o.vehicle === 'none') return { ...base, need: 'foot' };
+        if (o.vehicle === 'any') return { ...base, need: 'car', arrive: 4 };
+        if (o.vehicle) return this.inCar(r.view.vehicleId >= 0 ? r.view.vehicleId : d.host.ensureVehicle(o.vehicle), base, 4);
+        return { ...base, arrive: 4 };
+      case 'hack':
+        if (o.target.startsWith('spawn:')) return { ...base, need: 'foot', stopAt: 1.5, press: (k, vid) => k === 'hack' && vid === v.vehicleId };
+        return { ...base, need: 'foot', stopAt: 0.5, press: (k, _v, it) => k === 'interact' && it === `terminal:${o.id}` };
+      case 'deliverVehicle':
+        return this.inCar(v.vehicleId, base, 3);
+      case 'stealVehicle':
+        return v.vehicleId >= 0 ? this.inCar(v.vehicleId, base, 0) : { ...base, need: 'foot' };
+      case 'destroyVehicle':
+      case 'chase':
+        // Ram it: arrive flat out.
+        return { ...base, need: 'car', arrive: 30, car: -1 };
+      case 'eliminate':
+        return { ...base, need: 'foot', stopAt: 9, shoot: true };
+      case 'protect':
+        return o.durationSec !== undefined ? { ...base, need: 'either', stopAt: 4 } : { ...base, need: 'car', follow: 18 };
+      case 'tail':
+        return { ...base, need: 'car', follow: (o.minRange + o.maxRange) / 2 };
+      case 'escape': {
+        const g = this.escapePoint(px, pz);
+        return { ...base, x: g.x, z: g.z, need: 'car', arrive: 18 };
+      }
+      case 'race':
+        return { ...base, need: 'car', arrive: 18 };
+      case 'collect':
+        if (o.vehicle === 'none') return { ...base, need: 'foot', stopAt: 0.5 };
+        return { ...base, need: o.vehicle === 'any' || o.vehicle?.startsWith('spawn:') ? 'car' : 'either', arrive: 6 };
+      case 'wait':
+        if (o.vehicle === 'none') return { ...base, need: 'foot', stopAt: 1 };
+        return { ...base, need: o.vehicle ? 'car' : 'either', arrive: 0 };
+      case 'dropOff':
+        return { ...base, need: 'car', arrive: 0 };
+      case 'photograph':
+        return { ...base, need: 'either', stopAt: o.range * 0.5, arrive: 0 };
+      case 'perform':
+        if (o.action === 'dodge') {
+          if (pc.mode === 'driving') return { ...base, need: 'foot' };
+          if (this.dodgeCooldown <= 0) {
+            out.dodge = true;
+            this.dodgeCooldown = 1.4;
+          }
+          return null;
+        }
+        if (o.action === 'fire') {
+          if (pc.mode === 'driving') return { ...base, need: 'foot' };
+          if (this.fireCooldown <= 0) {
+            out.fire = true;
+            this.fireCooldown = 0.5;
+          }
+          return null;
+        }
+        if (o.action === 'exit') {
+          if (pc.mode === 'foot') return null;
           this.stop(out);
           if (Math.abs(w.playerSpeed()) < 3) this.press(out, pc.context?.kind === 'exit');
-        } else {
-          this.drive(goalX, goalZ, dist, out, 6);
+          return null;
         }
-        return out;
+        return { ...base, need: 'car', x: px, z: pz };
+    }
+  }
+
+  /** Be in this particular car, then head for the plan's goal. */
+  private inCar(vehicleId: number, base: Plan, arrive: number): Plan {
+    const w = this.world;
+    if (vehicleId >= 0 && w.player.vehicle?.id === vehicleId) return { ...base, need: 'car', arrive };
+    const car = w.vehicles[vehicleId];
+    if (!car || !car.active) return { ...base, need: 'foot' };
+    return { ...base, x: car.x, z: car.z, need: 'foot', car: vehicleId, stopAt: 1.5, press: (k, vid) => (k === 'enter' || k === 'steal') && vid === vehicleId };
+  }
+
+  private execute(p: Plan, out: Intents): void {
+    const w = this.world;
+    const pc = w.playerCtl;
+    const dist = Math.hypot(p.x - w.player.x, p.z - w.player.z);
+    const wantFoot = p.need === 'foot' || p.press !== undefined;
+
+    if (pc.mode === 'driving') {
+      if (wantFoot) {
+        // Pull up near the goal, then get out.
+        if (dist < 14 || p.need === 'foot') {
+          if (dist < 30 || p.need === 'foot') {
+            this.stop(out);
+            if (Math.abs(w.playerSpeed()) < 3) this.press(out, pc.context?.kind === 'exit');
+            return;
+          }
+        }
+        this.drive(p.x, p.z, dist, out, 6);
+        return;
       }
-      const c = pc.context;
-      if (c && footAction(c.kind, c.vehicleId, c.interactableId)) {
-        this.press(out, true);
-        return out;
-      }
-      if (dist > 45 && this.goForCar(out, targetVehicle)) return out;
-      this.walk(goalX, goalZ, out, targetVehicle >= 0 ? 1.5 : 0.8);
-      return out;
+      if (p.follow !== undefined) return this.tail(p, dist, out);
+      this.drive(p.x, p.z, dist, out, p.arrive);
+      return;
     }
 
-    // A driving objective.
-    if (pc.mode === 'foot') {
-      if (dist > 25 && this.goForCar(out, -1)) return out;
-      this.walk(goalX, goalZ, out, 0);
-      return out;
+    // On foot.
+    const c = pc.context;
+    if (p.press && c && p.press(c.kind, c.vehicleId, c.interactableId)) {
+      this.press(out, true);
+      return;
     }
-    this.drive(goalX, goalZ, dist, out, 0);
-    return out;
+    if (p.need === 'car' || (p.need === 'either' && dist > 45)) {
+      if (this.goForCar(out, p.car)) return;
+      if (p.need === 'car') {
+        this.walk(p.x, p.z, out, 0);
+        return;
+      }
+    }
+    if (p.need === 'foot' && !p.press && p.car < 0 && dist > 120 && this.goForCar(out, -1)) return;
+    if (p.shoot && dist < 22 && w.police.lineOfSight(pc.x, pc.z, p.x, p.z)) {
+      // Face the target by stepping towards it, then fire.
+      const dx = p.x - pc.x;
+      const dz = p.z - pc.z;
+      pc.facing = Math.atan2(dx, dz);
+      if (dist > p.stopAt) {
+        out.moveX = (dx / dist) * 0.3;
+        out.moveY = (-dz / dist) * 0.3;
+      }
+      if (this.fireCooldown <= 0) {
+        out.fire = true;
+        this.fireCooldown = 0.35;
+      }
+      if (this.dodgeCooldown <= 0 && pc.hp < pc.maxHp * 0.5) {
+        out.dodge = true;
+        this.dodgeCooldown = 2;
+      }
+      return;
+    }
+    this.walk(p.x, p.z, out, p.shoot ? 0 : p.stopAt);
+  }
+
+  /** A far road node away from the police, re-picked on arrival. */
+  private escapePoint(px: number, pz: number): { x: number; z: number } {
+    const w = this.world;
+    const g = w.roads;
+    const node = this.escapeNode >= 0 ? g.nodes[this.escapeNode] : undefined;
+    if (!node || Math.hypot(node.x - px, node.z - pz) < 25) {
+      let best = 0;
+      let bs = -Infinity;
+      for (const n of g.nodes) {
+        let s = Math.min(Math.hypot(n.x - px, n.z - pz), 260);
+        for (const v of w.vehicles) if (v.active && !v.destroyed && v.role === 'police') s += Math.min(120, Math.hypot(n.x - v.x, n.z - v.z)) * 0.5;
+        s += Math.hypot(n.x - w.heat.lastKnownX, n.z - w.heat.lastKnownZ) * 0.5;
+        if (n.id === this.escapeNode) s -= 1000;
+        if (s > bs) {
+          bs = s;
+          best = n.id;
+        }
+      }
+      this.escapeNode = best;
+    }
+    return g.nodes[this.escapeNode]!;
+  }
+
+  private tail(p: Plan, dist: number, out: Intents): void {
+    const w = this.world;
+    const v = w.player.vehicle!;
+    const want = p.follow!;
+    // Close the gap at speed when far, ease off when near.
+    const arrive = dist > want + 15 ? 26 : dist > want ? 14 : dist > want * 0.7 ? 6 : 0;
+    if (arrive === 0) {
+      this.stop(out);
+      return;
+    }
+    this.drive(p.x, p.z, dist, out, arrive);
+    if (dist < want && forwardSpeed(v) > 8) {
+      out.throttle = 0;
+      out.brake = 0.4;
+    }
   }
 
   private press(out: Intents, ok: boolean): void {
@@ -119,21 +280,25 @@ export class MissionBot {
     const v = this.world.player.vehicle;
     out.scheme = 'classic';
     out.brake = v && forwardSpeed(v) > 0.5 ? 1 : 0;
+    out.handbrake = !!v && forwardSpeed(v) > 0.5;
   }
 
-  /** Walk to the nearest usable car and get in. Returns false if none is close. */
-  private goForCar(out: Intents, exclude: number): boolean {
+  /** Walk to the nearest usable car (or a given one) and get in. Returns false if none is close. */
+  private goForCar(out: Intents, want: number): boolean {
     const w = this.world;
     const pc = w.playerCtl;
-    let best: Vehicle | null = null;
-    let bd = 28;
-    for (const v of w.vehicles) {
-      if (!v.active || v.destroyed || v.locked || v.hackable || v.id === exclude) continue;
-      if (v.role !== 'parked' && v.role !== 'traffic') continue;
-      const d = Math.hypot(v.x - pc.x, v.z - pc.z);
-      if (d < bd) {
-        bd = d;
-        best = v;
+    let best: Vehicle | null = want >= 0 ? (w.vehicles[want] ?? null) : null;
+    if (!best || !best.active || best.destroyed) {
+      best = null;
+      let bd = 32;
+      for (const v of w.vehicles) {
+        if (!v.active || v.destroyed || v.locked || v.hackable) continue;
+        if (v.role !== 'parked' && v.role !== 'traffic') continue;
+        const d = Math.hypot(v.x - pc.x, v.z - pc.z);
+        if (d < bd) {
+          bd = d;
+          best = v;
+        }
       }
     }
     if (!best) return false;
@@ -152,7 +317,7 @@ export class MissionBot {
     let gx = tx;
     let gz = tz;
     if (!w.police.lineOfSight(pc.x, pc.z, tx, tz)) {
-      const p = this.routePoint(pc.x, pc.z, tx, tz);
+      const p = this.routePoint(pc.x, pc.z, tx, tz, 3);
       gx = p.x;
       gz = p.z;
     } else this.waypoint = -1;
@@ -167,13 +332,13 @@ export class MissionBot {
   private readonly tmp = { x: 0, z: 0 };
 
   /** Next road-graph point towards (tx, tz) from (x, z). */
-  private routePoint(x: number, z: number, tx: number, tz: number): { x: number; z: number } {
+  private routePoint(x: number, z: number, tx: number, tz: number, arrive = 6): { x: number; z: number } {
     const g = this.world.roads;
     if (this.waypoint < 0 || Math.hypot(g.nodes[this.waypoint]!.x - x, g.nodes[this.waypoint]!.z - z) > 110) {
       this.waypoint = g.nearest(x, z).id;
     }
     const wp = g.nodes[this.waypoint]!;
-    if (Math.hypot(wp.x - x, wp.z - z) < 6) this.waypoint = g.nextHop(wp.id, g.nearest(tx, tz).id);
+    if (Math.hypot(wp.x - x, wp.z - z) < arrive) this.waypoint = g.nextHop(wp.id, g.nearest(tx, tz).id);
     const n = g.nodes[this.waypoint]!;
     this.tmp.x = n.x;
     this.tmp.z = n.z;
@@ -202,7 +367,7 @@ export class MissionBot {
       out.steer = this.reverseSteer;
       return;
     }
-    driveTowards(v, gx, gz, speed, c, false);
+    driveTowards(v, gx, gz, speed, c, arriveSpeed > 20);
     if (speed > 3 && Math.abs(forwardSpeed(v)) < 1) this.stuckTime += dt;
     else this.stuckTime = Math.max(0, this.stuckTime - dt);
     if (this.stuckTime > 1.2) {

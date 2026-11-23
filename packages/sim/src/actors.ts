@@ -106,6 +106,8 @@ export interface Actor {
   /** Riding in a vehicle: no ped in the world. */
   riding: boolean;
   fireCooldown: number;
+  /** Another actor (pool slot) this hostile goes after, or -1. */
+  targetActor: number;
   /** Who this hostile shoots at: -1 the player, otherwise a vehicle id. */
   targetVehicle: number;
   /** Last known position (also while riding or after death). */
@@ -234,9 +236,12 @@ export class ActorSystem {
     return best;
   }
 
-  setAggro(a: Actor, on = true): void {
+  /** Start (or stop) a fight. The target is the player unless another actor or a vehicle is given. */
+  setAggro(a: Actor, on = true, target: { actor?: Actor | null; vehicleId?: number } = {}): void {
     if (!a.hostile && on) a.hostile = true;
     a.aggro = on;
+    a.targetActor = target.actor ? target.actor.id : -1;
+    a.targetVehicle = target.vehicleId ?? -1;
   }
 
   /** Make every actor of a group aggressive. */
@@ -543,7 +548,12 @@ export class ActorSystem {
       // Fight: close to shooting range of the target, then stand and shoot.
       let tx = pl.x;
       let tz = pl.z;
-      if (a.targetVehicle >= 0) {
+      const ta = this.liveTarget(a);
+      // Someone else is the target, unless the player gets in their face.
+      if (ta && pdist > 10) {
+        tx = ta.x;
+        tz = ta.z;
+      } else if (a.targetVehicle >= 0) {
         const tv = w.vehicles[a.targetVehicle];
         if (tv && tv.active && !tv.destroyed) {
           tx = tv.x;
@@ -588,6 +598,13 @@ export class ActorSystem {
     p.body.setLinvel({ x: vx, y: 0, z: vz }, true);
   }
 
+  /** The actor this one is after, if it is still up and about. */
+  private liveTarget(a: Actor): Actor | null {
+    if (a.targetActor < 0) return null;
+    const t = this.actors[a.targetActor];
+    return t && t.active && !t.dead && !t.riding ? t : null;
+  }
+
   private shoot(a: Actor, tx: number, tz: number, dist: number): void {
     const w = this.world;
     const cfg = this.config;
@@ -602,8 +619,13 @@ export class ActorSystem {
     let hx = tx;
     let hz = tz;
     let kind: 'none' | 'vehicle' | 'ped' = 'none';
+    const ta = this.liveTarget(a);
+    const atActor = ta !== null && Math.hypot(ta.x - tx, ta.z - tz) < 0.5;
     if (hit) {
-      if (a.targetVehicle >= 0) {
+      if (atActor) {
+        this.hurtActor(ta, 1);
+        kind = 'ped';
+      } else if (a.targetVehicle >= 0) {
         const tv = w.vehicles[a.targetVehicle];
         if (tv && tv.active) {
           w.damageVehicle(tv, cfg.shotDamageVehicle);
@@ -790,6 +812,7 @@ function makeActor(id: number): Actor {
     dead: false,
     riding: false,
     fireCooldown: 0,
+    targetActor: -1,
     targetVehicle: -1,
     x: 0,
     z: 0,
