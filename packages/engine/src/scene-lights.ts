@@ -13,15 +13,28 @@ const FLASHES = 32;
 export class SceneLights {
   private readonly fx = new Float32Array(FLASHES * 5); // x, z, life, max life, colour
   private nextFlash = 0;
+  /** Light-field slot of each street lamp (layoutLamps order) and each lit prop (by prop id). */
+  private readonly lampSlots: number[] = [];
+  private readonly propSlots = new Map<number, number>();
+
+  /** A street lamp was knocked down or put back. */
+  setLampOn(index: number, on: boolean): void {
+    this.field.setStaticOn(this.lampSlots[index] ?? -1, on);
+  }
+
+  /** A lit prop (vending machine, kiosk) was smashed or put back. */
+  setPropLightOn(propId: number, on: boolean): void {
+    this.field.setStaticOn(this.propSlots.get(propId) ?? -1, on);
+  }
 
   constructor(
     private readonly field: LightField,
     lamps: { x: number; z: number; colour: number }[],
     signs: Sign[],
-    extra: { x: number; z: number; colour: number; radius: number }[] = [],
+    extra: { x: number; z: number; colour: number; radius: number; propId: number }[] = [],
   ) {
-    for (const l of extra) field.addStatic(l.x, 1.6, l.z, l.radius, l.colour, 0.9);
-    for (const l of lamps) field.addStatic(l.x, 6.4, l.z, 12.5, l.colour, 1.6);
+    for (const l of extra) this.propSlots.set(l.propId, field.addStatic(l.x, 1.6, l.z, l.radius, l.colour, 0.9));
+    for (const l of lamps) this.lampSlots.push(field.addStatic(l.x, 6.4, l.z, 12.5, l.colour, 1.6));
     for (const s of signs) {
       // Push the light off the facade so it is not inside its own building.
       const big = Math.max(s.w, s.h, s.d);

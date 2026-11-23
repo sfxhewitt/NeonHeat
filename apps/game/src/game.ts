@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FixedStepLoop, SIM_DT, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type SimEvent } from '@neonheat/sim';
+import { FixedStepLoop, SIM_DT, World, emptyIntents, forwardSpeed, initPhysics, type Intents, type Prop, type SimEvent } from '@neonheat/sim';
 import { MissionBot, MissionDirector } from '@neonheat/missions';
 import { IndexedDbStorage, MemoryStorage, SaveManager, applyMissionResult } from '@neonheat/save';
 import {
@@ -516,6 +516,25 @@ export class Game {
     this.perfEl.textContent = this.perfLine();
   }
 
+  /** Lamp props the renderer draws as street lights, and lit props, with the state last drawn. */
+  private lightProps: { prop: Prop; shown: boolean }[] | null = null;
+
+  /** Knocked-down lamps lie flat and go dark; smashed vending machines and kiosks stop lighting the street. */
+  private syncBrokenLights(): void {
+    this.lightProps ??= this.world.props.props
+      .filter((p) => p.lamp >= 0 || p.kind === 'vending' || p.kind === 'kiosk')
+      .map((prop) => ({ prop, shown: true }));
+    for (const s of this.lightProps) {
+      const on = !s.prop.broken;
+      if (on === s.shown) continue;
+      s.shown = on;
+      if (s.prop.lamp >= 0) {
+        this.city.setLampDown(s.prop.lamp, !on);
+        this.sceneLights.setLampOn(s.prop.lamp, on);
+      } else this.sceneLights.setPropLightOn(s.prop.id, on);
+    }
+  }
+
   private onSimEvent(e: SimEvent): void {
     const feel = this.content.feel;
     if (e.type === 'impact') {
@@ -544,12 +563,21 @@ export class Game {
       if (e.hit !== 'none') this.particles.burstSparks(e.hx, e.hz, e.hit === 'vehicle' ? 7 : 4, 2);
       this.rig.addShake(0.1);
       if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(e.hit === 'none' ? 6 : 12);
+    } else if (e.type === 'kerb') {
+      if (!e.byPlayer) return;
+      this.rig.addShake(Math.min(feel.kerbShakeMax, e.strength * feel.kerbShakePerStrength * (e.up ? 1 : 0.5)));
+      if (e.up && this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(feel.kerbVibrateMs);
     } else if (e.type === 'propBroken') {
-      const solidKinds = e.kind === 'bollard' || e.kind === 'hydrant';
-      this.particles.burstDebris(e.x, e.z, e.vx, e.vz, this.propsView.debrisColour(e.kind), solidKinds ? 6 : 12, e.kind === 'hydrant');
+      const heavy = e.kind === 'tree' || e.kind === 'vending' || e.kind === 'lamp';
+      const solidKinds = heavy || e.kind === 'bollard' || e.kind === 'hydrant';
+      this.particles.burstDebris(e.x, e.z, e.vx, e.vz, this.propsView.debrisColour(e.kind), heavy ? 16 : solidKinds ? 6 : 12, e.kind === 'hydrant');
+      if (e.kind === 'vending' || e.kind === 'lamp') {
+        this.particles.burstSparks(e.x, e.z, 14, 8);
+        this.sceneLights.flash(e.x, e.z, e.kind === 'lamp' ? 0xffd090 : 0x9fe8ff, 0.18);
+      }
       if (e.byPlayer) {
-        this.rig.addShake(solidKinds ? 0.35 : 0.2);
-        if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(solidKinds ? 25 : 12);
+        this.rig.addShake(heavy ? 0.55 : solidKinds ? 0.35 : 0.2);
+        if (this.settings.vibration && typeof navigator.vibrate === 'function') navigator.vibrate(heavy ? 40 : solidKinds ? 25 : 12);
       }
     } else if (e.type === 'pedHit') {
       if (e.byPlayer) this.rig.addShake(0.3);
@@ -616,6 +644,7 @@ export class Game {
     const fp = this.projected.copy(this.city.focus).project(this.rig.camera);
     this.city.focusScreen.set(fp.x * 0.5 + 0.5, fp.y * 0.5 + 0.5);
     this.propsView.update();
+    this.syncBrokenLights();
     this.sceneLights.update(w, alpha, this.paused ? 0 : dt);
     // Centre the light buffer a little ahead (north) of the focus: the camera sees further up the screen.
     this.lightField.render(this.renderer, focus.x, focus.z - 12);

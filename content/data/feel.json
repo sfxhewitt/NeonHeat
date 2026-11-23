@@ -11,5 +11,8 @@
   "vibratePerStrengthMs": 3,
   "vibrateMaxMs": 90,
   "sparksPerStrength": 1.2,
-  "sparksMax": 28
+  "sparksMax": 28,
+  "kerbShakePerStrength": 0.012,
+  "kerbShakeMax": 0.3,
+  "kerbVibrateMs": 9
 }

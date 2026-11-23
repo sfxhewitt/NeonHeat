@@ -44,7 +44,8 @@ describe('street furniture', () => {
 
   it('a crawling car does not break a bollard', async () => {
     const { world, car, prop } = await lineUp('bollard', 6);
-    run(world, 3, intents({ throttle: 0.12 }));
+    // Creep at walking pace (about 1.5 m/s): the bollard stops the car rather than flying off.
+    run(world, 5, () => intents(Math.hypot(car.vx, car.vz) < 1.4 ? { throttle: 0.3 } : {}));
     expect(prop.broken).toBe(false);
     expect(car.x).toBeLessThan(prop.x);
   });

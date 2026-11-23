@@ -18,7 +18,7 @@ import {
   Vector2,
   Vector3,
 } from 'three';
-import type { MapContent } from '@neonheat/sim';
+import { layoutLamps as layoutLampSpots, type MapContent } from '@neonheat/sim';
 import { Palette } from './palette';
 import { BLOOM_LAYER } from './layers';
 import { MeshBuilder } from './mesh-kit';
@@ -40,12 +40,12 @@ export interface CityMeshes {
   viewport: Vector2;
   /** The player's position on screen (0..1, origin bottom left), for the see-through cutaway. */
   focusScreen: Vector2;
-  /** Street lamp positions (for reflections and pools). */
+  /** Street lamp positions (for reflections and pools), in layoutLamps order. */
   lamps: { x: number; z: number; colour: number }[];
+  /** Knock a street lamp flat (its head, pool and light shaft go dark) or stand it back up. */
+  setLampDown(index: number, down: boolean): void;
 }
 
-const PAVEMENT = 5.5;
-const KERB = 0.18;
 
 /** Build the static block: ground, roads, pavements with kerbs, lit buildings, roof clutter and street lights. */
 export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material): CityMeshes {
@@ -135,7 +135,7 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
   scene.add(roofProps);
 
   // Street lights along both sides of every road, clear of junctions.
-  const lamps = layoutLamps(map);
+  const lamps = layoutLampSpots(map).map((l) => ({ x: l.x, z: l.z, yaw: l.yaw, colour: l.cold ? 0xbfe6ff : 0xffb766 }));
   const post = new MeshBuilder()
     .box(0, 0.25, 0, 0.36, 0.5, 0.36, 0x2a2a3a)
     .box(0, 3.4, 0, 0.16, 6.4, 0.16, 0x3a3a50)
@@ -184,7 +184,30 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
   lampCones.visible = false;
   scene.add(lampPosts, lampHeads, lightPools, lampCones);
 
+  // Knocked-down lamps: the post lies on the pavement, away from the road; the rest goes dark.
+  const standing = [lampPosts, lampHeads, lightPools, lampCones].map((m) => new Float32Array(m.instanceMatrix.array));
+  const fallen = new Object3D();
+  const hidden = new Object3D();
+  hidden.scale.set(0, 0, 0);
+  hidden.updateMatrix();
+  const kerb = map.roads.kerbHeight;
+  const setLampDown = (i: number, down: boolean): void => {
+    const l = lamps[i];
+    if (!l) return;
+    [lampPosts, lampHeads, lightPools, lampCones].forEach((m, k) => {
+      if (!down) m.instanceMatrix.array.set(standing[k]!.subarray(i * 16, i * 16 + 16), i * 16);
+      else if (k === 0) {
+        fallen.position.set(l.x, kerb + 0.18, l.z);
+        fallen.rotation.set(-Math.PI / 2 + 0.06, l.yaw, 0, 'YXZ');
+        fallen.updateMatrix();
+        m.setMatrixAt(i, fallen.matrix);
+      } else m.setMatrixAt(i, hidden.matrix);
+      m.instanceMatrix.needsUpdate = true;
+    });
+  };
+
   return {
+    setLampDown,
     ground,
     roads,
     pavements,
@@ -201,37 +224,10 @@ export function buildCity(scene: Scene, map: MapContent, roadMaterial?: Material
   };
 }
 
-interface Lamp {
-  x: number;
-  z: number;
-  yaw: number;
-  colour: number;
-}
-
-/** Sodium-warm lamps with the odd cold-white one, every ~24 m along each kerb. */
-export function layoutLamps(map: MapContent): Lamp[] {
-  const { positions, width, extent } = map.roads;
-  const out: Lamp[] = [];
-  const near = (v: number): boolean => positions.some((p) => Math.abs(v - p) < width / 2 + PAVEMENT + 2);
-  let k = 0;
-  for (const p of positions) {
-    for (let t = -extent + 10; t <= extent - 10; t += 24) {
-      if (near(t)) continue;
-      for (const side of [-1, 1]) {
-        const off = p + side * (width / 2 + 0.9);
-        const colour = k++ % 5 === 0 ? 0xbfe6ff : 0xffb766;
-        // East-west road (z = p): lamps along x. North-south road (x = p): lamps along z.
-        out.push({ x: t, z: off, yaw: side > 0 ? Math.PI : 0, colour });
-        out.push({ x: off, z: t, yaw: side > 0 ? -Math.PI / 2 : Math.PI / 2, colour });
-      }
-    }
-  }
-  return out;
-}
-
 /** Raised pavement slabs filling every block, with a pale kerb along the road edge. */
 export function buildPavementGeometry(map: MapContent): BufferGeometry {
   const { positions, width } = map.roads;
+  const KERB = map.roads.kerbHeight;
   const [sx, sz] = map.size;
   const b = new MeshBuilder();
   const cuts = (half: number): [number, number][] => {

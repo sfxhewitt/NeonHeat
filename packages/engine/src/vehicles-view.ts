@@ -50,6 +50,10 @@ export class VehiclesView {
   private readonly localM = new Matrix4();
   private readonly outM = new Matrix4();
 
+  /** Smoothed kerb lift of each vehicle's front and rear axle, by vehicle id. */
+  private readonly kerbF = new Float32Array(128);
+  private readonly kerbR = new Float32Array(128);
+
   constructor(
     private readonly scene: Scene,
     variants: Record<string, VehicleParams>,
@@ -111,8 +115,14 @@ export class VehiclesView {
       // Body roll and pitch from cornering and braking, for weight.
       const fwd = Math.sin(yaw) * v.vx + Math.cos(yaw) * v.vz;
       const roll = v.destroyed ? 0.12 : Math.max(-0.07, Math.min(0.07, -v.yawRate * fwd * 0.004));
-      const pitch = v.destroyed ? 0 : (v.controls.brake > 0.1 ? 0.025 : 0) - v.controls.throttle * 0.015;
-      o.position.set(x, 0, z);
+      // Kerbs: each axle eases up onto the pavement, so the body rides up and pitches over the step.
+      const kh = world.content.map.roads.kerbHeight;
+      const k = Math.min(1, dt * 22);
+      const fy = (this.kerbF[v.id] = this.kerbF[v.id]! + ((v.kerbFront ? kh : 0) - this.kerbF[v.id]!) * k);
+      const ry = (this.kerbR[v.id] = this.kerbR[v.id]! + ((v.kerbRear ? kh : 0) - this.kerbR[v.id]!) * k);
+      const wheelbase = p.length * 0.64;
+      const pitch = (v.destroyed ? 0 : (v.controls.brake > 0.1 ? 0.025 : 0) - v.controls.throttle * 0.015) - (fy - ry) / wheelbase;
+      o.position.set(x, (fy + ry) / 2, z);
       o.rotation.set(pitch, yaw, roll, 'YXZ');
       o.scale.set(1, 1, 1);
       o.updateMatrix();

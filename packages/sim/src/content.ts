@@ -47,6 +47,15 @@ export const VehiclesSchema = z
       damagePerMs: z.number().nonnegative(),
       destroyedEjectSec: z.number().nonnegative(),
     }),
+    /** Mounting or dropping off a kerb: a bump, not a wall. */
+    kerb: z
+      .object({
+        /** Fraction of speed lost hitting a kerb square on (scaled down for glancing crossings). */
+        speedLoss: z.number().min(0).max(1),
+        /** Below this speed (m/s) a kerb crossing makes no bump event. */
+        minBumpSpeed: z.number().nonnegative(),
+      })
+      .default({ speedLoss: 0.07, minBumpSpeed: 2.5 }),
   })
   .refine((v) => v.player in v.variants, { message: 'player variant must exist' });
 export type VehiclesContent = z.infer<typeof VehiclesSchema>;
@@ -61,6 +70,11 @@ export const MapSchema = z.object({
     width: z.number().positive(),
     laneOffset: z.number().positive(),
     extent: z.number().positive(),
+    /** Height of the raised pavement above the road (m). Cars ride up onto it. */
+    kerbHeight: z.number().nonnegative().default(0.18),
+    /** Street lamps stand this far in from the kerb, every lampSpacing metres. */
+    lampInset: z.number().nonnegative().default(0.9),
+    lampSpacing: z.number().positive().default(24),
   }),
   wallThickness: z.number().positive(),
   buildings: z.array(
@@ -86,6 +100,8 @@ export const PropKindSchema = z.object({
   breakSpeed: z.number().nonnegative(),
   /** Fraction of speed the vehicle loses when it smashes through. */
   slowdown: z.number().min(0).max(1),
+  /** Hull damage the vehicle takes smashing through. */
+  damage: z.number().nonnegative().default(0),
 });
 export const PropsConfigSchema = z.object({
   kinds: z.record(z.string(), PropKindSchema),

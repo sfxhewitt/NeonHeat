@@ -192,5 +192,9 @@
     "impactThreshold": 4,
     "damagePerMs": 2.2,
     "destroyedEjectSec": 1.5
+  },
+  "kerb": {
+    "speedLoss": 0.07,
+    "minBumpSpeed": 2.5
   }
 }
