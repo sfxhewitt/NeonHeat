@@ -80,9 +80,10 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
 
   // --- Start from the title screen with a tap, exactly as a player would.
   await page.goto('/?quality=low');
-  const start = page.locator('.nh-title button');
+  const start = page.locator('.nh-title__press');
   await expect(start).toBeVisible({ timeout: 30_000 });
   await start.tap();
+  await page.locator('.nh-title [data-act="new"]').tap();
   await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
 
   // The game is always landscape, whichever way the phone is held.
@@ -196,12 +197,17 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
     const w = window.__neon!.game.world;
     w.teleportVehicle(w.player.vehicle, -60, 66, Math.PI);
   });
-  await expect(page.locator('.nh-toast')).toContainText('JOB DONE', { timeout: 10_000 });
+  // The job-done card: title, pay, Continue.
+  await expect(page.locator('.nh-done h2')).toHaveText('Hot Chrome', { timeout: 10_000 });
+  await expect(page.locator('.nh-done [data-pay]')).toHaveText('+1,500', { timeout: 5000 });
   expect(await page.evaluate(() => window.__neon!.mission().credits)).toBe(1500);
+  await page.locator('.nh-done [data-act="continue"]').tap();
+  await expect(page.locator('.nh-done')).toHaveCount(0);
+  await expect(page.locator('.nh-credits__num')).toHaveText('1,500', { timeout: 5000 });
 
   // The pause menu opens and closes with a tap.
   await page.locator('.nh-menu-btn').first().tap();
-  await expect(page.locator('.nh-modal h2')).toHaveText('PAUSED');
+  await expect(page.locator('.nh-pause h2')).toHaveText('PAUSED');
   await page.locator('[data-act="resume"]').tap();
   await expect(page.locator('.nh-modal')).toHaveCount(0);
 
@@ -234,4 +240,41 @@ test('iPhone: touch buttons stay on screen and at least 48 px', async ({ page })
     expect(b.x + b.w).toBeLessThanOrEqual(vw.width + 1);
     expect(b.y + b.h).toBeLessThanOrEqual(vw.height + 1);
   }
+});
+
+test('iPhone: the minimap opens the full map, a tap sets a waypoint, the menu closes by touch', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('/?autostart=1&quality=low');
+  await page.waitForFunction(() => window.__neon?.ready === true, null, { timeout: 30_000 });
+  const paused = () => page.evaluate(() => window.__neon!.game.isPaused);
+
+  // Tap the minimap: the pause menu opens on the Map tab and the game pauses.
+  await page.locator('.nh-minimap').tap();
+  await expect(page.locator('.nh-pause h2')).toHaveText('PAUSED');
+  await expect(page.locator('.nh-tab[data-tab="map"]')).toHaveClass(/is-on/);
+  await expect(page.locator('.nh-fullmap__canvas')).toBeVisible();
+  expect(await paused()).toBe(true);
+
+  // Tap the map: a waypoint, and a GPS route from the player to it.
+  const box = (await page.locator('.nh-fullmap__canvas').boundingBox())!;
+  await page.touchscreen.tap(box.x + box.width * 0.5, box.y + box.height * 0.5);
+  await expect.poll(() => page.evaluate(() => window.__neon!.game.flow.live.waypoint !== null)).toBe(true);
+  expect(await page.evaluate(() => window.__neon!.game.flow.live.route.length)).toBeGreaterThanOrEqual(2);
+  await expect(page.locator('.nh-fullmap__readout')).toContainText('Waypoint');
+
+  // Zoom with the on-screen button, then look at the other tabs.
+  const zoom0 = await page.evaluate(() => (window.__neon!.game.flow as unknown as { fullMap: { view: { zoom: number } } }).fullMap.view.zoom);
+  await page.locator('.nh-fullmap [data-map="in"]').tap();
+  const zoom1 = await page.evaluate(() => (window.__neon!.game.flow as unknown as { fullMap: { view: { zoom: number } } }).fullMap.view.zoom);
+  expect(zoom1).toBeGreaterThan(zoom0);
+  await page.locator('.nh-tab[data-tab="jobs"]').tap();
+  await expect(page.locator('.nh-crew')).toHaveCount(5);
+  await page.locator('.nh-tab[data-tab="stats"]').tap();
+  await expect(page.locator('.nh-stat').first()).toBeVisible();
+
+  // Resume by touch: the menu goes and the game runs again.
+  await page.locator('[data-act="resume"]').tap();
+  await expect(page.locator('.nh-pause')).toHaveCount(0);
+  expect(await paused()).toBe(false);
+  expect(errors).toEqual([]);
 });
