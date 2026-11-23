@@ -56,8 +56,8 @@ export function setupGarage(game: Game, opts: { labels: boolean; city: boolean }
 
   const variants = w.content.vehicles.variants;
   const placed: { v: Vehicle; id: string }[] = [];
-  const roadZ = w.content.map.roads.positions[2] ?? 40;
-  const lane = w.content.map.roads.laneOffset;
+  const roadZ = -330; // the long east-west avenue south of Lantern Row
+  const lane = 4.5;
   const rowZ = [roadZ + lane, roadZ - lane];
   const all = new Set(Object.keys(variants));
   ROWS.forEach((ids, r) => {
