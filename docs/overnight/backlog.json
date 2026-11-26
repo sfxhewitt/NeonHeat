@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "readme": "The queue for the overnight build loop (docs/overnight/PROMPT.md). File order is priority order. status: todo, done or blocked. size: S (about an hour) or M (about half a night); split anything bigger. Every item is also subject to the full gate, `pnpm overnight:check`. Edit by hand or with `node tools/overnight/backlog.mjs`.",
+  "items": [
+    {
+      "id": "NH-001",
+      "slug": "ip-rules-guard",
+      "title": "Guard the IP rules with a test",
+      "size": "S",
+      "status": "todo",
+      "why": "CLAUDE.md, IP rules (hard): banned names must never ship in code, assets, copy or comments. Nothing checks this today.",
+      "acceptance": [
+        "A unit test scans every tracked text file under apps/, packages/, content/ and assets/ and fails when a term banned by CLAUDE.md's IP rules appears (case-insensitive, whole words): the series abbreviation, its full name, and its publisher's name.",
+        "The banned terms are built in the test so that the test file does not itself contain them as plain words.",
+        "The test proves it has teeth: it runs the same scanner over a small in-memory sample that contains a banned term and expects a hit.",
+        "The test passes on the current tree without editing any shipped file, or the offending text is reworded."
+      ],
+      "verify": [
+        "pnpm exec vitest run tests/unit/ip-rules.test.ts"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-002",
+      "slug": "background-pause-test",
+      "title": "Prove pause-on-background and the free-roam autosave",
+      "size": "S",
+      "status": "todo",
+      "why": "CLAUDE.md, Game rules that must hold: pause when the tab or app is backgrounded; autosave every 2 minutes of free roam. Both are implemented in apps/game/src/game.ts and neither has a test.",
+      "acceptance": [
+        "An e2e test makes the page hidden (visibilitychange with document.hidden true), then checks world.time does not advance while hidden and advances again once the page is visible.",
+        "The same spec fast-forwards more than 120 s of free roam with the test hook and checks a save has landed in IndexedDB.",
+        "The free-roam autosave interval is read from content JSON (validated with Zod) instead of the literal 120 in game.ts (architecture rule 3).",
+        "No console errors in the new test."
+      ],
+      "verify": [
+        "pnpm exec playwright test -c playwright.config.ts --project=desktop tests/e2e/lifecycle.spec.ts"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-003",
+      "slug": "phone-drawcall-budget",
+      "title": "Assert the draw-call and triangle budget at the phone's screen size on the mid tier",
+      "size": "S",
+      "status": "todo",
+      "why": "CLAUDE.md, Performance budget: under 100 draw calls and about 100k visible vertices on a mid-range phone. tests/perf/drawcalls.spec.ts only measures the high tier at a 960x540 desktop size.",
+      "acceptance": [
+        "tests/perf has a test that loads `?autostart=1&quality=mid` at a 956x440 viewport, populates the scene as drawcalls.spec.ts does (HEAT 3, traffic, people) and asserts the maximum draw calls stay under 100.",
+        "The same test logs the maximum triangle count and asserts it stays under a budget written in the test with a comment giving the measured value on the day it was added (budget no more than 1.5x the measurement).",
+        "`pnpm perf` passes and takes no more than 30 s longer than before."
+      ],
+      "verify": [
+        "pnpm perf"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-004",
+      "slug": "steal-step-flake",
+      "title": "Make the phone test's steal step deterministic",
+      "size": "S",
+      "status": "todo",
+      "why": "docs/STATUS.md (Side activities, Open): the `phone.spec` steal step failed in 2 of 3 full-suite runs; the player was FLATLINED on foot after being teleported beside a traffic car. Cause not pinned down.",
+      "acceptance": [
+        "The cause is identified and written into docs/STATUS.md (replacing the open note).",
+        "The Hot Chrome phone test passes 5 times in a row in each orientation.",
+        "The fix does not delete or shorten the steal step and does not add retries; if the cause is a real game bug (a stunned car still running the player over, say) it is fixed in the sim with a unit test."
+      ],
+      "verify": [
+        "pnpm exec playwright test -c playwright.config.ts --project=iphone-portrait --project=iphone-landscape -g 'Hot Chrome' --repeat-each=5"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-005",
+      "slug": "bad-reviews-bot",
+      "title": "Bad Reviews: the bot can finish the job",
+      "size": "M",
+      "status": "todo",
+      "why": "docs/STATUS.md (Overnight build, Next): the mission bot has never finished Bad Reviews. Three 200 hp vans against a 48-round pistol: likely a balance problem a player has too.",
+      "acceptance": [
+        "`ALL_MISSIONS=velvet_03_bad_reviews pnpm exec vitest run tests/unit/all-missions.test.ts` passes (the bot completes velvet_03_bad_reviews from the giver on seed 1).",
+        "The fix is in mission data, tuning JSON or general sim/bot behaviour, never a special case for this mission id in code.",
+        "Jobs the bot already finishes still pass: `pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts`.",
+        "`pnpm mission-lint` stays clean and the job's duration budget stays within 3 to 8 minutes."
+      ],
+      "verify": [
+        "ALL_MISSIONS=velvet_03_bad_reviews pnpm exec vitest run tests/unit/all-missions.test.ts",
+        "pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts",
+        "pnpm mission-lint"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-006",
+      "slug": "severance-bot",
+      "title": "Severance: the bot can finish the job",
+      "size": "M",
+      "status": "todo",
+      "why": "docs/STATUS.md (Overnight build, Next): the mission bot has never finished Severance. A tail job: drivers get held up behind parked cars at corners.",
+      "acceptance": [
+        "`ALL_MISSIONS=kurogane_01_severance pnpm exec vitest run tests/unit/all-missions.test.ts` passes (the bot completes kurogane_01_severance from the giver on seed 1).",
+        "The fix is in mission data, tuning JSON or general sim/bot behaviour, never a special case for this mission id in code.",
+        "Jobs the bot already finishes still pass: `pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts`.",
+        "`pnpm mission-lint` stays clean and the job's duration budget stays within 3 to 8 minutes."
+      ],
+      "verify": [
+        "ALL_MISSIONS=kurogane_01_severance pnpm exec vitest run tests/unit/all-missions.test.ts",
+        "pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts",
+        "pnpm mission-lint"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-007",
+      "slug": "paper-trail-bot",
+      "title": "Paper Trail: the bot can finish the job",
+      "size": "M",
+      "status": "todo",
+      "why": "docs/STATUS.md (Overnight build, Next): the mission bot has never finished Paper Trail. A tail job with the same held-up-driver problem as Severance; it gates the rest of the story.",
+      "acceptance": [
+        "`ALL_MISSIONS=story_03_paper_trail pnpm exec vitest run tests/unit/all-missions.test.ts` passes (the bot completes story_03_paper_trail from the giver on seed 1).",
+        "The fix is in mission data, tuning JSON or general sim/bot behaviour, never a special case for this mission id in code.",
+        "Jobs the bot already finishes still pass: `pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts`.",
+        "`pnpm mission-lint` stays clean and the job's duration budget stays within 3 to 8 minutes."
+      ],
+      "verify": [
+        "ALL_MISSIONS=story_03_paper_trail pnpm exec vitest run tests/unit/all-missions.test.ts",
+        "pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts",
+        "pnpm mission-lint"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-008",
+      "slug": "player-horn",
+      "title": "Player horn",
+      "size": "M",
+      "status": "todo",
+      "why": "docs/STATUS.md (Sound, Open): there is no player horn input yet; the audio layer already plays `horn` events.",
+      "acceptance": [
+        "A `horn` intent exists in packages/sim/src/intents.ts and is fed by keyboard (H), gamepad and a touch button of at least 48 px that shows only while driving.",
+        "While the player drives, the intent makes the sim emit a `horn` event, rate-limited by a value in content JSON; unit-tested in Node.",
+        "Pedestrians within a radius from content JSON ahead of the car step aside; unit-tested.",
+        "The phone test asserting touch buttons stay on screen and at least 48 px still passes with the new button, and the audio e2e reports no errors."
+      ],
+      "verify": [
+        "pnpm exec vitest run tests/unit/vehicle.test.ts tests/unit/living-city.test.ts",
+        "pnpm exec playwright test -c playwright.config.ts --project=iphone-landscape -g '48 px'"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-009",
+      "slug": "blue-screen-bot",
+      "title": "Blue Screen: the bot can finish the job",
+      "size": "M",
+      "status": "todo",
+      "why": "docs/STATUS.md (Overnight build, Next): the mission bot has never finished Blue Screen.",
+      "acceptance": [
+        "`ALL_MISSIONS=nullsaints_04_blue_screen pnpm exec vitest run tests/unit/all-missions.test.ts` passes (the bot completes nullsaints_04_blue_screen from the giver on seed 1).",
+        "The fix is in mission data, tuning JSON or general sim/bot behaviour, never a special case for this mission id in code.",
+        "Jobs the bot already finishes still pass: `pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts`.",
+        "`pnpm mission-lint` stays clean and the job's duration budget stays within 3 to 8 minutes."
+      ],
+      "verify": [
+        "ALL_MISSIONS=nullsaints_04_blue_screen pnpm exec vitest run tests/unit/all-missions.test.ts",
+        "pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts",
+        "pnpm mission-lint"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-010",
+      "slug": "salt-and-iron-bot",
+      "title": "Salt and Iron: the bot can finish the job",
+      "size": "M",
+      "status": "todo",
+      "why": "docs/STATUS.md (Overnight build, Next): the mission bot has never finished Salt and Iron. A convoy job.",
+      "acceptance": [
+        "`ALL_MISSIONS=story_04_salt_and_iron pnpm exec vitest run tests/unit/all-missions.test.ts` passes (the bot completes story_04_salt_and_iron from the giver on seed 1).",
+        "The fix is in mission data, tuning JSON or general sim/bot behaviour, never a special case for this mission id in code.",
+        "Jobs the bot already finishes still pass: `pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts`.",
+        "`pnpm mission-lint` stays clean and the job's duration budget stays within 3 to 8 minutes."
+      ],
+      "verify": [
+        "ALL_MISSIONS=story_04_salt_and_iron pnpm exec vitest run tests/unit/all-missions.test.ts",
+        "pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts",
+        "pnpm mission-lint"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-011",
+      "slug": "lattice-fall-bot",
+      "title": "Lattice Fall: the bot can finish the job",
+      "size": "M",
+      "status": "todo",
+      "why": "docs/STATUS.md (Overnight build, Next): the mission bot has never finished Lattice Fall. The finale. It was written for HEAT 4 and still sets HEAT 3 (Missions and campaign, Open questions); raise it to 4 only if the bot still finishes.",
+      "acceptance": [
+        "`ALL_MISSIONS=story_06_lattice_fall pnpm exec vitest run tests/unit/all-missions.test.ts` passes (the bot completes story_06_lattice_fall from the giver on seed 1).",
+        "The fix is in mission data, tuning JSON or general sim/bot behaviour, never a special case for this mission id in code.",
+        "Jobs the bot already finishes still pass: `pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts`.",
+        "`pnpm mission-lint` stays clean and the job's duration budget stays within 3 to 8 minutes."
+      ],
+      "verify": [
+        "ALL_MISSIONS=story_06_lattice_fall pnpm exec vitest run tests/unit/all-missions.test.ts",
+        "pnpm exec vitest run tests/unit/mission-bot.test.ts tests/unit/missions.test.ts",
+        "pnpm mission-lint"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-012",
+      "slug": "trace-tagged",
+      "title": "TRACE at 100 % tags the player: a HEAT 2 floor",
+      "size": "M",
+      "status": "todo",
+      "why": "docs/DESIGN.md (HEAT and TRACE) and docs/STATUS.md (Cut, and why): TRACE rises and decays but nothing reacts to it.",
+      "acceptance": [
+        "At TRACE 100 the player is tagged: HEAT cannot decay below 2 while tagged. The floor and the thresholds live in content/data/heat.json, validated with Zod.",
+        "The tag clears when TRACE has decayed below a release value from the same JSON, after which HEAT decays normally.",
+        "The HUD shows a TAGGED state beside the TRACE read-out (text plus shape, not colour alone).",
+        "Unit tests cover: tagged at 100, floor holds through a full decay period out of sight, release, and no effect below 100."
+      ],
+      "verify": [
+        "pnpm exec vitest run tests/unit/heat.test.ts tests/unit/wanted.test.ts"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-013",
+      "slug": "sign-post-colliders",
+      "title": "Shop sign posts are physical",
+      "size": "S",
+      "status": "todo",
+      "why": "docs/STATUS.md (Economy, Known gaps): the kerbside sign posts have no colliders, so cars drive through them.",
+      "acceptance": [
+        "Each kerbside shop sign post is a breakable prop in the sim (like street lamps in packages/sim/src/street.ts), with its smash speed and speed loss in content/data/props.json.",
+        "A unit test drives a car into a sign post below and above the smash speed and checks it stops or smashes accordingly.",
+        "Draw calls do not rise: `pnpm perf` still passes.",
+        "No new draws on the main city RNG (docs/STATUS.md): mission-lint stays clean."
+      ],
+      "verify": [
+        "pnpm exec vitest run tests/unit/props.test.ts tests/unit/kerbs.test.ts",
+        "pnpm mission-lint",
+        "pnpm perf"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-014",
+      "slug": "hostile-crew-cars-chase",
+      "title": "Hostile crew cars chase the player on their turf",
+      "size": "M",
+      "status": "todo",
+      "why": "docs/STATUS.md (Living city, Open): hostile crew cars cruise but do not chase.",
+      "acceptance": [
+        "A crew car whose crew's respect for the player is at or below the hostile threshold, on its own turf and within a sight range from content/data/life.json, switches to pursuit using the existing actor driver behaviours.",
+        "It gives up beyond a leash distance or after a time limit, both from life.json, and returns to cruising.",
+        "Ram damage uses the same capped, rate-limited rule as police and squads (heat.json `ramDamage`).",
+        "Unit tests cover: neutral crew cars never chase, hostile ones do, and the leash."
+      ],
+      "verify": [
+        "pnpm exec vitest run tests/unit/living-city.test.ts"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    }
+  ]
+}

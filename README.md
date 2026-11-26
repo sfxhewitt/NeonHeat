@@ -20,3 +20,12 @@ pnpm perf         # draw-call budget + 1-minute soak
 pnpm soak         # full 20-minute soak
 pnpm mission-lint # validate content/missions
 ```
+
+## Overnight build loop
+
+An unattended nightly session works through [`docs/overnight/backlog.json`](docs/overnight/backlog.json) under the rules in [`docs/overnight/PROMPT.md`](docs/overnight/PROMPT.md). See [`docs/overnight/README.md`](docs/overnight/README.md).
+
+```sh
+pnpm overnight:check   # the full gate in one command
+pnpm playtest          # the phone smoke playtest alone
+```

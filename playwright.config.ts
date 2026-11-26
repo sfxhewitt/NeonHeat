@@ -35,9 +35,15 @@ export default defineConfig({
       testMatch: /phone\.spec\.ts/,
       use: { ...proMaxLandscape, defaultBrowserType: 'chromium' },
     },
+    // The overnight gate's smoke playtest: one short phone session (`pnpm playtest` runs it alone).
+    {
+      name: 'playtest',
+      testMatch: /playtest\.spec\.ts/,
+      use: { ...proMaxLandscape, defaultBrowserType: 'chromium' },
+    },
     {
       name: 'desktop',
-      testIgnore: /phone\.spec\.ts/,
+      testIgnore: /(phone|playtest)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 960, height: 540 } },
     },
   ],
