@@ -7,7 +7,7 @@
       "slug": "ip-rules-guard",
       "title": "Guard the IP rules with a test",
       "size": "S",
-      "status": "todo",
+      "status": "done",
       "why": "CLAUDE.md, IP rules (hard): banned names must never ship in code, assets, copy or comments. Nothing checks this today.",
       "acceptance": [
         "A unit test scans every tracked text file under apps/, packages/, content/ and assets/ and fails when a term banned by CLAUDE.md's IP rules appears (case-insensitive, whole words): the series abbreviation, its full name, and its publisher's name.",
@@ -18,8 +18,8 @@
       "verify": [
         "pnpm exec vitest run tests/unit/ip-rules.test.ts"
       ],
-      "attempts": 0,
-      "pr": null,
+      "attempts": 1,
+      "pr": "https://github.com/sfxhewitt/NeonHeat/pull/9",
       "notes": ""
     },
     {
