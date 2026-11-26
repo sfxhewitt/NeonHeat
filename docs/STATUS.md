@@ -1,5 +1,13 @@
 # Status
 
+## Overnight build loop (26 Nov 2026)
+
+- **Harness.** A nightly unattended session follows `docs/overnight/PROMPT.md`: next item from `docs/overnight/backlog.json`, branch `overnight/<id>-<slug>`, build, gate, independent reviewer, squash-merge only on green, entry in `docs/overnight/LOG.md`. Three items a night at most; three failed attempts block an item.
+- **Gate.** `pnpm overnight:check` runs everything CI runs (backlog, lint, typecheck, unit, mission-lint, build, size, playtest, e2e, perf) with no skip flags, no retries, and it refuses budget-loosening environment variables.
+- **Smoke playtest.** `pnpm playtest` (`tests/e2e/playtest.spec.ts`, also part of `pnpm e2e` and so of CI): a touch session at 956x440 that fails on console errors, a blank or frozen canvas, a lost WebGL context, or frame time over budget (average 50 ms, p95 125 ms locally). Checked by breaking the game on purpose three ways: a cleared canvas, a console error and a 120 ms stall per frame each failed it.
+- **Supply chain.** Every GitHub Action is pinned to a full commit SHA with its version in a comment (the versions the `v4`/`v3` tags pointed at on 26 Nov; nothing upgraded). CI's token is read-only. Both workflows install with `--frozen-lockfile`. `tests/unit/overnight.test.ts` keeps all of that true.
+- **Open**: the reviewer step needs a session that can start subagents. The backlog's first items are small guards; the six jobs the bot cannot finish follow.
+
 ## Overnight build, 23 Nov 2026: decisions and state
 
 The owner asked for a full game overnight. The design is in docs/DESIGN.md. Decisions made without asking, so nobody had to be woken:
