@@ -159,7 +159,12 @@ export class TrafficSystem {
       if (a.mode === 'stunned') {
         a.timer -= dt;
         v.controls.throttle = 0;
-        v.controls.brake = 1;
+        // Brake to a stop, then hold the handbrake: the foot brake at a standstill means reverse,
+        // and a stunned driver backing blindly ran people over (the phone test's steal-step flake).
+        const moving = forwardSpeed(v) > 0.5;
+        v.controls.brake = moving ? 1 : 0;
+        v.controls.handbrake = !moving;
+        v.controls.steer = 0;
         if (a.timer <= 0) a.mode = 'drive';
         continue;
       }

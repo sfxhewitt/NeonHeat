@@ -176,13 +176,28 @@ test('iPhone, touch only: start, walk, drive, steal, hack and finish Hot Chrome'
   await expect.poll(async () => (await player(page)).driving).toBe(false);
 
   // --- Steal a car out of traffic.
-  await page.evaluate(() => {
+  // Stun its driver and let it brake to a stop before walking up: a stunned car only brakes, so one
+  // still rolling (or mid-turn at a junction) can sweep into a player placed beside it and, at avenue
+  // speed, flatline them (docs/STATUS.md, the old steal-step flake). The long stun keeps it parked
+  // however slowly the steps below run.
+  const stolenId = await page.evaluate(() => {
     const w = window.__neon!.game.world;
     const car = w.vehicles.find((v: { active: boolean; role: string; destroyed: boolean }) => v.active && v.role === 'traffic' && !v.destroyed);
     car.ai.mode = 'stunned';
-    car.ai.timer = 5;
-    w.playerCtl.teleport(car.x + Math.cos(car.yaw) * 2.2, car.z - Math.sin(car.yaw) * 2.2);
+    car.ai.timer = 60;
+    return car.id as number;
   });
+  const carSpeed = () =>
+    page.evaluate((id) => {
+      const v = window.__neon!.game.world.vehicles[id];
+      return Math.hypot(v.vx, v.vz);
+    }, stolenId);
+  await expect.poll(carSpeed, { message: 'the stunned car comes to a stop', timeout: 20_000 }).toBeLessThan(0.3);
+  await page.evaluate((id) => {
+    const w = window.__neon!.game.world;
+    const car = w.vehicles[id];
+    w.playerCtl.teleport(car.x + Math.cos(car.yaw) * 2.2, car.z - Math.sin(car.yaw) * 2.2);
+  }, stolenId);
   await expect(context).toHaveText('STEAL');
   await context.tap();
   await expect.poll(async () => (await player(page)).driving).toBe(true);
