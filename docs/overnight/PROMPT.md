@@ -71,7 +71,12 @@ titled `Overnight loop stopped: <reason>` (section 8) when any of these is true:
    `node tools/overnight/wait-ci.mjs "$(git rev-parse origin/main)" check build deploy`
    must exit 0 (exit 1 is red, exit 3 is timed out; both are hard stops).
 5. Baseline: run `pnpm overnight:check` on untouched `main`. It must end with `GATE GREEN`. It takes about
-   10 minutes. If one browser test fails, see "Flaky tests" in section 5 before calling it red.
+   10 minutes on a quiet machine (601.8 s on 26 Nov; CI takes about 8.5 minutes) and much longer on a busy one
+   (the unit step alone took 920 s with other sessions running). Before any gate run, check the machine is
+   quiet: `nproc` and `cat /proc/loadavg`; if the 1-minute load is above the CPU count, wait until it is not.
+   The unit step includes a wall-clock test (`tests/unit/living-city.test.ts`, "keeps the tick cheap", limit
+   4 ms per tick) that fails under load: on 26 Nov it measured 9.06 ms at load 8 on 2 CPUs and passed once the
+   load dropped. If one browser test fails, see "Flaky tests" in section 5 before calling it red.
 6. Look for unfinished work from earlier nights:
    `gh api "repos/sfxhewitt/neonheat/pulls?state=open&per_page=100" --jq '.[] | select(.head.ref | startswith("overnight/")) | "\(.number) \(.head.ref) \(.title)"'`
    For each open `overnight/` pull request, oldest first: read its comments. If a person has commented with a
@@ -104,7 +109,8 @@ titled `Overnight loop stopped: <reason>` (section 8) when any of these is true:
 6. **Push and open the pull request.**
    `git -c push.negotiate=true push -u origin overnight/<id>-<slug>`
    `gh pr create` does not work in this environment (GitHub GraphQL is blocked); use the REST API:
-   `gh api repos/sfxhewitt/neonheat/pulls -f title='<id>: <title>' -f head='overnight/<id>-<slug>' -f base='main' -f body='<text>' --jq '.number, .html_url'`
+   `gh api repos/sfxhewitt/neonheat/pulls -f title='<id>: <title>' -f head='overnight/<id>-<slug>' -f base='main' -F body=@<file> --jq '.number, .html_url'`
+   (write the body to a file first: `-F body=@<file>` reads it, so quotes and backticks need no escaping).
    The body states: the backlog item and its acceptance criteria with how each one was checked, the gate
    summary lines (playtest frame times, test counts, bundle size), guard warnings and their reasons, and
    anything you are unsure about. End the body with your session's own attribution lines if your
