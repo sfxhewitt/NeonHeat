@@ -315,6 +315,46 @@
       "attempts": 0,
       "pr": null,
       "notes": "Repeatable: each pass lowers the cap again until the scene is near the CLAUDE.md target."
+    },
+    {
+      "id": "NH-016",
+      "slug": "achievements",
+      "title": "Achievements: a list of feats with unlock toasts",
+      "size": "M",
+      "status": "todo",
+      "why": "27 Nov review against the leading open-world and Roblox games: the game has missions, HAVOC runs, races and stunts but nothing that records feats or gives a reason to try the side content. Top games lean on visible long-term goals.",
+      "acceptance": [
+        "A data file content/data/achievements.json defines at least 15 achievements with an id, an original name, a one-line description and a condition built from stats the sim already tracks (missions finished, HAVOC runs passed, races won, stunts landed, HEAT 5 survived, safehouses owned, credits earned). No new names from other games (IP rules).",
+        "Unlocks are evaluated in the sim, saved in the save file with a migration from the current version, and never unlock twice.",
+        "An unlock shows a short toast on the HUD with a haptic tick, and the pause menu has an Achievements page showing locked and unlocked entries with progress where a count applies.",
+        "Unit tests cover: each condition type unlocking at its threshold, no double unlock, and an older save migrating with nothing unlocked."
+      ],
+      "verify": [
+        "pnpm exec vitest run tests/unit/achievements.test.ts"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
+    },
+    {
+      "id": "NH-017",
+      "slug": "daily-job",
+      "title": "Daily job: one seeded challenge a day with a streak",
+      "size": "M",
+      "status": "todo",
+      "why": "27 Nov review: the most-played games bring people back with a daily goal and a streak. Nothing in the game changes from one day to the next.",
+      "acceptance": [
+        "Each calendar day (device local date) offers one daily job picked deterministically from a pool in content/data/activities.json using its own Rng stream seeded from the date, never the city RNG. The pool reuses existing activity kinds (HAVOC run, race, export delivery) with a twist such as a vehicle class or a time limit.",
+        "Finishing it pays a credit bonus from economy.json and extends a streak; missing a day resets the streak. The streak and the last finished date are saved with a migration.",
+        "The full map and the pause menu show today's job, whether it is done, and the streak.",
+        "Unit tests cover: the same date always gives the same job, consecutive days extend the streak, a missed day resets it, and the job cannot pay twice in a day."
+      ],
+      "verify": [
+        "pnpm exec vitest run tests/unit/daily-job.test.ts"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": ""
     }
   ]
 }
