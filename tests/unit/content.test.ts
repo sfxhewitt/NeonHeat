@@ -2,12 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { rawContent } from '@neonheat/content';
 import { Cell, cityGrid, parseSimContent, VehiclesSchema } from '@neonheat/sim';
 import { CameraConfigSchema } from '@neonheat/engine';
+import { SaveConfigSchema } from '@neonheat/save';
 import { loadContent } from './helpers';
 
 describe('content', () => {
   it('validates all shipped content', () => {
     expect(() => loadContent()).not.toThrow();
     expect(() => CameraConfigSchema.parse(rawContent.camera)).not.toThrow();
+  });
+
+  it('reads the free-roam autosave interval from content and rejects a bad one', () => {
+    expect(SaveConfigSchema.parse(rawContent.save).freeRoamAutosaveSec).toBe(120);
+    expect(SaveConfigSchema.safeParse({ freeRoamAutosaveSec: 0 }).success).toBe(false);
+    expect(SaveConfigSchema.safeParse({ freeRoamAutosaveSec: '120' }).success).toBe(false);
+    expect(SaveConfigSchema.safeParse({}).success).toBe(false);
   });
 
   it('rejects invalid vehicle data with a readable error', () => {

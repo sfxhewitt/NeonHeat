@@ -480,7 +480,7 @@ export class Game {
     this.saves.current.stats.playSeconds += SIM_DT;
     if (!this.director.active) {
       this.freeRoamSaveTimer += SIM_DT;
-      if (this.freeRoamSaveTimer >= 120) this.autosave('free roam');
+      if (this.freeRoamSaveTimer >= this.content.save.freeRoamAutosaveSec) this.autosave('free roam');
     }
   }
 

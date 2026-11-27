@@ -3,6 +3,13 @@ import { z } from 'zod';
 /** Current save format. Bump and add a migration whenever the shape changes. */
 export const SAVE_VERSION = 3;
 
+/** When the game saves by itself (content/data/save.json). Not part of the save format. */
+export const SaveConfigSchema = z.object({
+  /** Seconds of free roam (no job running) between autosaves. */
+  freeRoamAutosaveSec: z.number().positive(),
+});
+export type SaveConfig = z.infer<typeof SaveConfigSchema>;
+
 /**
  * Lifetime stats for the pause menu. Fields added after the first v1 saves
  * default to 0, so older v1 saves still parse without a version bump.
