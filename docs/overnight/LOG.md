@@ -13,3 +13,14 @@ Entries are written inside the pull request they describe, so an entry is on `ma
 - Attempts: 1. Failed: nothing on the item. The first baseline gate on untouched main went red: `living-city.test.ts` "keeps the tick cheap" measured 9.06 ms per tick against a 4 ms limit while other sessions' browsers held the 2-core machine at load 8 to 14; CI on the same commit was green. The gate was run once more when the load had dropped below 1.5 and was green (601.8 s).
 - Skipped: the independent reviewer (see above).
 - Flakes: `tests/unit/living-city.test.ts` > living city performance > runs 60 s with everything on and keeps the tick cheap (wall-clock timing under machine load).
+
+## 2026-11-27
+
+### NH-002 Prove pause-on-background and the free-roam autosave — left open
+- Pull request: https://github.com/sfxhewitt/NeonHeat/pull/11 (awaiting independent review, not merged)
+- What changed: new `tests/e2e/lifecycle.spec.ts` proves the game pauses while the tab is hidden and resumes when visible, and that free roam autosaves to IndexedDB only after the interval; the interval moved from a literal in `game.ts` to `content/data/save.json` (`SaveConfigSchema`).
+- Gate: GATE GREEN, 10 steps, 566.6 s. Playtest: frame avg 25.9 ms, p95 33.4 ms, worst 50 ms, 45 draw calls. Unit: 343 tests. Bundle: 1257.9 KB gzip.
+- Review: none yet. This session could not start an independent reviewer; a separate reviewer session is to review and merge.
+- Attempts: 1. Failed: nothing. Baseline on untouched main (b19b414) was GATE GREEN first time, 550.6 s.
+- Skipped: the independent review (see above).
+- Flakes: none.

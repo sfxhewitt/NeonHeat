@@ -27,7 +27,7 @@
       "slug": "background-pause-test",
       "title": "Prove pause-on-background and the free-roam autosave",
       "size": "S",
-      "status": "todo",
+      "status": "done",
       "why": "CLAUDE.md, Game rules that must hold: pause when the tab or app is backgrounded; autosave every 2 minutes of free roam. Both are implemented in apps/game/src/game.ts and neither has a test.",
       "acceptance": [
         "An e2e test makes the page hidden (visibilitychange with document.hidden true), then checks world.time does not advance while hidden and advances again once the page is visible.",
@@ -38,8 +38,8 @@
       "verify": [
         "pnpm exec playwright test -c playwright.config.ts --project=desktop tests/e2e/lifecycle.spec.ts"
       ],
-      "attempts": 0,
-      "pr": null,
+      "attempts": 1,
+      "pr": "https://github.com/sfxhewitt/NeonHeat/pull/11",
       "notes": ""
     },
     {
