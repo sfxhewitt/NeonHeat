@@ -47,7 +47,7 @@
       "slug": "phone-drawcall-budget",
       "title": "Assert the draw-call and triangle budget at the phone's screen size on the mid tier",
       "size": "S",
-      "status": "todo",
+      "status": "done",
       "why": "CLAUDE.md, Performance budget: under 100 draw calls and about 100k visible vertices on a mid-range phone. tests/perf/drawcalls.spec.ts only measures the high tier at a 960x540 desktop size.",
       "acceptance": [
         "tests/perf has a test that loads `?autostart=1&quality=mid` at a 956x440 viewport, populates the scene as drawcalls.spec.ts does (HEAT 3, traffic, people) and asserts the maximum draw calls stay under 100.",
@@ -57,8 +57,8 @@
       "verify": [
         "pnpm perf"
       ],
-      "attempts": 0,
-      "pr": null,
+      "attempts": 1,
+      "pr": "https://github.com/sfxhewitt/NeonHeat/pull/12",
       "notes": ""
     },
     {
