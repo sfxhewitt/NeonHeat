@@ -66,7 +66,7 @@
       "slug": "steal-step-flake",
       "title": "Make the phone test's steal step deterministic",
       "size": "S",
-      "status": "todo",
+      "status": "done",
       "why": "docs/STATUS.md (Side activities, Open): the `phone.spec` steal step failed in 2 of 3 full-suite runs; the player was FLATLINED on foot after being teleported beside a traffic car. Cause not pinned down.",
       "acceptance": [
         "The cause is identified and written into docs/STATUS.md (replacing the open note).",
@@ -76,8 +76,8 @@
       "verify": [
         "pnpm exec playwright test -c playwright.config.ts --project=iphone-portrait --project=iphone-landscape -g 'Hot Chrome' --repeat-each=5"
       ],
-      "attempts": 0,
-      "pr": null,
+      "attempts": 1,
+      "pr": "https://github.com/sfxhewitt/NeonHeat/pull/13",
       "notes": ""
     },
     {

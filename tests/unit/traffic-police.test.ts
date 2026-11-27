@@ -44,6 +44,41 @@ describe('traffic', () => {
     expect(gap).toBeLessThan(15);
     expect(car.hp).toBe(car.params.maxHealth);
   });
+
+  it('a stunned driver brakes to a stop and stays put, never backing up', async () => {
+    const content = loadContent();
+    content.traffic.count = 1;
+    content.map.traffic.loops = [content.map.traffic.loops[0]!];
+    content.traffic.parkedMax = 0;
+    const world = await makeWorld(4, content);
+    const car = world.vehicles.find((v) => v.active && v.role === 'traffic')!;
+    const a = world.roads.nearest(-173, EW.z);
+    const b = world.roads.nearest(-95, EW.z);
+    movePlayer(world, -150, EW.z - 20);
+    world.teleportVehicle(car, a.x + 8, EW.z + 4.5, Math.PI / 2);
+    car.ai.mode = 'drive';
+    car.ai.navFrom = a.id;
+    car.ai.navTo = b.id;
+    car.ai.navNext = -1;
+    run(world, 3, idle);
+    expect(forwardSpeed(car)).toBeGreaterThan(5);
+    // Stun the driver for a long time, with the wheel turned as it might be mid-corner.
+    car.ai.mode = 'stunned';
+    car.ai.timer = 60;
+    car.controls.steer = 0.8;
+    let slowest = Infinity;
+    for (let i = 0; i < 6 * 60; i++) {
+      world.step(idle);
+      slowest = Math.min(slowest, forwardSpeed(car));
+    }
+    // The foot brake at a standstill means reverse; a stunned driver must not back blindly into people.
+    expect(slowest).toBeGreaterThan(-0.5);
+    const stopped = { x: car.x, z: car.z, yaw: car.yaw };
+    expect(Math.abs(forwardSpeed(car))).toBeLessThan(0.3);
+    run(world, 3, idle);
+    expect(Math.hypot(car.x - stopped.x, car.z - stopped.z)).toBeLessThan(0.3);
+    expect(Math.abs(car.yaw - stopped.yaw)).toBeLessThan(0.05);
+  });
 });
 
 describe('abandoned cars', () => {
