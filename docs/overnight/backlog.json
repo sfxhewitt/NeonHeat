@@ -294,6 +294,27 @@
       "attempts": 0,
       "pr": null,
       "notes": ""
+    },
+    {
+      "id": "NH-015",
+      "slug": "mid-tier-triangle-target",
+      "title": "Bring the mid tier's triangle count down towards the phone target",
+      "size": "M",
+      "status": "todo",
+      "why": "CLAUDE.md, Performance budget: about 100k visible vertices on a mid-range phone. The mid tier at 956x440 draws about 196k triangles (NH-003). Danny's call on 27 Nov: keep the original target; the 250,000 cap from NH-003 only stops it getting worse.",
+      "acceptance": [
+        "The populated HEAT 3 scene on the mid tier at 956x440 draws at least 20% fewer triangles than the 197,560 measured on 27 Nov, by cheaper geometry or a shorter view distance on the mid and low tiers only; the high tier is unchanged.",
+        "Every tuned number lives in JSON under content/ and is validated with Zod; nothing is hard-coded in logic.",
+        "TRIANGLE_BUDGET in tests/perf/drawcalls.spec.ts is lowered to no more than 1.25x the new measured maximum, with the comment updated.",
+        "Draw calls stay under 100 and the playtest's frame-time budget still passes."
+      ],
+      "verify": [
+        "pnpm perf",
+        "pnpm playtest"
+      ],
+      "attempts": 0,
+      "pr": null,
+      "notes": "Repeatable: each pass lowers the cap again until the scene is near the CLAUDE.md target."
     }
   ]
 }

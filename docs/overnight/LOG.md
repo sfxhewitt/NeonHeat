@@ -16,11 +16,11 @@ Entries are written inside the pull request they describe, so an entry is on `ma
 
 ## 2026-11-27
 
-### NH-003 Assert the draw-call and triangle budget at the phone's screen size on the mid tier — left open
-- Pull request: https://github.com/sfxhewitt/NeonHeat/pull/12 (awaiting independent review, not merged)
+### NH-003 Assert the draw-call and triangle budget at the phone's screen size on the mid tier — merged
+- Pull request: https://github.com/sfxhewitt/NeonHeat/pull/12 (merged 27 Nov as 3f55417 after review in Danny's main session)
 - What changed: `tests/perf/drawcalls.spec.ts` also runs the populated HEAT 3 scene on the mid tier at 956x440 and asserts under 100 draw calls and under 250,000 triangles (measured max 197,560). That is about twice CLAUDE.md's "about 100k visible vertices", so it guards regressions only; flagged for Danny.
 - Gate: GATE GREEN, 10 steps, 549.3 s. Playtest: frame avg 24.9 ms, p95 33.4 ms, worst 50 ms, 42 draw calls. Unit: 342 tests. Bundle: 1257.8 KB gzip.
-- Review: none yet. This session could not start an independent reviewer; a separate reviewer session is to review and merge.
+- Review: read in Danny's main session on 27 Nov (test-only diff, CI green). Danny's decision: the CLAUDE.md target stands and the 250,000 cap is a regression guard; NH-015 brings the count down.
 - Attempts: 1. Failed: nothing.
-- Skipped: the independent review (see above).
+- Skipped: nothing.
 - Flakes: none.
